@@ -1,20 +1,34 @@
-<view class="container">
- <view class="section-title">看看它的立体模样</view>
- <view class="sub">以下是白色 3D 打印摆件的造型预览。</view>
- <view wx:if="{{item && item.status==='model_pending'}}" class="card" style="text-align:center;padding:80rpx 25rpx"><view style="font-size:88rpx">☁</view><view class="section-title">{{!aiAutoEnabled ? '白模等待制作' : '正在生成 3D 模型'}}</view><view class="muted">{{!aiAutoEnabled && dev ? '当前未配置 AI 自动生成服务。请在运营后台上传 GLB 模型和至少一张白模预览图。' : !aiAutoEnabled ? '模型正在等待制作，完成后即可查看白模效果。' : 'AI 任务已提交，稍后刷新即可看到白模。'}}</view></view>
- <view wx:elif="{{item && item.status==='failed'}}" class="card">生成失败：{{item.note || '请联系客服'}}</view>
+<view class="container preview-page">
+ <view class="page-kicker">STEP 03 / 03 <text class="kicker-line"></text> 3D 白模</view>
+ <view class="section-title preview-title">看看它的<text class="accent">立体模样.</text></view>
+ <view class="sub">这就是即将变成白色实物的造型。</view>
+ <view wx:if="{{item && item.status==='model_pending'}}" class="waiting">
+  <view class="orbit"><view class="orb-head"></view><view class="orb-body"></view><view class="orb-base"></view><view class="orb-star">✦</view></view>
+  <view class="waiting-kicker">FINAL STEP · 白模准备</view>
+  <view class="waiting-title">{{!aiAutoEnabled ? '正在准备你的白模' : '立体形象正在成型'}}</view>
+  <view class="waiting-desc">{{!aiAutoEnabled && dev ? '当前未接入自动 3D 服务，请在管理后台上传 GLB 模型和至少一张白模预览图。' : !aiAutoEnabled ? '已记录你的选择，白模准备好后可以回来确认。' : '正在生成模型。稍后到我的作品继续查看。'}}</view>
+  <view class="waiting-hint">不需要一直停留，制作进度会保存在我的作品里。</view>
+  <button class="go-works" bindtap="toWorks">查看我的作品 <text>→</text></button>
+ </view>
+ <view wx:elif="{{item && item.status==='failed'}}" class="waiting"><view class="waiting-title">这次还没有完成</view><view class="waiting-desc">{{item.note || '模型需要重新处理，请稍后查看。'}}</view><button class="go-works" bindtap="toWorks">前往我的作品 →</button></view>
  <view wx:elif="{{item && item.status==='model_ready'}}">
-   <swiper indicator-dots autoplay="false" style="height:560rpx;margin:26rpx 0" circular><swiper-item wx:for="{{item.preview}}" wx:key="index"><image class="preview-image" src="{{item}}" mode="aspectFit" style="height:560rpx"/></swiper-item></swiper>
-   <view class="tag">白色打印 · 可自行涂色</view>
-   <view class="card">
-     <view class="section-title" style="margin:0">确认定制</view>
-     <view class="sub">童印白色立体摆件（固定规格）</view>
-     <view style="margin:20rpx 0;font-size:42rpx;color:#F27750;font-weight:750">¥ {{price}}</view>
-     <input class="field" placeholder="收件人姓名" value="{{name}}" bindinput="name" maxlength="30"/>
-     <input class="field" placeholder="联系电话" value="{{phone}}" bindinput="phone" type="number" maxlength="20"/>
-     <textarea class="field" style="width:auto;height:145rpx" placeholder="详细收件地址（省市区、街道门牌号）" value="{{address}}" bindinput="address" maxlength="300"/>
-     <view class="muted">按所选造型定制，实际表面纹理和细节可能略有差异。请确认收货信息后下单。</view>
-     <button class="btn" style="margin-top:28rpx" disabled="{{busy || !name || !phone || !address}}" loading="{{busy}}" bindtap="submit">确认订单，去付款</button>
-   </view>
+  <view class="preview-gallery"><view class="gallery-top"><view class="gallery-label">你的立体作品</view><view class="gallery-tag">白模预览</view></view>
+   <swiper indicator-dots indicator-color="#D7DDD6" indicator-active-color="#E87955" autoplay="{{false}}" style="height:540rpx" circular>
+    <swiper-item wx:for="{{item.preview}}" wx:key="index"><image class="preview-image" src="{{item}}" mode="aspectFit" style="height:540rpx"/></swiper-item>
+   </swiper>
+   <view class="gallery-bottom">左右滑动，查看不同角度 <text>◦  白色 PLA 打印</text></view>
+  </view>
+  <view class="product-note"><view class="note-symbol">✳</view><view><view class="note-title">留白，留给孩子的创造力</view><view class="note-desc">收到白色模型后，可以自行涂色，继续完成自己的作品。</view></view></view>
+  <view class="checkout">
+   <view class="checkout-head"><view><view class="checkout-kicker">CUSTOM MADE · 专属定制</view><view class="checkout-title">童印立体白模</view><view class="checkout-sub">一件作品 · 一份专属回忆</view></view><view class="checkout-price"><text>¥</text>{{price}}</view></view>
+   <view class="divider"></view>
+   <view class="field-label">收件人信息</view>
+   <input class="field" placeholder="收件人姓名" value="{{name}}" bindinput="name" maxlength="30"/>
+   <input class="field" placeholder="联系电话" value="{{phone}}" bindinput="phone" type="number" maxlength="20"/>
+   <textarea class="field address-field" placeholder="详细地址（省市区、街道门牌号）" value="{{address}}" bindinput="address" maxlength="300"/>
+   <view class="fine-print">按所选造型定制。3D 打印层纹和局部细节可能与预览略有差异。</view>
+   <button class="btn checkout-btn" disabled="{{busy || !name || !phone || !address}}" loading="{{busy}}" bindtap="submit">确认定制，去付款 <text>→</text></button>
+  </view>
+  <view class="go-back" bindtap="toWorks">先不下单？作品会为你保留 →</view>
  </view>
 </view>
