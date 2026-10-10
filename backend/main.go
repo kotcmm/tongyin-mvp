@@ -51,7 +51,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("POST /api/auth/wechat", a.login)
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, 200, map[string]any{"price_fen": a.cfg.PriceFen, "dev": a.cfg.Dev, "ai_auto_enabled": a.cfg.AIWorkerURL != ""})
+		reply(w, 200, map[string]any{"price_fen": a.cfg.PriceFen, "dev": a.cfg.Dev, "ai_auto_enabled": a.cfg.AIWorkerURL != "", "free_image_attempts": a.imageLimit()})
 	})
 	mux.HandleFunc("GET /media/{file}", a.serveMedia)
 	mux.HandleFunc("POST /api/works", a.createWork)
@@ -250,23 +250,44 @@ func (a *App) getWork(w http.ResponseWriter, r *http.Request) {
 	}
 	reply(w, 200, a.exposeWork(wk))
 }
+func (a *App) imageLimit() int {
+ if a.cfg.FreeImageAttempts > 0 { return a.cfg.FreeImageAttempts }
+ return 2
+}
+
+// First generation and each retry create one image; cost is limited server-side.
 func (a *App) startImageGeneration(w http.ResponseWriter, r *http.Request) {
-	owner := a.uid(w, r)
-	if owner == "" {
-		return
-	}
-	wk, ok := a.db.work(r.PathValue("id"))
-	if !ok || wk.Owner != owner {
-		fail(w, 404, "作品不存在")
-		return
-	}
-	if wk.Status != "image_pending" && wk.Status != "failed" {
-		fail(w, 409, "当前状态不能重复生成")
-		return
-	}
-	_ = a.db.update(func(d *Data) error { d.Works[wk.ID].Status = "image_pending"; return nil })
-	a.dispatchAI(wk, "image")
-	reply(w, 202, map[string]any{"status": "image_pending", "message": a.taskMessage()})
+ owner := a.uid(w, r)
+ if owner == "" { return }
+ id := r.PathValue("id")
+ var task *Work
+ err := a.db.update(func(d *Data) error {
+  v, ok := d.Works[id]
+  if !ok || v.Owner != owner { return errNotFound }
+  if v.Status != "image_ready" && v.Status != "image_pending" && !(v.Status == "failed" && v.Selected < 0) {
+   return fmt.Errorf("当前作品不能重新生成形象")
+  }
+  if v.Status == "image_pending" && v.ImageAttempts > 0 {
+   return fmt.Errorf("形象正在生成，请勿重复提交")
+  }
+  if v.ImageAttempts >= a.imageLimit() {
+   return fmt.Errorf("免费生成次数已用完，付费或广告获取次数暂未开放")
+  }
+  v.ImageAttempts++
+  v.GenerationID = newID()
+  v.Status = "image_pending"
+  v.Candidates = []string{}
+  v.Selected = -1
+  v.Preview = []string{}
+  v.Model = ""
+  v.Note = ""
+  copyWork := *v
+  task = &copyWork
+  return nil
+ })
+ if err != nil { fail(w, 409, err.Error()); return }
+ a.dispatchAI(task, "image")
+ reply(w, 202, map[string]any{"status":"image_pending", "image_attempts":task.ImageAttempts, "free_image_attempts":a.imageLimit(), "message":a.taskMessage()})
 }
 func (a *App) selectImage(w http.ResponseWriter, r *http.Request) {
 	owner := a.uid(w, r)
@@ -287,7 +308,7 @@ func (a *App) selectImage(w http.ResponseWriter, r *http.Request) {
 		if !ok || v.Owner != owner {
 			return errNotFound
 		}
-		if v.Status != "image_ready" || q.Index < 0 || q.Index >= len(v.Candidates) {
+		if v.Status != "image_ready" || q.Index != 0 || len(v.Candidates) != 1 {
 			return fmt.Errorf("无法选择此图片")
 		}
 		v.Selected = q.Index
