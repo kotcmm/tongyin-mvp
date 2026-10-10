@@ -313,6 +313,8 @@ func (a *App) selectImage(w http.ResponseWriter, r *http.Request) {
 		}
 		v.Candidates = v.Candidates[:1] // normalize works created before the single-image MVP
 		v.Selected = q.Index
+		v.Preview = []string{} // discard previews erroneously attached before selecting
+		v.Model = ""
 		v.Status = "model_pending"
 		cp := *v
 		copyWork = &cp
