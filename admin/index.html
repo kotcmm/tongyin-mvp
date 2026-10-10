@@ -45,7 +45,7 @@ h2{font-size:21px;margin:0 0 14px}h3{font-size:16px;margin:0 0 10px}p{line-heigh
 <section class="panel"><h2>第 4 步 · 订单 / 打印 / 发货</h2>
 <p class="muted">用户确认白模并付款后，在这里按顺序更新制作状态；未付款订单不能开始打印。</p><div id="orders"></div></section>
 </main>
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+<script type="importmap">{"imports":{"three":"/admin/vendor/three.module.min.js"}}</script>
 <script>
 let auth=sessionStorage.getItem('tongyin_admin')||'';
 let worksById = new Map();
@@ -133,9 +133,23 @@ function renderStatus(id,text){
  const el=document.getElementById('render_status_'+id);
  if(el)el.textContent=text;
 }
+async function loadRendererModule(){
+ const required=['/admin/vendor/preview.mjs','/admin/vendor/three.module.min.js','/admin/vendor/loaders/GLTFLoader.js','/admin/vendor/utils/BufferGeometryUtils.js'];
+ for(const url of required){
+  const res=await fetch(url,{method:'HEAD',cache:'no-cache'});
+  if(!res.ok)throw new Error('渲染模块访问失败：'+url+' (HTTP '+res.status+')。请检查后台静态文件路径。');
+  const mime=res.headers.get('Content-Type')||'';
+  if(!/javascript|ecmascript/i.test(mime))throw new Error('渲染模块类型不正确：'+url+' 返回 '+(mime||'空 Content-Type')+'，请重启最新 Go 后端。');
+ }
+ try{return await import('/admin/vendor/preview.mjs')}
+ catch(e){
+  console.error('GLB 预览模块加载失败',e);
+  throw new Error('Three.js 加载失败：'+e.message+'；请查看 Console 中更早的模块错误。');
+ }
+}
 async function generatePreviews(id,arrayBuffer){
  renderStatus(id,'载入 Three.js 渲染器…');
- const {renderWhiteModelPreviews}=await import('./vendor/preview.mjs');
+ const {renderWhiteModelPreviews}=await loadRendererModule();
  const previews=await renderWhiteModelPreviews(arrayBuffer,message=>renderStatus(id,message));
  for(let i=0;i<previews.length;i++){
   renderStatus(id,'正在上传 '+previews[i].label+'预览图（'+(i+1)+'/'+previews.length+'）…');
