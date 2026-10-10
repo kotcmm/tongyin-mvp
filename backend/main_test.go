@@ -93,16 +93,13 @@ func TestCompleteOrderUntilPay(t *testing.T) {
 		return w
 	}
 	mustJSON(t, makeReq("POST", "/api/works/"+work.ID+"/generate", "{}", false), 202, nil)
-	for i := 0; i < 2; i++ {
-		w := postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=candidate", "", true, pngbuf.Bytes(), "candidate.png")
-		mustJSON(t, w, 200, nil)
-	}
+	mustJSON(t, postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=candidate", "", true, pngbuf.Bytes(), "candidate.png"), 200, nil)
 	var ready Work
 	mustJSON(t, makeReq("GET", "/api/works/"+work.ID, "", false), 200, &ready)
-	if ready.Status != "image_ready" || len(ready.Candidates) != 2 {
+	if ready.Status != "image_ready" || len(ready.Candidates) != 1 {
 		t.Fatal("image stage failed")
 	}
-	mustJSON(t, makeReq("POST", "/api/works/"+work.ID+"/select", `{"index":1}`, false), 202, nil)
+	mustJSON(t, makeReq("POST", "/api/works/"+work.ID+"/select", `{"index":0}`, false), 202, nil)
 	glb := append([]byte("glTF"), make([]byte, 16)...)
 	mustJSON(t, postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=model", "", true, glb, "model.glb"), 200, nil)
 	mustJSON(t, postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=preview", "", true, pngbuf.Bytes(), "preview.png"), 200, nil)
@@ -125,6 +122,38 @@ func TestCompleteOrderUntilPay(t *testing.T) {
 	if !ok || saved.Owner != "openid-test" {
 		t.Fatal("lost persisted order owner")
 	}
+}
+
+func TestOneImageAndFreeRetryLimit(t *testing.T) {
+ cfg := Config{DataDir:t.TempDir(),PublicURL:"http://localhost:8080",AdminToken:"admin-secret",SessionKey:"test-secret-longer-than-24-chars",Dev:true,FreeImageAttempts:2}
+ _ = os.MkdirAll(filepath.Join(cfg.DataDir,"media"),0700)
+ db,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
+ a:=&App{cfg:cfg,db:db};mux:=a.routes();token:=a.token("test-owner")
+ pic:=new(bytes.Buffer);_ = png.Encode(pic,image.NewRGBA(image.Rect(0,0,4,4)))
+ uploaded:=postFile(t,mux,"/api/works",token,false,pic.Bytes(),"drawing.png")
+ var work Work;mustJSON(t,uploaded,201,&work)
+ req:=func(method,path string)*httptest.ResponseRecorder{
+  r:=httptest.NewRequest(method,path,strings.NewReader("{}"));r.Header.Set("Authorization","Bearer "+token)
+  w:=httptest.NewRecorder();mux.ServeHTTP(w,r);return w
+ }
+ // No model may be uploaded before selecting the sole image.
+ mustJSON(t,postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=model","",true,append([]byte("glTF"),make([]byte,12)...),"x.glb"),409,nil)
+ mustJSON(t,req("POST","/api/works/"+work.ID+"/generate"),202,nil)
+ mustJSON(t,req("POST","/api/works/"+work.ID+"/generate"),409,nil) // pending task is not duplicated
+ mustJSON(t,postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=candidate","",true,pic.Bytes(),"image.png"),200,nil)
+ v,ok:=a.db.work(work.ID)
+ if !ok||v.Status!="image_ready"||len(v.Candidates)!=1||v.ImageAttempts!=1 {t.Fatalf("first image: %+v",v)}
+ mustJSON(t,req("POST","/api/works/"+work.ID+"/generate"),202,nil)
+ v,_=a.db.work(work.ID)
+ if v.Status!="image_pending"||len(v.Candidates)!=0||v.ImageAttempts!=2 {t.Fatalf("retry state: %+v",v)}
+ mustJSON(t,postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=candidate","",true,pic.Bytes(),"image.png"),200,nil)
+ mustJSON(t,req("POST","/api/works/"+work.ID+"/generate"),409,nil) // quota exhausted
+ mustJSON(t,req("POST","/api/works/"+work.ID+"/select"),400,nil) // missing index
+ r:=httptest.NewRequest("POST","/api/works/"+work.ID+"/select",strings.NewReader(`{"index":0}`))
+ r.Header.Set("Authorization","Bearer "+token)
+ w:=httptest.NewRecorder();mux.ServeHTTP(w,r);mustJSON(t,w,202,nil)
+ v,_=a.db.work(work.ID)
+ if v.Status!="model_pending"||v.Selected!=0 {t.Fatalf("select single image: %+v",v)}
 }
 
 func TestDBDialectBindings(t *testing.T) {
