@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"errors"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -158,65 +159,96 @@ func (a *App) exposeWork(wk *Work) *Work {
 	}
 	return &cp
 }
-func (a *App) upload(r *http.Request, allowedImagesOnly bool) (string, error) {
-	r.Body = http.MaxBytesReader(nil, r.Body, 12<<20)
-	if err := r.ParseMultipartForm(12 << 20); err != nil {
-		return "", fmt.Errorf("上传文件不能超过10MB")
-	}
-	f, _, err := r.FormFile("file")
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	buf := make([]byte, 512)
-	n, err := f.Read(buf)
-	if err != nil && err != io.EOF {
-		return "", err
-	}
-	kind := http.DetectContentType(buf[:n])
-	ext := ""
-	switch kind {
-	case "image/jpeg":
-		ext = ".jpg"
-	case "image/png":
-		ext = ".png"
-	case "image/webp":
-		ext = ".webp"
-	case "application/octet-stream":
-		if !allowedImagesOnly && n >= 4 && string(buf[:4]) == "glTF" {
-			ext = ".glb"
-		}
-	}
-	if ext == "" {
-		return "", fmt.Errorf("文件类型不支持: %s", kind)
-	}
-	if allowedImagesOnly && ext == ".glb" {
-		return "", fmt.Errorf("仅允许图片")
-	}
-	name := newID() + ext
-	path := filepath.Join(a.cfg.DataDir, "media", name)
-	out, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if err != nil {
-		return "", err
-	}
-	defer out.Close()
-	if _, err = out.Write(buf[:n]); err == nil {
-		_, err = io.Copy(out, io.LimitReader(f, 10<<20))
-	}
-	if err != nil {
-		_ = os.Remove(path)
-		return "", err
-	}
-	return name, nil
+// Image files are capped at 10 MiB; printable GLB models may be much larger.
+// A small multipart overhead allowance is included in the request size limit.
+const (
+ maxImageUpload = int64(10 << 20)
+ maxModelUpload = int64(100 << 20)
+ multipartOverhead = int64(1 << 20)
+)
+var errUploadTooLarge = errors.New("上传文件超过允许大小")
+
+func uploadFailure(w http.ResponseWriter, err error) {
+ if errors.Is(err, errUploadTooLarge) {
+  fail(w, http.StatusRequestEntityTooLarge, err.Error())
+  return
+ }
+ fail(w, http.StatusBadRequest, err.Error())
+}
+func (a *App) upload(w http.ResponseWriter, r *http.Request, allowedImagesOnly bool) (string, error) {
+ limit := maxModelUpload
+ if allowedImagesOnly { limit = maxImageUpload }
+ maxBody := limit + multipartOverhead
+ if r.ContentLength > maxBody {
+  return "", fmt.Errorf("%w：图片最多10MiB，GLB模型最多100MiB", errUploadTooLarge)
+ }
+ r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+ defer func() {
+  if r.MultipartForm != nil { _ = r.MultipartForm.RemoveAll() }
+ }()
+ if err := r.ParseMultipartForm(8 << 20); err != nil {
+  var maxErr *http.MaxBytesError
+  if errors.As(err, &maxErr) {
+   return "", fmt.Errorf("%w：图片最多10MiB，GLB模型最多100MiB", errUploadTooLarge)
+  }
+  return "", fmt.Errorf("解析上传文件失败：%w", err)
+ }
+ f, hdr, err := r.FormFile("file")
+ if err != nil { return "", fmt.Errorf("未找到上传文件：%w", err) }
+ defer f.Close()
+ if hdr.Size > limit {
+  return "", fmt.Errorf("%w：图片最多10MiB，GLB模型最多100MiB", errUploadTooLarge)
+ }
+ buf := make([]byte, 512)
+ n, err := f.Read(buf)
+ if err != nil && err != io.EOF { return "", err }
+ if n == 0 { return "", fmt.Errorf("上传文件为空") }
+ kind := http.DetectContentType(buf[:n])
+ ext := ""
+ switch kind {
+ case "image/jpeg": ext = ".jpg"
+ case "image/png": ext = ".png"
+ case "image/webp": ext = ".webp"
+ }
+ if !allowedImagesOnly && n >= 4 && string(buf[:4]) == "glTF" { ext = ".glb" }
+ if allowedImagesOnly && ext == "" {
+  return "", fmt.Errorf("仅支持 JPG、PNG、WebP 图片")
+ }
+ if !allowedImagesOnly && ext != ".glb" {
+  return "", fmt.Errorf("模型文件必须是 GLB 格式（不支持直接上传 STL、OBJ）")
+ }
+ name := newID()+ext
+ path := filepath.Join(a.cfg.DataDir, "media", name)
+ out, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+ if err != nil { return "", err }
+ // Copy one byte beyond the limit so an oversized upload never succeeds as
+ // a truncated, corrupted GLB. Close before removal on Windows.
+ first, err := out.Write(buf[:n])
+ total := int64(first)
+ if err == nil {
+  var copied int64
+  copied, err = io.Copy(out, io.LimitReader(f, limit-total+1))
+  total += copied
+ }
+ closeErr := out.Close()
+ if err != nil || closeErr != nil || total > limit {
+  _ = os.Remove(path)
+  if total > limit {
+   return "", fmt.Errorf("%w：图片最多10MiB，GLB模型最多100MiB", errUploadTooLarge)
+  }
+  if err != nil { return "", fmt.Errorf("写入上传文件失败：%w", err) }
+  return "", fmt.Errorf("保存上传文件失败：%w", closeErr)
+ }
+ return name,nil
 }
 func (a *App) createWork(w http.ResponseWriter, r *http.Request) {
 	owner := a.uid(w, r)
 	if owner == "" {
 		return
 	}
-	name, err := a.upload(r, true)
+	name, err := a.upload(w, r, true)
 	if err != nil {
-		fail(w, 400, err.Error())
+		uploadFailure(w, err)
 		return
 	}
 	wk := &Work{ID: newID(), Owner: owner, CreatedAt: now(), Original: name, Candidates: []string{}, Selected: -1, Preview: []string{}, Status: "image_pending"}
