@@ -50,26 +50,26 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 		}
 		switch kind {
 		case "candidate":
-			if len(wk.Candidates) >= 2 {
-				return errors.New("当前最多支持两张候选图")
+			if wk.Status != "image_pending" && wk.Status != "image_ready" && !(wk.Status == "failed" && wk.Selected < 0) {
+				return errors.New("请先完成原画上传，当前阶段不可上传形象图")
 			}
-			wk.Candidates = append(wk.Candidates, name)
-			if len(wk.Candidates) == 2 {
-				wk.Status = "image_ready"
-			}
+			wk.Candidates = []string{name} // one output per generation; admin may replace a result
+			wk.Selected = -1
+			wk.Status = "image_ready"
+			wk.Note = ""
 		case "preview":
-			if len(wk.Preview) >= 4 {
-				return errors.New("最多上传4张预览图")
+			if wk.Status != "model_pending" && wk.Status != "model_ready" {
+				return errors.New("请等待用户确认形象后，再上传白模预览图")
 			}
+			if len(wk.Preview) >= 4 { return errors.New("最多上传4张白模角度图") }
 			wk.Preview = append(wk.Preview, name)
-			if wk.Model != "" {
-				wk.Status = "model_ready"
-			}
+			if wk.Model != "" { wk.Status = "model_ready" }
 		case "model":
-			wk.Model = name
-			if len(wk.Preview) > 0 {
-				wk.Status = "model_ready"
+			if wk.Status != "model_pending" && wk.Status != "model_ready" {
+				return errors.New("请等待用户确认形象后，再上传3D模型")
 			}
+			wk.Model = name
+			if len(wk.Preview) > 0 { wk.Status = "model_ready" }
 		}
 		return nil
 	})
