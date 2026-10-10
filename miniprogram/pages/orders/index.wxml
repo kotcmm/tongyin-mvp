@@ -1,9 +1,22 @@
-<view class="container">
- <view class="section-title">我的童印订单</view>
- <view wx:if="{{!loading && items.length===0}}" class="card" style="text-align:center;padding:80rpx 20rpx"><view style="font-size:80rpx">📦</view><view class="sub">还没有订单，去制作第一个童印吧！</view><button class="btn" style="margin-top:35rpx" bindtap="make">开始制作</button></view>
- <view wx:for="{{items}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="open">
-   <view style="display:flex;justify-content:space-between"><text style="font-weight:700">订单 #{{item.shortid}}</text><text style="color:#E97B54">{{item.label}}</text></view>
-   <view class="muted" style="margin:20rpx 0">{{item.created_at}}</view>
-   <view style="display:flex;justify-content:space-between"><text>童印白模定制</text><text style="font-weight:700">¥ {{item.price}}</text></view>
+<view class="container orders-page">
+ <view class="page-kicker">ORDERS <text class="kicker-line"></text> 定制记录</view>
+ <view class="section-title page-title">我的订单<text class="accent">.</text></view>
+ <view class="sub">每一件小小的心意，都值得被认真对待。</view>
+ <view wx:if="{{loading}}" class="empty-panel">正在加载订单…</view>
+ <view wx:elif="{{error}}" class="empty-panel"><view class="empty-head">订单暂时无法加载</view><view class="muted">{{error}}</view><button class="outline-button" bindtap="refresh">重新加载</button></view>
+ <view wx:elif="{{items.length===0}}" class="empty-panel">
+  <view class="package-shape"><view class="box-top"></view><view class="box-body"></view><view class="box-ribbon"></view></view>
+  <view class="empty-head">还没有订单</view>
+  <view class="muted">当你选好一个喜欢的白模，就可以为它创建专属订单。</view>
+  <button class="btn start-btn" bindtap="make">去制作第一个童印 →</button>
+  <view class="works-link" bindtap="toWorks">先看看我上传过的作品 →</view>
  </view>
+ <view wx:else class="order-list">
+  <view wx:for="{{items}}" wx:key="id" class="order-card" data-id="{{item.id}}" bindtap="open">
+   <view class="order-top"><text>订单 #{{item.shortid}}</text><text class="order-status">{{item.label}}</text></view>
+   <view class="order-main"><view class="mini-product"><view class="mini-product-head"></view><view class="mini-product-body"></view></view><view class="main-info"><view class="product-name">童印 · 专属立体白模</view><view class="product-desc">原创画作定制 · 白色摆件</view><view class="product-date">{{item.date}}</view></view></view>
+   <view class="order-foot"><text>订单金额</text><text class="price">¥ {{item.price}}</text><text class="action">查看订单 →</text></view>
+  </view>
+ </view>
+ <view class="end-note">下拉可以刷新订单状态</view>
 </view>
