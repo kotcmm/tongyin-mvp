@@ -308,9 +308,10 @@ func (a *App) selectImage(w http.ResponseWriter, r *http.Request) {
 		if !ok || v.Owner != owner {
 			return errNotFound
 		}
-		if v.Status != "image_ready" || q.Index != 0 || len(v.Candidates) != 1 {
+		if v.Status != "image_ready" || q.Index != 0 || len(v.Candidates) < 1 {
 			return fmt.Errorf("无法选择此图片")
 		}
+		v.Candidates = v.Candidates[:1] // normalize works created before the single-image MVP
 		v.Selected = q.Index
 		v.Status = "model_pending"
 		cp := *v
