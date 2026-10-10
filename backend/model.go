@@ -21,6 +21,8 @@ type Work struct {
 	Preview    []string `json:"preview"`
 	Model      string   `json:"model"`
 	Status     string   `json:"status"` // image_pending, image_ready, model_pending, model_ready, failed
+	ImageAttempts int `json:"image_attempts"`
+	GenerationID string `json:"generation_id,omitempty"`
 	Note       string   `json:"note,omitempty"`
 }
 
