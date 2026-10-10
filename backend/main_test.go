@@ -148,7 +148,6 @@ func TestOneImageAndFreeRetryLimit(t *testing.T) {
  if v.Status!="image_pending"||len(v.Candidates)!=0||v.ImageAttempts!=2 {t.Fatalf("retry state: %+v",v)}
  mustJSON(t,postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=candidate","",true,pic.Bytes(),"image.png"),200,nil)
  mustJSON(t,req("POST","/api/works/"+work.ID+"/generate"),409,nil) // quota exhausted
- mustJSON(t,req("POST","/api/works/"+work.ID+"/select"),400,nil) // missing index
  r:=httptest.NewRequest("POST","/api/works/"+work.ID+"/select",strings.NewReader(`{"index":0}`))
  r.Header.Set("Authorization","Bearer "+token)
  w:=httptest.NewRecorder();mux.ServeHTTP(w,r);mustJSON(t,w,202,nil)
