@@ -5,7 +5,7 @@ Page({
   this.setData({id:q.id})
   request('GET','/api/config').then(cfg=>this.setData({
     dev:!!cfg.dev,aiAutoEnabled:cfg.ai_auto_enabled!==false,maxAttempts:cfg.free_image_attempts||2
-  })).catch(()=>{})
+  })).then(()=>this.refresh(true)).catch(()=>{})
  },
  onShow(){this.refresh();this.beginPolling()},
  onHide(){this.stopPolling()},
