@@ -1,29 +1,144 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>童印 · 管理后台</title>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>童印 · 制作后台</title>
 <style>
-:root{color-scheme:light;font-family:system-ui,'Microsoft Yahei',sans-serif}*{box-sizing:border-box}body{background:#f7f3ef;color:#342f2b;margin:0}header{background:#fff;padding:20px 5%;display:flex;justify-content:space-between;gap:18px;align-items:center;border-bottom:1px solid #e9e2dc}h1{margin:0;font-size:21px}main{max-width:1100px;margin:30px auto;padding:0 20px}.panel{background:#fff;border-radius:18px;padding:22px;margin:20px 0;border:1px solid #ece5e0}.card{border:1px solid #eee5df;border-radius:14px;padding:17px;margin:12px 0}.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.grow{flex:1}button{border:0;border-radius:9px;background:#ed805c;padding:10px 16px;color:white;cursor:pointer}button.secondary{color:#8f5643;background:#ffede5}input,select{padding:9px;border:1px solid #dcd2cb;border-radius:8px;max-width:100%}img{height:95px;width:95px;object-fit:contain;background:#f8f4f1;border-radius:10px}small,.muted{color:#877c73}.thumbs{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.status{display:inline-block;background:#fff0e6;border-radius:18px;padding:4px 10px;color:#ab684a}.hidden{display:none}pre{white-space:pre-wrap;word-wrap:break-word}h2{font-size:19px}a{color:#af684a}#msg{font-size:13px;color:#ad5738}
+:root{font-family:-apple-system,BlinkMacSystemFont,"Microsoft YaHei",sans-serif;color:#303b35;background:#f5f5f0}
+*{box-sizing:border-box}body{margin:0}header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px max(20px,4vw);background:#fff;border-bottom:1px solid #e8e9e1;flex-wrap:wrap}
+header h1{font-size:23px;margin:0}header small{display:block;font-size:12px;font-weight:400;color:#8d978e;margin-top:6px}
+main{max-width:1200px;margin:28px auto;padding:0 18px 70px}
+input,button,select{font:inherit}button{cursor:pointer;border:0;border-radius:11px;padding:11px 16px;background:#e87955;color:#fff;font-weight:600}button:hover{filter:brightness(.96)}
+button.secondary{background:#eef1ea;color:#47634d}button.danger{background:#fff0e9;color:#b86d52}
+input,select{max-width:100%;border:1px solid #dce0d8;background:#fff;border-radius:9px;padding:10px}
+input[type=file]{width:100%;max-width:390px;background:#f9faf6}
+.panel{background:#fff;border:1px solid #e9ece5;border-radius:20px;padding:25px;margin:20px 0}
+.title-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+h2{font-size:21px;margin:0 0 14px}h3{font-size:16px;margin:0 0 10px}p{line-height:1.6}small,.muted{color:#889187;font-size:13px}#msg{color:#667d6c;font-size:13px;margin:0 0 14px}
+.item{border:1px solid #e6e9e1;padding:23px;border-radius:18px;margin:17px 0}
+.item-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:19px}
+.item-top strong{font-size:18px}.pill{font-size:13px;border-radius:50px;background:#fff0e7;color:#b26949;padding:7px 12px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.step{border:1px solid #e7eae3;border-radius:15px;padding:20px;background:#fcfdfa;min-width:0}
+.step.wait{background:#f8f8f5;border-color:#e6e8e1}.step.done{border-color:#cfe2d3;background:#f8fcf7}
+.step-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}.number{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:50%;background:#e87955;color:#fff;font-size:14px;font-weight:700}.step.done .number{background:#7d9d85}
+.step-title{font-size:15px;font-weight:750}.step-hint{font-size:12px;color:#919990;line-height:1.5;margin:12px 0}
+.thumb-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}
+.thumb-list img{width:92px;height:100px;border-radius:10px;object-fit:contain;background:#eff1ed}
+.upload-row{display:flex;flex-direction:column;gap:9px;margin-top:13px}
+.upload-row button{width:100%;max-width:390px}.upload-row label{font-size:13px;color:#627567;font-weight:650}
+.callout{background:#ecf2eb;border-radius:11px;padding:13px;color:#66806b;font-size:13px;line-height:1.7}
+.step-model{display:flex;flex-direction:column;gap:10px}
+.section-bottom{border-top:1px solid #eeeee9;margin-top:17px;padding-top:14px}
+.order{border:1px solid #e8eae4;border-radius:15px;padding:20px;margin:12px 0}
+.order .meta{display:flex;align-items:center;flex-wrap:wrap;gap:15px}.order .details{line-height:1.8;margin:13px 0;color:#626c63;font-size:14px}
+.work-empty{padding:32px;text-align:center;color:#8c948c}.minor{color:#8d968c;font-size:13px}
+@media(max-width:850px){.steps{grid-template-columns:1fr}.panel{padding:16px}.item{padding:14px}header{padding:16px}}
 </style></head>
 <body>
-<header><h1>童印 <small>运营后台</small></h1><div class="row"><input id="token" type="password" placeholder="管理员口令" style="width:230px"><button onclick="login()">进入后台</button><button class="secondary" onclick="logout()">退出</button></div></header>
-<main><p id="msg">请输入 ADMIN_TOKEN 后查看作品与订单。</p>
-<section class="panel"><div class="row"><h2 class="grow">待处理作品</h2><button class="secondary" onclick="refresh()">刷新</button></div><div id="works"></div></section>
-<section class="panel"><h2>订单管理</h2><div id="orders"></div></section>
+<header><div><h1>童印 · 制作管理</h1><small>按步骤处理每一份画作，不用猜文件上传位置</small></div>
+<div class="row"><input type="password" id="token" placeholder="请输入 ADMIN_TOKEN"><button onclick="login()">进入后台</button><button class="secondary" onclick="logout()">退出</button></div></header>
+<main><p id="msg">登录后可以查看正在制作的作品。</p>
+<section class="panel"><div class="title-row"><h2>作品制作进度</h2><button class="secondary" onclick="refresh()">刷新列表</button></div>
+<p class="muted">操作顺序：① 查看原画 → ② 上传 1 张 AI 形象图 → ③ 等家长确认后上传 GLB 模型和白模角度图 → ④ 家长付款后打印发货。</p><div id="works"></div></section>
+<section class="panel"><h2>第 4 步 · 订单 / 打印 / 发货</h2>
+<p class="muted">用户确认白模并付款后，在这里按顺序更新制作状态；未付款订单不能开始打印。</p><div id="orders"></div></section>
 </main>
 <script>
-let auth=sessionStorage.getItem('tongyin_admin')||'';document.getElementById('token').value=auth;
+let auth=sessionStorage.getItem('tongyin_admin')||'';
+document.getElementById('token').value=auth;
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const msg=s=>document.getElementById('msg').textContent=s;
-async function api(path,opts={}){const res=await fetch(path,{...opts,headers:{'X-Admin-Token':auth,...(opts.headers||{})}});let v=await res.json().catch(()=>({error:'返回格式不正确'}));if(!res.ok)throw Error(v.error||res.status);return v}
+const labels={image_pending:'等待形象图',image_ready:'形象图已好·待家长确认',model_pending:'等待3D白模',model_ready:'白模已完成',failed:'处理失败',awaiting_payment:'待付款',paid:'已付款',printing:'制作中',shipped:'已发货',completed:'已完成',canceled:'已取消'};
+async function api(path,opts={}){
+ const res=await fetch(path,{...opts,headers:{'X-Admin-Token':auth,...(opts.headers||{})}});
+ const data=await res.json().catch(()=>({error:'返回格式有误'}));
+ if(!res.ok)throw Error(data.error||String(res.status));
+ return data;
+}
 function login(){auth=document.getElementById('token').value.trim();sessionStorage.setItem('tongyin_admin',auth);refresh()}
 function logout(){auth='';sessionStorage.removeItem('tongyin_admin');document.getElementById('token').value='';document.getElementById('works').innerHTML='';document.getElementById('orders').innerHTML='';msg('已退出')}
-function imgs(urls){return (urls||[]).map(u=>`<a href="${h(u)}" target="_blank" rel="noreferrer"><img src="${h(u)}"></a>`).join('')}
-async function refresh(){try{const [works,orders]=await Promise.all([api('/api/admin/works'),api('/api/admin/orders')]);msg('已更新 · '+new Date().toLocaleTimeString());
+function thumbs(urls){
+ return (urls||[]).filter(Boolean).map(u=>'<a target="_blank" rel="noreferrer" href="'+h(u)+'"><img alt="作品图片" src="'+h(u)+'"></a>').join('')||'<span class="muted">尚未上传</span>';
+}
+function uploadRow(id,kind,label,accept,caption){
+ return '<div class="upload-row"><label for="'+kind+'_'+id+'">'+h(label)+'</label>'+
+ '<input type="file" id="'+kind+'_'+id+'" accept="'+accept+'">'+
+ '<button onclick="uploadAsset(\''+id+'\',\''+kind+'\')">'+h(caption)+'</button></div>';
+}
+function stepOne(w){
+ return '<div class="step done"><div class="step-header"><span class="number">1</span><span class="step-title">原始画作 · 已上传</span></div>'+
+ '<div class="step-hint">这张是家长上传的原画，不需要在后台重复上传。</div><div class="thumb-list">'+thumbs([w.original])+'</div></div>';
+}
+function stepTwo(w){
+ const ready=w.status==='image_ready'||w.status==='model_pending'||w.status==='model_ready';
+ const locked=w.selected>=0;
+ const canUpload=!locked && (w.status==='image_pending'||w.status==='image_ready'||w.status==='failed');
+ let middle='<div class="step-hint">形象生成阶段一次只有 1 张图片。上传后，小程序立即显示给家长确认。</div><div class="thumb-list">'+thumbs((w.candidates||[]).slice(0,1))+'</div>';
+ if(canUpload)middle+=uploadRow(w.id,'candidate','上传 AI 立体形象图（PNG/JPG）','image/png,image/jpeg,image/webp','上传 / 替换本张形象图');
+ else middle+='<div class="callout">'+(locked?'家长已确认形象，进入第 3 步。':'当前不允许修改形象图。')+'</div>';
+ return '<div class="step '+(ready?'done':'')+'"><div class="step-header"><span class="number">2</span><span class="step-title">AI 形象图 · '+(ready?'已完成':'待处理')+'</span></div>'+middle+'</div>';
+}
+function stepThree(w){
+ const selected=w.selected>=0;
+ const hasModel=!!w.model, previews=w.preview||[];
+ let contents='<div class="step-hint">家长在小程序确认形象后，上传真正的 GLB 模型和至少 1 张白模预览图。预览可上传最多 4 个角度。</div>';
+ if(selected){
+  contents+='<div class="step-model"><div class="minor">3A · 3D 模型文件：'+(hasModel?'已上传':'未上传')+'</div>';
+  if(hasModel)contents+='<a target="_blank" rel="noreferrer" href="'+h(w.model)+'">下载目前的 GLB 模型</a>';
+  if(w.status==='model_pending'||w.status==='model_ready'){
+   contents+=uploadRow(w.id,'model','模型文件（只接受 .glb）','.glb','上传 / 替换 GLB 模型');
+   contents+='<div class="minor">3B · 白模角度图片（'+previews.length+'/4）</div><div class="thumb-list">'+thumbs(previews)+'</div>';
+   if(previews.length<4)contents+=uploadRow(w.id,'preview','白模渲染图（PNG/JPG）','image/png,image/jpeg,image/webp','上传下一张白模预览');
+  }else contents+='<div class="callout">当前状态需要先处理，请联系管理员检查。</div>';
+  contents+='</div>';
+ }else{
+  contents+='<div class="callout">等待家长在小程序中点击「满意，用它生成 3D 白模」，之后这里才开放模型上传。</div>';
+ }
+ return '<div class="step '+(w.status==='model_ready'?'done':'wait')+'"><div class="step-header"><span class="number">3</span><span class="step-title">3D 白模 · '+(w.status==='model_ready'?'已完成':'待处理')+'</span></div>'+contents+'</div>';
+}
+function workCard(w){
+ return '<article class="item"><div class="item-top"><strong>作品 #'+h(w.id.slice(0,10))+'</strong><span class="pill">'+h(labels[w.status]||w.status)+'</span><small>'+h(w.created_at.replace('T',' ').slice(0,16))+'</small><span class="minor">形象生成 '+(w.image_attempts||0)+' 次</span></div>'+
+ '<div class="steps">'+stepOne(w)+stepTwo(w)+stepThree(w)+'</div>'+
+ '<div class="section-bottom row"><input id="note_'+w.id+'" placeholder="失败原因 / 内部备注" aria-label="失败原因">'+
+ '<button class="danger" onclick="changeWork(\''+w.id+'\',\'failed\')">标记失败</button>'+
+ (w.status==='failed'&&w.selected>=0?'<button class="secondary" onclick="changeWork(\''+w.id+'\',\'model_pending\')">重新处理白模阶段</button>':'')+
+ '</div></article>';
+}
+function orderCard(o){
+ return '<article class="order"><div class="meta"><strong>订单 #'+h(o.id.slice(0,10))+'</strong><span class="pill">'+h(labels[o.status]||o.status)+'</span><b>¥'+(o.price_fen/100).toFixed(2)+'</b><span class="minor">'+h(o.created_at)+'</span></div>'+
+ '<div class="details">'+h(o.name)+' · '+h(o.phone)+' · '+h(o.address)+'<br>对应作品：'+h(o.work_id)+'</div>'+
+ '<div class="row"><select id="order_'+o.id+'"><option value="printing">制作中</option><option value="shipped">已发货</option><option value="completed">已完成</option><option value="canceled">取消</option></select>'+
+ '<input id="tracking_'+o.id+'" placeholder="快递单号" value="'+h(o.tracking||'')+'">'+
+ '<button onclick="changeOrder(\''+o.id+'\')">更新订单</button></div></article>';
+}
+async function refresh(){
+ try{
+  const [works,orders]=await Promise.all([api('/api/admin/works'),api('/api/admin/orders')]);
   works.sort((a,b)=>b.created_at.localeCompare(a.created_at));orders.sort((a,b)=>b.created_at.localeCompare(a.created_at));
-  document.getElementById('works').innerHTML=works.length?works.map(w=>`<div class="card"><div class="row"><strong>${h(w.id.slice(0,10))}</strong><span class="status">${h(w.status)}</span><small>${h(w.created_at)}</small></div><div class="thumbs">${imgs([w.original])}${imgs(w.candidates)}${imgs(w.preview)}</div><small>原画 | 候选图 ${w.candidates.length}/2 | 预览图 ${w.preview.length}/4 | 已选 ${w.selected+1}</small><div class="row" style="margin-top:14px"><select id="kind_${w.id}"><option value="candidate">上传候选图</option><option value="preview">上传白模预览图</option><option value="model">上传3D模型(GLB)</option></select><input type="file" id="file_${w.id}" accept=".jpg,.jpeg,.png,.webp,.glb"><button onclick="upload('${w.id}')">上传文件</button>${w.model?`<a href="${h(w.model)}" target="_blank">下载模型</a>`:''}</div><div class="row" style="margin-top:8px"><input id="note_${w.id}" placeholder="失败原因/备注"><button class="secondary" onclick="changeWork('${w.id}','failed')">标记失败</button><button class="secondary" onclick="changeWork('${w.id}','image_pending')">重新候选图阶段</button></div></div>`).join(''):'暂无作品';
-  document.getElementById('orders').innerHTML=orders.length?orders.map(o=>`<div class="card"><div class="row"><strong>#${h(o.id.slice(0,10))}</strong><span class="status">${h(o.status)}</span><span class="grow">¥${(o.price_fen/100).toFixed(2)}</span><small>${h(o.created_at)}</small></div><p>${h(o.name)} · ${h(o.phone)}<br>${h(o.address)}</p><small>关联作品：${h(o.work_id)}</small><div class="row" style="margin-top:12px"><select id="order_${o.id}"><option value="printing">制作中</option><option value="shipped">已发货</option><option value="completed">已完成</option><option value="canceled">取消</option></select><input id="tracking_${o.id}" placeholder="快递单号" value="${h(o.tracking||'')}"><button onclick="changeOrder('${o.id}')">更新订单</button></div></div>`).join(''):'暂无订单';
-}catch(e){msg('加载失败：'+e.message)}}
-async function upload(id){const inp=document.getElementById('file_'+id),kind=document.getElementById('kind_'+id).value;if(!inp.files.length){alert('请选择文件');return}const form=new FormData();form.append('file',inp.files[0]);try{await api('/api/admin/works/'+id+'/asset?kind='+kind,{method:'POST',body:form});await refresh()}catch(e){alert(e.message)}}
-async function changeWork(id,status){try{await api('/api/admin/works/'+id+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Status:status,Note:document.getElementById('note_'+id).value})});refresh()}catch(e){alert(e.message)}}
-async function changeOrder(id){try{await api('/api/admin/orders/'+id+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Status:document.getElementById('order_'+id).value,Tracking:document.getElementById('tracking_'+id).value})});refresh()}catch(e){alert(e.message)}}
+  document.getElementById('works').innerHTML=works.length?works.map(workCard).join(''):'<div class="work-empty">还没有任何作品，先在小程序里上传一张画。</div>';
+  document.getElementById('orders').innerHTML=orders.length?orders.map(orderCard).join(''):'<div class="work-empty">还没有订单。</div>';
+  msg('已更新 · '+new Date().toLocaleTimeString());
+ }catch(e){msg('加载失败：'+e.message)}
+}
+async function uploadAsset(id,kind){
+ const input=document.getElementById(kind+'_'+id);
+ if(!input||!input.files.length){alert('请先选择'+(kind==='model'?'GLB 模型文件':'图片文件'));return}
+ const form=new FormData();form.append('file',input.files[0]);
+ try{
+  await api('/api/admin/works/'+id+'/asset?kind='+kind,{method:'POST',body:form});
+  await refresh();
+ }catch(e){alert('上传失败：'+e.message)}
+}
+async function changeWork(id,status){
+ try{await api('/api/admin/works/'+id+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Status:status,Note:document.getElementById('note_'+id).value})});await refresh()}
+ catch(e){alert(e.message)}
+}
+async function changeOrder(id){
+ try{await api('/api/admin/orders/'+id+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Status:document.getElementById('order_'+id).value,Tracking:document.getElementById('tracking_'+id).value})});await refresh()}
+ catch(e){alert(e.message)}
+}
 if(auth)refresh();
-</script></body></html>
+</script>
+</body></html>
