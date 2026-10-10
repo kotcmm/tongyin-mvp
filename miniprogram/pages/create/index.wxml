@@ -1,10 +1,20 @@
-<view class="container">
- <view class="hero-title">从一张画，<text style="color:#F27750">开始变身</text></view>
- <view class="sub" style="margin-top:15rpx">画一只小动物、怪兽或独一无二的幻想角色。尽量拍清楚整张画。</view>
- <view class="pick" bindtap="choose">
-   <image wx:if="{{path}}" src="{{path}}" mode="aspectFit" class="picked"/>
-   <view wx:else class="empty"><view style="font-size:100rpx">＋</view><view>拍照或从相册选择</view><view style="font-size:24rpx;color:#A69993;margin-top:12rpx">JPG / PNG，建议主体清晰</view></view>
- </view>
- <button class="btn" disabled="{{!path || busy}}" loading="{{busy}}" bindtap="send">开始 AI 变身</button>
- <view class="muted" style="margin-top:34rpx">请由家长上传有权使用的画作。图片仅用于定制服务，不会默认公开展示。</view>
+<view class="container create-page">
+  <view class="page-kicker">STEP 01 / 03 <text class="kicker-line"></text> 开始创作</view>
+  <view class="hero-title create-title">一张画，<view>一个<text class="colored">新世界</text><text class="colored">.</text></view></view>
+  <view class="sub create-sub">选一张孩子喜欢的画，让想象先走出纸面。</view>
+  <view class="section-heading"><view>上传原画</view><view class="section-hint">01 · 选择作品</view></view>
+  <view class="pick" bindtap="choose">
+    <image wx:if="{{path}}" src="{{path}}" mode="aspectFit" class="picked"/>
+    <view wx:else class="empty">
+      <view class="plus-art"><view class="plus-v"></view><view class="plus-h"></view></view>
+      <view class="empty-head">轻触这里，选择画作</view>
+      <view class="empty-desc">拍一张照片 / 从相册选一张</view>
+      <view class="empty-note">光线明亮 · 主体完整 · 背景干净</view>
+    </view>
+    <view wx:if="{{path}}" class="change-image">轻触更换画作 <text>↗</text></view>
+  </view>
+  <view class="hint-box"><view class="hint-badge">TIP</view><view class="hint-text"><view class="hint-title">什么样的画更合适？</view><view>一只奇妙的小动物、幻想角色或小怪兽。最好是画面里只有一个清晰的主体。</view></view></view>
+  <button class="btn submit-btn" disabled="{{!path || busy}}" loading="{{busy}}" bindtap="send">开始变成立体形象 <text>→</text></button>
+  <view class="more-link" bindtap="toWorks">已经上传过？<text>去我的作品查看进度 →</text></view>
+  <view class="muted privacy-note">请由家长上传有权使用的画作，作品默认不会公开展示。</view>
 </view>
