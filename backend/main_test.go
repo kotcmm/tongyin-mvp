@@ -155,6 +155,40 @@ func TestOneImageAndFreeRetryLimit(t *testing.T) {
  if v.Status!="model_pending"||v.Selected!=0 {t.Fatalf("select single image: %+v",v)}
 }
 
+
+// Test model uploads larger than the former 12 MiB request limit.
+// Verify every byte survives and oversize uploads return HTTP 413.
+func TestModelUploadOver12MiBAndLimits(t *testing.T) {
+ cfg := Config{DataDir:t.TempDir(),PublicURL:"http://localhost:8080",AdminToken:"admin-secret",SessionKey:"test-secret-longer-than-24-chars",Dev:true}
+ if err:=os.MkdirAll(filepath.Join(cfg.DataDir,"media"),0700);err!=nil{t.Fatal(err)}
+ db,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
+ a:=&App{cfg:cfg,db:db};mux:=a.routes()
+ work:=&Work{ID:newID(),Owner:"test-owner",Original:"orig.jpg",Candidates:[]string{"candidate.png"},Selected:0,Status:"model_pending",Preview:[]string{}}
+ if err:=db.update(func(d *Data) error {d.Works[work.ID]=work;return nil});err!=nil{t.Fatal(err)}
+ glb:=make([]byte,13<<20)
+ copy(glb[:4],[]byte("glTF"))
+ glb[len(glb)-1]=0xAB
+ got:=postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=model","",true,glb,"model.glb")
+ mustJSON(t,got,200,nil)
+ stored,_:=db.work(work.ID)
+ if stored.Model==""{t.Fatal("model not saved")}
+ saved,err:=os.ReadFile(filepath.Join(cfg.DataDir,"media",stored.Model))
+ if err!=nil{t.Fatal(err)}
+ if !bytes.Equal(glb,saved) {t.Fatalf("GLB changed or truncated: saved=%d original=%d",len(saved),len(glb))}
+ // Images are still capped at 10 MiB.
+ hugeImage:=make([]byte,11<<20)
+ copy(hugeImage[:8],[]byte{137,80,78,71,13,10,26,10})
+ imageResp:=postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=preview","",true,hugeImage,"large.png")
+ mustJSON(t,imageResp,413,nil)
+ // Content-length preflight rejects a model over 100 MiB without reading its body.
+ req:=httptest.NewRequest("POST","/api/admin/works/"+work.ID+"/asset?kind=model",strings.NewReader(""))
+ req.ContentLength=102<<20
+ req.Header.Set("X-Admin-Token","admin-secret")
+ record:=httptest.NewRecorder()
+ mux.ServeHTTP(record,req)
+ mustJSON(t,record,413,nil)
+}
+
 func TestDBDialectBindings(t *testing.T) {
 	if got := (&SQLStore{dialect: "postgres"}).bind("SELECT * FROM ty_orders WHERE id=? AND owner_id=?"); got != "SELECT * FROM ty_orders WHERE id=$1 AND owner_id=$2" {
 		t.Fatalf("PostgreSQL binding failed: %s", got)
