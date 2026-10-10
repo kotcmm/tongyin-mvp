@@ -1,13 +1,30 @@
-<view class="container">
- <view class="section-title">选出最喜欢的形象</view>
- <view class="sub">尽量保留孩子原画里与众不同的模样。</view>
- <view wx:if="{{item && item.status==='image_pending'}}" class="card" style="text-align:center;padding:80rpx 25rpx"><view style="font-size:88rpx">🎨</view><view class="section-title">{{!aiAutoEnabled ? '作品已提交，等待制作' : '正在绘制立体形象'}}</view><view class="muted">{{!aiAutoEnabled && dev ? '当前未配置 AI 自动生成服务。请到运营后台为该作品上传两张候选图片，上传完成后此页会自动显示。' : !aiAutoEnabled ? '作品已收到，正在等待制作。完成后即可查看两张方案。' : 'AI 任务已提交，稍后会显示两个方案，可以先离开此页面。'}}</view></view>
- <view wx:elif="{{item && item.status==='failed'}}" class="card">生成未成功：{{item.note || '请联系客服处理'}}</view>
- <view wx:elif="{{item && item.status==='image_ready'}}">
-  <view wx:for="{{item.candidates}}" wx:key="index" class="option {{selected===index?'active':''}}" data-index="{{index}}" bindtap="select">
-   <image src="{{item}}" mode="aspectFit" class="candidate"/>
-   <view class="choice"><text>方案 {{index+1}}</text><text>{{selected===index?'✓ 已选择':'点按选择'}}</text></view>
-  </view>
-  <button class="btn" disabled="{{selected<0 || busy}}" loading="{{busy}}" bindtap="confirm">用这个形象生成 3D</button>
+<view class="container choose-page">
+ <view class="page-kicker">STEP 02 / 03 <text class="kicker-line"></text> 形象设计</view>
+ <view class="section-title choose-heading">给想象，<text class="accent">一个新模样.</text></view>
+ <view class="sub">尽量保留孩子原画里的特别之处，选一个最喜欢的形象。</view>
+ <view wx:if="{{item && item.original}}" class="source-strip"><image class="source-thumb" src="{{item.original}}" mode="aspectFill"/><view class="source-info"><view class="source-label">你的原始画作</view><view class="source-desc">从这一张画开始创作</view></view><view class="source-mark">ORIGINAL</view></view>
+ <view wx:if="{{item && item.status==='image_pending'}}" class="waiting">
+  <view class="waiting-visual"><view class="w-disc d1"></view><view class="w-disc d2"></view><view class="w-disc d3"></view><view class="w-disc d4"></view><view class="w-spark">✳</view></view>
+  <view class="waiting-tag">STEP 02 · 形象设计</view>
+  <view class="waiting-title">{{!aiAutoEnabled ? '作品已收到' : '正在为想象塑形'}}</view>
+  <view class="waiting-desc">{{!aiAutoEnabled && dev ? '当前处于人工补图模式。请在管理后台为这件作品上传两张候选图。' : !aiAutoEnabled ? '设计方案正在等待制作，做好后你可以回来挑选。' : '生成任务已提交。完成后会显示两张候选方案。'}}</view>
+  <view class="wait-separator"></view>
+  <view class="waiting-hint">不用守在这里，每一幅作品都会保存在「我的作品」中。</view>
+  <button class="go-works" bindtap="toWorks">前往我的作品 <text>→</text></button>
  </view>
+ <view wx:elif="{{item && item.status==='failed'}}" class="waiting">
+  <view class="failed-icon">!</view><view class="waiting-title">这次没有完成</view>
+  <view class="waiting-desc">{{item.note || '这幅作品需要重新处理，可以稍后查看进度。'}}</view>
+  <button class="go-works" bindtap="toWorks">返回我的作品 <text>→</text></button>
+ </view>
+ <view wx:elif="{{item && item.status==='image_ready'}}" class="candidate-list">
+  <view class="pick-heading">两份设计方案 <text>轻触卡片进行选择</text></view>
+  <view wx:for="{{item.candidates}}" wx:key="index" class="option {{selected===index?'active':''}}" data-index="{{index}}" bindtap="select">
+   <view class="candidate-wrap"><image src="{{item}}" mode="aspectFit" class="candidate"/><view class="select-check">{{selected===index?'✓':'○'}}</view></view>
+   <view class="choice"><view><view class="choice-title">方案 0{{index+1}}</view><view class="choice-hint">点按选择这个形象</view></view><text class="choice-arrow">↗</text></view>
+  </view>
+  <button class="btn confirm-btn" disabled="{{selected<0 || busy}}" loading="{{busy}}" bindtap="confirm">用这个形象生成白模 <text>→</text></button>
+  <view class="more-link" bindtap="toWorks">下次再选 · 回到我的作品</view>
+ </view>
+ <view wx:elif="{{loading}}" class="waiting"><view class="waiting-title">正在打开作品…</view></view>
 </view>
