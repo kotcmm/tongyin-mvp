@@ -1,0 +1,46 @@
+<view class="container works-page">
+  <view class="page-kicker">MY LITTLE CREATIONS <text class="kicker-line"></text></view>
+  <view class="head-row">
+    <view>
+      <view class="page-title">我的作品<text class="title-dot">.</text></view>
+      <view class="sub">每一幅想象，都在这里慢慢长大</view>
+    </view>
+    <view class="add-circle" bindtap="create" aria-label="新建作品"><text>＋</text></view>
+  </view>
+  <view class="summary" wx:if="{{all.length}}">
+    <view><text class="summary-number">{{all.length}}</text><text class="summary-unit">幅创作</text></view>
+    <view class="summary-divider"></view>
+    <view><text class="summary-number">{{ongoing}}</text><text class="summary-unit">份制作中</text></view>
+    <view class="summary-note">所有进度会为你保留</view>
+  </view>
+  <scroll-view class="filter-scroll" scroll-x enable-flex>
+    <view class="filter-row">
+      <view wx:for="{{filters}}" wx:key="key" class="filter {{filter===item.key?'active':''}}" data-filter="{{item.key}}" bindtap="chooseFilter">{{item.text}}</view>
+    </view>
+  </scroll-view>
+  <view wx:if="{{loading}}" class="loading-card">正在寻找你的创作记录…</view>
+  <view wx:elif="{{error}}" class="empty-panel">
+    <view class="empty-title">暂时没能加载作品</view>
+    <view class="muted">{{error}}</view>
+    <button class="outline-button" bindtap="retry">重新加载</button>
+  </view>
+  <view wx:elif="{{items.length===0}}" class="empty-panel">
+    <view class="empty-art"><view class="empty-art-inner"></view><view class="empty-art-dot"></view></view>
+    <view class="empty-title">{{all.length===0?'你的第一幅作品，等你开启':'这个分类还没有作品'}}</view>
+    <view class="muted">{{all.length===0?'上传孩子的画，之后的每一步都能在这里找到':'切换到「全部」，看看其他创作进度'}}</view>
+    <button wx:if="{{all.length===0}}" class="btn" bindtap="create">上传一张画 <text>↗</text></button>
+  </view>
+  <view wx:else class="work-list">
+    <view wx:for="{{items}}" wx:for-item="work" wx:key="id" class="work-card" data-id="{{work.id}}" bindtap="open">
+      <view class="work-picture"><image wx:if="{{work.cover}}" src="{{work.cover}}" mode="aspectFill" lazy-load/><view wx:else class="picture-fallback"></view><view class="picture-label">童印 · {{work.shortid}}</view></view>
+      <view class="work-detail">
+        <view class="status-pill {{work.state.tone}}"><view class="tiny-dot"></view>{{work.state.title}}</view>
+        <view class="work-title">{{work.status==='image_pending'?'等待奇思妙想变身':work.status==='image_ready'?'来选喜欢的形象':work.status==='model_pending'?'立体模型正在准备':work.status==='model_ready'?'你的白模已就绪':'这幅作品需要处理'}}</view>
+        <view class="work-hint">{{work.state.hint}}</view>
+        <view class="work-date">{{work.date}}</view>
+        <view class="work-link">{{work.status==='image_ready'||work.status==='model_ready'?'继续确认':'查看进度'}} <text>→</text></view>
+      </view>
+    </view>
+  </view>
+  <view class="footer-note">作品记录会保存在你的账号下 · 下拉可刷新进度</view>
+</view>
