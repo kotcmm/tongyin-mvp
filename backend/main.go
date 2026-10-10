@@ -40,6 +40,9 @@ func main() {
 	defer db.Close()
 	app := &App{cfg: c, db: db, client: &http.Client{Timeout: 90 * time.Second}}
 	s := &http.Server{Addr: c.Addr, Handler: app.routes(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 1 << 20}
+	if c.AIWorkerURL == "" {
+		log.Print("提示：AI_WORKER_URL 未配置，当前为后台人工处理模式；AI 任务不会自动生成结果")
+	}
 	log.Printf("童印 API listening on %s", c.Addr)
 	log.Fatal(s.ListenAndServe())
 }
@@ -48,7 +51,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("POST /api/auth/wechat", a.login)
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, 200, map[string]any{"price_fen": a.cfg.PriceFen, "dev": a.cfg.Dev})
+		reply(w, 200, map[string]any{"price_fen": a.cfg.PriceFen, "dev": a.cfg.Dev, "ai_auto_enabled": a.cfg.AIWorkerURL != ""})
 	})
 	mux.HandleFunc("GET /media/{file}", a.serveMedia)
 	mux.HandleFunc("POST /api/works", a.createWork)
