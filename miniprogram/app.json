@@ -2,10 +2,10 @@
   "pages": [
     "pages/home/index",
     "pages/works/index",
+    "pages/orders/index",
     "pages/create/index",
     "pages/choose/index",
     "pages/preview/index",
-    "pages/orders/index",
     "pages/order/index"
   ],
   "window": {
