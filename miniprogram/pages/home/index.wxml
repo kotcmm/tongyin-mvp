@@ -34,7 +34,7 @@
     </view>
     <view class="visual-footer"><view class="visual-dot"></view><text>白色 PLA 打印 · 可以自己上色</text></view>
   </view>
-  <button class="btn start-button" bindtap="toCreate">开始制作我的童印 <text class="btn-arrow">↗</text></button>
+  <button class="btn start-button" bindtap="toCreate"><text class="btn-label">开始制作我的童印</text><text class="btn-arrow">↗</text></button>
   <view class="button-caption">从一张画开始，作品进度可以随时回来查看</view>
   <view wx:if="{{recent}}" class="latest" bindtap="openRecent">
     <view class="latest-photo"><image src="{{recent.cover}}" mode="aspectFill"/></view>

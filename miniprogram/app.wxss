@@ -6,7 +6,7 @@ view,text,image,button,input,textarea{box-sizing:border-box}
 .hero-title{font-size:62rpx;line-height:1.23;font-weight:820;letter-spacing:-2rpx;color:#28332E}
 .sub{font-size:26rpx;line-height:1.65;color:#838680}
 .card{background:#fff;border-radius:28rpx;padding:30rpx;margin-top:23rpx;box-shadow:0 8rpx 26rpx rgba(59,61,51,.035)}
-.btn{background:#EA7650;color:#fff;border:0;border-radius:22rpx;font-size:30rpx;font-weight:750;height:100rpx;line-height:100rpx;box-shadow:0 12rpx 25rpx rgba(234,118,80,.18)}
+.btn{display:block;width:100%;box-sizing:border-box;background:#EA7650;color:#fff;border:0;border-radius:22rpx;font-size:29rpx;font-weight:750;height:100rpx;line-height:100rpx;text-align:center;white-space:nowrap;overflow:hidden;padding:0 26rpx;box-shadow:0 12rpx 25rpx rgba(234,118,80,.18)}
 .btn::after{border:0}.btn[disabled]{background:#D8CBC4;color:#fff;box-shadow:none}
 .secondary-btn{background:#FCEDE5;color:#B6694B;border:0;border-radius:20rpx}.secondary-btn::after{border:0}
 .section-title{font-size:39rpx;line-height:1.35;font-weight:790;margin:24rpx 0 12rpx;color:#29342F}

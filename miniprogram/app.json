@@ -22,15 +22,21 @@
     "list": [
       {
         "pagePath": "pages/home/index",
-        "text": "首页"
+        "text": "首页",
+        "iconPath": "assets/tabs/home.png",
+        "selectedIconPath": "assets/tabs/home-active.png"
       },
       {
         "pagePath": "pages/works/index",
-        "text": "我的作品"
+        "text": "我的作品",
+        "iconPath": "assets/tabs/works.png",
+        "selectedIconPath": "assets/tabs/works-active.png"
       },
       {
         "pagePath": "pages/orders/index",
-        "text": "我的订单"
+        "text": "我的订单",
+        "iconPath": "assets/tabs/orders.png",
+        "selectedIconPath": "assets/tabs/orders-active.png"
       }
     ]
   },
