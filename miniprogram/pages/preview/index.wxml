@@ -8,9 +8,9 @@
   <view class="waiting-title">{{!aiAutoEnabled ? '正在准备你的白模' : '立体形象正在成型'}}</view>
   <view class="waiting-desc">{{!aiAutoEnabled && dev ? '当前未接入自动 3D 服务，请在管理后台上传 GLB 模型和至少一张白模预览图。' : !aiAutoEnabled ? '已记录你的选择，白模准备好后可以回来确认。' : '正在生成模型。稍后到我的作品继续查看。'}}</view>
   <view class="waiting-hint">不需要一直停留，制作进度会保存在我的作品里。</view>
-  <button class="go-works" bindtap="toWorks">查看我的作品 <text>→</text></button>
+  <view class="nav-action" bindtap="toWorks"><text>查看我的作品</text><text>→</text></view>
  </view>
- <view wx:elif="{{item && item.status==='failed'}}" class="waiting"><view class="waiting-title">这次还没有完成</view><view class="waiting-desc">{{item.note || '模型需要重新处理，请稍后查看。'}}</view><button class="go-works" bindtap="toWorks">前往我的作品 →</button></view>
+ <view wx:elif="{{item && item.status==='failed'}}" class="waiting"><view class="waiting-title">这次还没有完成</view><view class="waiting-desc">{{item.note || '模型需要重新处理，请稍后查看。'}}</view><view class="nav-action" bindtap="toWorks"><text>前往我的作品</text><text>→</text></view></view>
  <view wx:elif="{{item && item.status==='model_ready'}}">
   <view class="preview-gallery"><view class="gallery-top"><view class="gallery-label">你的立体作品</view><view class="gallery-tag">白模预览</view></view>
    <swiper indicator-dots indicator-color="#D7DDD6" indicator-active-color="#E87955" autoplay="{{false}}" style="height:540rpx" circular>
