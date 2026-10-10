@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/home/index",
+    "pages/works/index",
     "pages/create/index",
     "pages/choose/index",
     "pages/preview/index",
@@ -8,16 +9,29 @@
     "pages/order/index"
   ],
   "window": {
-    "navigationBarTitleText": "童印",
-    "navigationBarBackgroundColor": "#FFF9F3",
+    "navigationBarTitleText": "童印 · 把想象变成立体",
+    "navigationBarBackgroundColor": "#F6F5F1",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#FFF9F3"
+    "backgroundColor": "#F6F5F1"
   },
   "tabBar": {
-    "color":"#77716F", "selectedColor":"#F27C52", "backgroundColor":"#FFFDFB",
-    "list":[
-      {"pagePath":"pages/home/index","text":"首页"},
-      {"pagePath":"pages/orders/index","text":"我的订单"}
+    "color": "#8B8D85",
+    "selectedColor": "#E9744D",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/works/index",
+        "text": "我的作品"
+      },
+      {
+        "pagePath": "pages/orders/index",
+        "text": "我的订单"
+      }
     ]
   },
   "style": "v2",
