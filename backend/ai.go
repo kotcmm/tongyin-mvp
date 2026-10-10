@@ -32,7 +32,7 @@ func (a *App) dispatchAI(wk *Work, stage string) {
 		}
 		source = wk.Candidates[wk.Selected]
 	}
-	data, _ := json.Marshal(map[string]any{"work_id": wk.ID, "stage": stage, "source_url": a.signedMedia(source), "callback_url": a.cfg.PublicURL + "/api/internal/ai-result", "instructions": "Preserve distinctive features of original children's drawing. Single full-body printable character, neutral background, no unsupported thin parts. For image stage return exactly two candidate images; for model stage return GLB and 1-4 white clay render previews."})
+	data, _ := json.Marshal(map[string]any{"work_id": wk.ID, "stage": stage, "generation_id": wk.GenerationID, "source_url": a.signedMedia(source), "callback_url": a.cfg.PublicURL + "/api/internal/ai-result", "instructions": "Preserve distinctive features of original children's drawing. Single full-body printable character, neutral background, no unsupported thin parts. For image stage return exactly one candidate image; for model stage return GLB and 1-4 white clay render previews."})
 	go func() {
 		req, err := http.NewRequest("POST", a.cfg.AIWorkerURL, bytes.NewReader(data))
 		if err != nil {
@@ -60,6 +60,7 @@ func (a *App) aiResult(w http.ResponseWriter, r *http.Request) {
 	var q struct {
 		WorkID   string   `json:"work_id"`
 		Stage    string   `json:"stage"`
+		GenerationID string `json:"generation_id"`
 		Error    string   `json:"error"`
 		URLs     []string `json:"urls"`
 		ModelURL string   `json:"model_url"`
@@ -73,17 +74,32 @@ func (a *App) aiResult(w http.ResponseWriter, r *http.Request) {
 		fail(w, 404, "作品不存在")
 		return
 	}
-	if q.Error != "" {
-		_ = a.db.update(func(d *Data) error { d.Works[wk.ID].Status = "failed"; d.Works[wk.ID].Note = q.Error; return nil })
-		reply(w, 200, map[string]string{"status": "failed"})
-		return
-	}
 	if q.Stage != "image" && q.Stage != "model" {
 		fail(w, 400, "stage 无效")
 		return
 	}
-	if q.Stage == "image" && len(q.URLs) != 2 {
-		fail(w, 400, "图片阶段必须返回两张候选图")
+	if wk.GenerationID != "" && q.GenerationID != wk.GenerationID {
+		fail(w, 409, "旧生成任务的结果已失效")
+		return
+	}
+	if q.Error != "" {
+		expected := "image_pending"
+		if q.Stage == "model" { expected = "model_pending" }
+		err := a.db.update(func(d *Data) error {
+			v := d.Works[wk.ID]
+			if v.Status != expected || (v.GenerationID != "" && q.GenerationID != v.GenerationID) {
+				return fmt.Errorf("任务状态已变化")
+			}
+			v.Status = "failed"
+			v.Note = q.Error
+			return nil
+		})
+		if err != nil { fail(w, 409, err.Error()); return }
+		reply(w, 200, map[string]string{"status": "failed"})
+		return
+	}
+	if q.Stage == "image" && len(q.URLs) != 1 {
+		fail(w, 400, "每次形象生成必须返回一张图片")
 		return
 	}
 	if q.Stage == "model" && (q.ModelURL == "" || len(q.URLs) < 1 || len(q.URLs) > 4) {
@@ -114,13 +130,13 @@ func (a *App) aiResult(w http.ResponseWriter, r *http.Request) {
 			return errNotFound
 		}
 		if q.Stage == "image" {
-			if v.Status != "image_pending" {
+			if v.Status != "image_pending" || (v.GenerationID != "" && q.GenerationID != v.GenerationID) {
 				return fmt.Errorf("任务状态已变化")
 			}
 			v.Candidates = local
 			v.Status = "image_ready"
 		} else {
-			if v.Status != "model_pending" {
+			if v.Status != "model_pending" || (v.GenerationID != "" && q.GenerationID != v.GenerationID) {
 				return fmt.Errorf("任务状态已变化")
 			}
 			v.Model = model
