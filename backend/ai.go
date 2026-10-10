@@ -17,7 +17,7 @@ import (
 // the admin queue for manual processing; it never invents AI results.
 func (a *App) taskMessage() string {
 	if a.cfg.AIWorkerURL == "" {
-		return "已提交，正在处理，请稍后回来查看"
+		return "已进入人工处理队列，请在运营后台上传生成结果"
 	}
 	return "AI 生成任务已提交"
 }
