@@ -38,9 +38,9 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "kind 必须是 candidate、preview 或 model")
 		return
 	}
-	name, err := a.upload(r, kind != "model")
+	name, err := a.upload(w, r, kind != "model")
 	if err != nil {
-		fail(w, 400, err.Error())
+		uploadFailure(w, err)
 		return
 	}
 	err = a.db.update(func(d *Data) error {
