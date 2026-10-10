@@ -54,6 +54,8 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 				return errors.New("请先完成原画上传，当前阶段不可上传形象图")
 			}
 			wk.Candidates = []string{name} // one output per generation; admin may replace a result
+			wk.Preview = []string{} // discard artifacts from an older / incorrect stage
+			wk.Model = ""
 			if wk.ImageAttempts == 0 { wk.ImageAttempts = 1 } // legacy/manual results also count as initial generation
 			wk.Selected = -1
 			wk.Status = "image_ready"
