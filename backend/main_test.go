@@ -189,6 +189,39 @@ func TestModelUploadOver12MiBAndLimits(t *testing.T) {
  mustJSON(t,record,413,nil)
 }
 
+
+func TestReplacingGLBInvalidatesOldPreviews(t *testing.T) {
+ cfg:=Config{DataDir:t.TempDir(), PublicURL:"http://localhost:8080", AdminToken:"admin-secret", SessionKey:"test-secret-longer-than-24-chars", Dev:true}
+ if err:=os.MkdirAll(filepath.Join(cfg.DataDir,"media"),0700);err!=nil{t.Fatal(err)}
+ db,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
+ work:=&Work{ID:newID(),Owner:"parent",Status:"model_ready",Original:"original.png",Candidates:[]string{"image.png"},Selected:0,Model:"old.glb",Preview:[]string{"old.png"}}
+ if err:=db.update(func(d *Data) error{d.Works[work.ID]=work;return nil});err!=nil{t.Fatal(err)}
+ a:=&App{cfg:cfg,db:db}
+ glb:=append([]byte("glTF"),make([]byte,24)...)
+ w:=postFile(t,a.routes(),"/api/admin/works/"+work.ID+"/asset?kind=model","",true,glb,"new.glb")
+ mustJSON(t,w,200,nil)
+ updated,_:=db.work(work.ID)
+ if updated.Status!="model_pending"||updated.Model==""||updated.Model=="old.glb"||len(updated.Preview)!=0{
+  t.Fatalf("model replacement kept stale preview or incorrect status: %+v",updated)
+ }
+ pic:=new(bytes.Buffer)
+ if err:=png.Encode(pic,image.NewRGBA(image.Rect(0,0,8,8)));err!=nil{t.Fatal(err)}
+ mustJSON(t,postFile(t,a.routes(),"/api/admin/works/"+work.ID+"/asset?kind=preview","",true,pic.Bytes(),"front.png"),200,nil)
+ updated,_=db.work(work.ID)
+ if updated.Status!="model_ready"||len(updated.Preview)!=1{t.Fatalf("new preview did not restore readiness: %+v",updated)}
+}
+
+func TestAdminBundledPreviewScripts(t *testing.T) {
+ a:=&App{}
+ for _,path:=range []string{"/admin/vendor/preview.mjs","/admin/vendor/three.module.min.js","/admin/vendor/loaders/GLTFLoader.js","/admin/vendor/utils/BufferGeometryUtils.js"}{
+  req:=httptest.NewRequest("GET",path,nil)
+  recorder:=httptest.NewRecorder()
+  a.routes().ServeHTTP(recorder,req)
+  if recorder.Code!=200{t.Fatalf("%s HTTP %d",path,recorder.Code)}
+  if !strings.Contains(recorder.Header().Get("Content-Type"),"javascript"){t.Fatalf("%s wrong MIME: %s",path,recorder.Header().Get("Content-Type"))}
+ }
+}
+
 func TestDBDialectBindings(t *testing.T) {
 	if got := (&SQLStore{dialect: "postgres"}).bind("SELECT * FROM ty_orders WHERE id=? AND owner_id=?"); got != "SELECT * FROM ty_orders WHERE id=$1 AND owner_id=$2" {
 		t.Fatalf("PostgreSQL binding failed: %s", got)

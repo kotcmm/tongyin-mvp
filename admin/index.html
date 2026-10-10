@@ -33,7 +33,7 @@ h2{font-size:21px;margin:0 0 14px}h3{font-size:16px;margin:0 0 10px}p{line-heigh
 .section-bottom{border-top:1px solid #eeeee9;margin-top:17px;padding-top:14px}
 .order{border:1px solid #e8eae4;border-radius:15px;padding:20px;margin:12px 0}
 .order .meta{display:flex;align-items:center;flex-wrap:wrap;gap:15px}.order .details{line-height:1.8;margin:13px 0;color:#626c63;font-size:14px}
-.work-empty{padding:32px;text-align:center;color:#8c948c}.minor{color:#8d968c;font-size:13px}
+.work-empty{padding:32px;text-align:center;color:#8c948c}.minor{color:#8d968c;font-size:13px}.render-status{color:#477657;font-size:13px;line-height:1.6;min-height:18px}.render-status:not(:empty){padding:10px 12px;background:#e9f1e9;border-radius:9px}.upload-row button:disabled{opacity:.6;cursor:wait}
 @media(max-width:850px){.steps{grid-template-columns:1fr}.panel{padding:16px}.item{padding:14px}header{padding:16px}}
 </style></head>
 <body>
@@ -41,12 +41,15 @@ h2{font-size:21px;margin:0 0 14px}h3{font-size:16px;margin:0 0 10px}p{line-heigh
 <div class="row"><input type="password" id="token" placeholder="请输入 ADMIN_TOKEN"><button onclick="login()">进入后台</button><button class="secondary" onclick="logout()">退出</button></div></header>
 <main><p id="msg">登录后可以查看正在制作的作品。</p>
 <section class="panel"><div class="title-row"><h2>作品制作进度</h2><button class="secondary" onclick="refresh()">刷新列表</button></div>
-<p class="muted">操作顺序：① 查看原画 → ② 上传 1 张 AI 形象图 → ③ 等家长确认后上传 GLB 模型和白模角度图 → ④ 家长付款后打印发货。</p><div id="works"></div></section>
+<p class="muted">操作顺序：① 查看原画 → ② 上传 1 张 AI 形象图 → ③ 家长确认后上传 GLB，自动生成正面/侧面/背面白模预览 → ④ 家长付款后打印发货。</p><div id="works"></div></section>
 <section class="panel"><h2>第 4 步 · 订单 / 打印 / 发货</h2>
 <p class="muted">用户确认白模并付款后，在这里按顺序更新制作状态；未付款订单不能开始打印。</p><div id="orders"></div></section>
 </main>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
 <script>
 let auth=sessionStorage.getItem('tongyin_admin')||'';
+let worksById = new Map();
+const renderingIds = new Set();
 document.getElementById('token').value=auth;
 const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const msg=s=>document.getElementById('msg').textContent=s;
@@ -83,14 +86,16 @@ function stepTwo(w){
 function stepThree(w){
  const selected=w.selected>=0;
  const hasModel=!!w.model, previews=w.preview||[];
- let contents='<div class="step-hint">家长在小程序确认形象后，上传真正的 GLB 模型和至少 1 张白模预览图。预览可上传最多 4 个角度。</div>';
+ let contents='<div class="step-hint">上传 GLB 后，会在当前浏览器自动生成正面、侧面、背面三张白色模型预览并上传。生成期间请保持后台页面打开。</div>';
  if(selected){
   contents+='<div class="step-model"><div class="minor">3A · 3D 模型文件：'+(hasModel?'已上传':'未上传')+'</div>';
   if(hasModel)contents+='<a target="_blank" rel="noreferrer" href="'+h(w.model)+'">下载目前的 GLB 模型</a>';
   if(w.status==='model_pending'||w.status==='model_ready'){
-   contents+=uploadRow(w.id,'model','模型文件（只接受 .glb）','.glb','上传 / 替换 GLB 模型');
+   contents+=uploadRow(w.id,'model','模型文件（只接受 .glb）','.glb','上传 GLB 并自动生成三视图');
+   contents+='<div id="render_status_'+w.id+'" class="render-status" role="status" aria-live="polite"></div>';
+   if(hasModel && previews.length===0)contents+='<button class="secondary" onclick="renderExisting(\''+w.id+'\')">为已上传 GLB 自动补生成预览</button>';
    contents+='<div class="minor">3B · 白模角度图片（'+previews.length+'/4）</div><div class="thumb-list">'+thumbs(previews)+'</div>';
-   if(previews.length<4)contents+=uploadRow(w.id,'preview','白模渲染图（PNG/JPG）','image/png,image/jpeg,image/webp','上传下一张白模预览');
+   if(previews.length<4)contents+='<div class="step-hint">若模型使用了不支持的压缩格式，或自动渲染失败，可在下方手动上传预览图：</div>'+uploadRow(w.id,'preview','手动上传白模预览（备用）','image/png,image/jpeg,image/webp','手动上传下一张预览');
   }else contents+='<div class="callout">当前状态需要先处理，请联系管理员检查。</div>';
   contents+='</div>';
  }else{
@@ -117,30 +122,79 @@ async function refresh(){
  try{
   const [works,orders]=await Promise.all([api('/api/admin/works'),api('/api/admin/orders')]);
   works.sort((a,b)=>b.created_at.localeCompare(a.created_at));orders.sort((a,b)=>b.created_at.localeCompare(a.created_at));
+  worksById=new Map(works.map(w=>[w.id,w]));
   document.getElementById('works').innerHTML=works.length?works.map(workCard).join(''):'<div class="work-empty">还没有任何作品，先在小程序里上传一张画。</div>';
   document.getElementById('orders').innerHTML=orders.length?orders.map(orderCard).join(''):'<div class="work-empty">还没有订单。</div>';
   msg('已更新 · '+new Date().toLocaleTimeString());
  }catch(e){msg('加载失败：'+e.message)}
 }
+
+function renderStatus(id,text){
+ const el=document.getElementById('render_status_'+id);
+ if(el)el.textContent=text;
+}
+async function generatePreviews(id,arrayBuffer){
+ renderStatus(id,'载入 Three.js 渲染器…');
+ const {renderWhiteModelPreviews}=await import('./vendor/preview.mjs');
+ const previews=await renderWhiteModelPreviews(arrayBuffer,message=>renderStatus(id,message));
+ for(let i=0;i<previews.length;i++){
+  renderStatus(id,'正在上传 '+previews[i].label+'预览图（'+(i+1)+'/'+previews.length+'）…');
+  const form=new FormData();
+  form.append('file',previews[i].file);
+  await api('/api/admin/works/'+id+'/asset?kind=preview',{method:'POST',body:form});
+ }
+ renderStatus(id,'完成：三张白模图已上传，小程序可以查看。');
+}
+async function renderExisting(id){
+ if(renderingIds.has(id))return;
+ const work=worksById.get(id);
+ if(!work||!work.model){alert('没有可用的 GLB 文件');return}
+ renderingIds.add(id);
+ try{
+  renderStatus(id,'正在下载已上传的 GLB 模型…');
+  const resp=await fetch(work.model);
+  if(!resp.ok)throw Error('模型下载失败：HTTP '+resp.status);
+  const data=await resp.arrayBuffer();
+  if(data.byteLength>100*1024*1024)throw Error('模型超过100 MiB');
+  await generatePreviews(id,data);
+  await refresh();
+ }catch(e){
+  alert('自动预览失败：'+e.message+'。可在3B位置手动上传预览图。');
+  await refresh();
+ }finally{renderingIds.delete(id)}
+}
 async function uploadAsset(id,kind){
  const input=document.getElementById(kind+'_'+id);
  if(!input||!input.files.length){alert('请先选择'+(kind==='model'?'GLB 模型文件':'图片文件'));return}
+ if(renderingIds.has(id)){alert('模型正在处理，请稍候');return}
  const file=input.files[0],limit=(kind==='model'?100:10)*1024*1024;
  if(file.size>limit){
   alert((kind==='model'?'GLB 模型':'图片')+'不能超过'+(kind==='model'?'100':'10')+' MiB，当前文件 '+(file.size/1048576).toFixed(1)+' MiB');
   return;
  }
  const button=input.nextElementSibling;
- if(button){button.disabled=true;button.textContent='上传中，请稍候…'}
+ if(button){button.disabled=true;button.textContent='处理中，请稍候…'}
+ if(kind==='model')renderingIds.add(id);
  const form=new FormData();form.append('file',file);
+ let uploaded=false;
  try{
+  renderStatus(id,'正在上传文件…');
   await api('/api/admin/works/'+id+'/asset?kind='+kind,{method:'POST',body:form});
+  uploaded=true;
+  if(kind==='model'){
+   await generatePreviews(id,await file.arrayBuffer());
+  }
   await refresh();
  }catch(e){
   const network=/Failed to fetch|NetworkError|fetch failed|Load failed/i.test(e.message||'');
-  alert('上传失败：'+(network?'网络连接中断，请查看 Go 后端窗口是否有错误，并确认服务器仍可访问 /health。':e.message));
+  const reason=network?'网络连接中断，请检查后端服务。':e.message;
+  alert(kind==='model'&&uploaded?
+   'GLB 已保存，但自动生成预览失败：'+reason+'。可以用「为已上传 GLB 自动补生成预览」重试，或手动上传预览图。':
+   '上传失败：'+reason);
+  await refresh();
  }finally{
-  if(button&&button.isConnected){button.disabled=false;button.textContent=kind==='model'?'上传 / 替换 GLB 模型':kind==='preview'?'上传下一张白模预览':'上传 / 替换本张形象图'}
+  if(kind==='model')renderingIds.delete(id);
+  if(button&&button.isConnected){button.disabled=false;button.textContent=kind==='model'?'上传 GLB 并自动生成三视图':kind==='preview'?'手动上传下一张预览':'上传 / 替换本张形象图'}
  }
 }
 async function changeWork(id,status){

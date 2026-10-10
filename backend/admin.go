@@ -71,8 +71,11 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 			if wk.Status != "model_pending" && wk.Status != "model_ready" {
 				return errors.New("请等待用户确认形象后，再上传3D模型")
 			}
+			// A replacement model invalidates all old previews. Otherwise buyers
+			// could see the previous character while ordering the replacement.
 			wk.Model = name
-			if len(wk.Preview) > 0 { wk.Status = "model_ready" }
+			wk.Preview = []string{}
+			wk.Status = "model_pending"
 		}
 		return nil
 	})
