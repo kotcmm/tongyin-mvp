@@ -72,7 +72,16 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/orders/{id}/status", a.adminOrderStatus)
 	mux.HandleFunc("POST /api/internal/ai-result", a.aiResult)
 	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/admin/", 302) })
-	mux.Handle("GET /admin/", http.StripPrefix("/admin/", http.FileServer(http.Dir(env("ADMIN_DIR", "../admin")))))
+	adminFiles := http.FileServer(http.Dir(env("ADMIN_DIR", "../admin")))
+	mux.Handle("GET /admin/", http.StripPrefix("/admin/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// On Windows the .mjs MIME type may be missing or provided by the
+		// registry as application/octet-stream. Browsers refuse ES modules
+		// unless the HTTP response advertises a JavaScript content type.
+		if strings.HasSuffix(r.URL.Path, ".mjs") || strings.HasSuffix(r.URL.Path, ".js") {
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		}
+		adminFiles.ServeHTTP(w, r)
+	})))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
