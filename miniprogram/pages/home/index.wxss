@@ -1,0 +1,8 @@
+.eyebrow{font-size:23rpx;font-weight:750;letter-spacing:3rpx;color:#E67F5E;margin-top:30rpx}
+.showcase{display:flex;align-items:center;justify-content:space-around;margin:64rpx 0 55rpx;gap:6rpx}
+.paper{height:300rpx;width:275rpx;border-radius:22rpx;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(-5deg);box-shadow:0 13rpx 25rpx #E8DAD0}
+.paper.raised{background:linear-gradient(130deg,#fff,#EFEAE5);transform:rotate(6deg)}
+.face{font-size:148rpx;color:#ECA37A}.raised .face{color:#B3B0B0;text-shadow:5rpx 7rpx 2rpx #DDD}
+.paper-desc{font-size:23rpx;color:#786D66}.arrow{font-size:52rpx;color:#EF916E}
+.step{padding:24rpx 0;border-bottom:1rpx solid #F2EEE9;display:flex;gap:22rpx;font-size:29rpx;align-items:center}.step:last-child{border-bottom:0}
+.no{color:#F27750;font-weight:800}

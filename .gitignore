@@ -1,0 +1,5 @@
+backend/data/
+backend/.env
+*.log
+.DS_Store
+miniprogram/project.private.config.json

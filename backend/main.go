@@ -1,0 +1,371 @@
+package main
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+)
+
+type App struct {
+	cfg    Config
+	db     Repository
+	client *http.Client
+}
+
+func main() {
+	c := config()
+	if c.AdminToken == "" || len(c.SessionKey) < 24 {
+		log.Fatal("配置 ADMIN_TOKEN 和长度至少24位的 SESSION_SECRET 后启动")
+	}
+	if !c.Dev && (!strings.HasPrefix(c.PublicURL, "https://") || c.AppID == "" || c.AppSecret == "") {
+		log.Fatal("生产模式需要 HTTPS PUBLIC_URL、WX_APP_ID、WX_APP_SECRET")
+	}
+	if err := os.MkdirAll(filepath.Join(c.DataDir, "media"), 0700); err != nil {
+		log.Fatal(err)
+	}
+	db, err := openRepository(c)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	app := &App{cfg: c, db: db, client: &http.Client{Timeout: 90 * time.Second}}
+	s := &http.Server{Addr: c.Addr, Handler: app.routes(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 1 << 20}
+	log.Printf("童印 API listening on %s", c.Addr)
+	log.Fatal(s.ListenAndServe())
+}
+func (a *App) routes() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]string{"status": "ok"}) })
+	mux.HandleFunc("POST /api/auth/wechat", a.login)
+	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
+		reply(w, 200, map[string]any{"price_fen": a.cfg.PriceFen, "dev": a.cfg.Dev})
+	})
+	mux.HandleFunc("GET /media/{file}", a.serveMedia)
+	mux.HandleFunc("POST /api/works", a.createWork)
+	mux.HandleFunc("GET /api/works", a.listWorks)
+	mux.HandleFunc("GET /api/works/{id}", a.getWork)
+	mux.HandleFunc("POST /api/works/{id}/generate", a.startImageGeneration)
+	mux.HandleFunc("POST /api/works/{id}/select", a.selectImage)
+	mux.HandleFunc("POST /api/orders", a.createOrder)
+	mux.HandleFunc("GET /api/orders", a.listOrders)
+	mux.HandleFunc("GET /api/orders/{id}", a.getOrder)
+	mux.HandleFunc("POST /api/orders/{id}/pay", a.startPay)
+	mux.HandleFunc("POST /api/pay/notify", a.payNotify)
+	mux.HandleFunc("GET /api/admin/works", a.adminWorks)
+	mux.HandleFunc("POST /api/admin/works/{id}/asset", a.adminAsset)
+	mux.HandleFunc("POST /api/admin/works/{id}/status", a.adminWorkStatus)
+	mux.HandleFunc("GET /api/admin/orders", a.adminOrders)
+	mux.HandleFunc("POST /api/admin/orders/{id}/status", a.adminOrderStatus)
+	mux.HandleFunc("POST /api/internal/ai-result", a.aiResult)
+	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/admin/", 302) })
+	mux.Handle("GET /admin/", http.StripPrefix("/admin/", http.FileServer(http.Dir(env("ADMIN_DIR", "../admin")))))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		// Do not enable cross-origin access globally. Admin is served from same origin.
+		mux.ServeHTTP(w, r)
+	})
+}
+func reply(w http.ResponseWriter, status int, x any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(x)
+}
+func fail(w http.ResponseWriter, status int, msg string) {
+	reply(w, status, map[string]string{"error": msg})
+}
+func decode(r *http.Request, v any) error {
+	r.Body = http.MaxBytesReader(nil, r.Body, 1<<20)
+	return json.NewDecoder(r.Body).Decode(v)
+}
+func (a *App) uid(w http.ResponseWriter, r *http.Request) string {
+	v, err := a.auth(r)
+	if err != nil {
+		fail(w, 401, err.Error())
+		return ""
+	}
+	return v
+}
+func (a *App) admin(w http.ResponseWriter, r *http.Request) bool {
+	if !a.isAdmin(r) {
+		fail(w, 401, "管理员鉴权失败")
+		return false
+	}
+	return true
+}
+func (a *App) signedMedia(name string) string {
+	if name == "" {
+		return ""
+	}
+	exp := strconv.FormatInt(time.Now().Add(48*time.Hour).Unix(), 10)
+	text := name + ":" + exp
+	mac := hmac.New(sha256.New, []byte(a.cfg.SessionKey))
+	mac.Write([]byte(text))
+	return a.cfg.PublicURL + "/media/" + name + "?expires=" + exp + "&signature=" + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+func (a *App) serveMedia(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("file")
+	exp := r.URL.Query().Get("expires")
+	sig := r.URL.Query().Get("signature")
+	if name == "" || strings.ContainsAny(name, "/\\") || strings.Contains(name, "..") || len(name) > 100 {
+		http.NotFound(w, r)
+		return
+	}
+	t, e := strconv.ParseInt(exp, 10, 64)
+	if e != nil || t < time.Now().Unix() {
+		http.NotFound(w, r)
+		return
+	}
+	raw, e := base64.RawURLEncoding.DecodeString(sig)
+	if e != nil {
+		http.NotFound(w, r)
+		return
+	}
+	mac := hmac.New(sha256.New, []byte(a.cfg.SessionKey))
+	mac.Write([]byte(name + ":" + exp))
+	if !hmac.Equal(mac.Sum(nil), raw) {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Cache-Control", "private,max-age=120")
+	http.ServeFile(w, r, filepath.Join(a.cfg.DataDir, "media", name))
+}
+func (a *App) exposeWork(wk *Work) *Work {
+	cp := *wk
+	cp.Owner = ""
+	cp.Original = a.signedMedia(cp.Original)
+	cp.Model = a.signedMedia(cp.Model)
+	cp.Candidates = make([]string, len(wk.Candidates))
+	for i, n := range wk.Candidates {
+		cp.Candidates[i] = a.signedMedia(n)
+	}
+	cp.Preview = make([]string, len(wk.Preview))
+	for i, n := range wk.Preview {
+		cp.Preview[i] = a.signedMedia(n)
+	}
+	return &cp
+}
+func (a *App) upload(r *http.Request, allowedImagesOnly bool) (string, error) {
+	r.Body = http.MaxBytesReader(nil, r.Body, 12<<20)
+	if err := r.ParseMultipartForm(12 << 20); err != nil {
+		return "", fmt.Errorf("上传文件不能超过10MB")
+	}
+	f, _, err := r.FormFile("file")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	buf := make([]byte, 512)
+	n, err := f.Read(buf)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	kind := http.DetectContentType(buf[:n])
+	ext := ""
+	switch kind {
+	case "image/jpeg":
+		ext = ".jpg"
+	case "image/png":
+		ext = ".png"
+	case "image/webp":
+		ext = ".webp"
+	case "application/octet-stream":
+		if !allowedImagesOnly && n >= 4 && string(buf[:4]) == "glTF" {
+			ext = ".glb"
+		}
+	}
+	if ext == "" {
+		return "", fmt.Errorf("文件类型不支持: %s", kind)
+	}
+	if allowedImagesOnly && ext == ".glb" {
+		return "", fmt.Errorf("仅允许图片")
+	}
+	name := newID() + ext
+	path := filepath.Join(a.cfg.DataDir, "media", name)
+	out, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+	if _, err = out.Write(buf[:n]); err == nil {
+		_, err = io.Copy(out, io.LimitReader(f, 10<<20))
+	}
+	if err != nil {
+		_ = os.Remove(path)
+		return "", err
+	}
+	return name, nil
+}
+func (a *App) createWork(w http.ResponseWriter, r *http.Request) {
+	owner := a.uid(w, r)
+	if owner == "" {
+		return
+	}
+	name, err := a.upload(r, true)
+	if err != nil {
+		fail(w, 400, err.Error())
+		return
+	}
+	wk := &Work{ID: newID(), Owner: owner, CreatedAt: now(), Original: name, Candidates: []string{}, Selected: -1, Preview: []string{}, Status: "image_pending"}
+	err = a.db.update(func(d *Data) error { d.Works[wk.ID] = wk; return nil })
+	if err != nil {
+		fail(w, 500, "保存失败")
+		return
+	}
+	reply(w, 201, a.exposeWork(wk))
+}
+func (a *App) listWorks(w http.ResponseWriter, r *http.Request) {
+	owner := a.uid(w, r)
+	if owner == "" {
+		return
+	}
+	out := []*Work{}
+	for _, wk := range a.db.works(owner, false) {
+		out = append(out, a.exposeWork(wk))
+	}
+	reply(w, 200, out)
+}
+func (a *App) getWork(w http.ResponseWriter, r *http.Request) {
+	owner := a.uid(w, r)
+	if owner == "" {
+		return
+	}
+	wk, ok := a.db.work(r.PathValue("id"))
+	if !ok || wk.Owner != owner {
+		fail(w, 404, "作品不存在")
+		return
+	}
+	reply(w, 200, a.exposeWork(wk))
+}
+func (a *App) startImageGeneration(w http.ResponseWriter, r *http.Request) {
+	owner := a.uid(w, r)
+	if owner == "" {
+		return
+	}
+	wk, ok := a.db.work(r.PathValue("id"))
+	if !ok || wk.Owner != owner {
+		fail(w, 404, "作品不存在")
+		return
+	}
+	if wk.Status != "image_pending" && wk.Status != "failed" {
+		fail(w, 409, "当前状态不能重复生成")
+		return
+	}
+	_ = a.db.update(func(d *Data) error { d.Works[wk.ID].Status = "image_pending"; return nil })
+	a.dispatchAI(wk, "image")
+	reply(w, 202, map[string]any{"status": "image_pending", "message": a.taskMessage()})
+}
+func (a *App) selectImage(w http.ResponseWriter, r *http.Request) {
+	owner := a.uid(w, r)
+	if owner == "" {
+		return
+	}
+	id := r.PathValue("id")
+	var q struct {
+		Index int `json:"index"`
+	}
+	if decode(r, &q) != nil {
+		fail(w, 400, "参数有误")
+		return
+	}
+	var copyWork *Work
+	err := a.db.update(func(d *Data) error {
+		v, ok := d.Works[id]
+		if !ok || v.Owner != owner {
+			return errNotFound
+		}
+		if v.Status != "image_ready" || q.Index < 0 || q.Index >= len(v.Candidates) {
+			return fmt.Errorf("无法选择此图片")
+		}
+		v.Selected = q.Index
+		v.Status = "model_pending"
+		cp := *v
+		copyWork = &cp
+		return nil
+	})
+	if err != nil {
+		fail(w, 400, err.Error())
+		return
+	}
+	a.dispatchAI(copyWork, "model")
+	reply(w, 202, map[string]string{"status": "model_pending", "message": a.taskMessage()})
+}
+func (a *App) createOrder(w http.ResponseWriter, r *http.Request) {
+	owner := a.uid(w, r)
+	if owner == "" {
+		return
+	}
+	var q struct {
+		WorkID  string `json:"work_id"`
+		Name    string `json:"name"`
+		Phone   string `json:"phone"`
+		Address string `json:"address"`
+	}
+	if decode(r, &q) != nil {
+		fail(w, 400, "参数有误")
+		return
+	}
+	q.Name = strings.TrimSpace(q.Name)
+	q.Phone = strings.TrimSpace(q.Phone)
+	q.Address = strings.TrimSpace(q.Address)
+	if len([]rune(q.Name)) < 2 || len(q.Phone) < 6 || len(q.Phone) > 20 || len([]rune(q.Address)) < 8 || len(q.Address) > 800 {
+		fail(w, 400, "请填写完整收货信息")
+		return
+	}
+	order := &Order{ID: newID(), Owner: owner, WorkID: q.WorkID, CreatedAt: now(), Name: q.Name, Phone: q.Phone, Address: q.Address, PriceFen: a.cfg.PriceFen, Status: "awaiting_payment"}
+	err := a.db.update(func(d *Data) error {
+		wk, ok := d.Works[q.WorkID]
+		if !ok || wk.Owner != owner || wk.Status != "model_ready" {
+			return fmt.Errorf("模型尚未准备好")
+		}
+		for _, o := range d.Orders {
+			if o.WorkID == q.WorkID && o.Owner == owner && o.Status != "canceled" {
+				return fmt.Errorf("该作品已有订单")
+			}
+		}
+		d.Orders[order.ID] = order
+		return nil
+	})
+	if err != nil {
+		fail(w, 409, err.Error())
+		return
+	}
+	copyOrder := *order
+	copyOrder.Owner = ""
+	reply(w, 201, &copyOrder)
+}
+func (a *App) listOrders(w http.ResponseWriter, r *http.Request) {
+	owner := a.uid(w, r)
+	if owner == "" {
+		return
+	}
+	out := []*Order{}
+	for _, o := range a.db.orders(owner, false) {
+		o.Owner = ""
+		out = append(out, o)
+	}
+	reply(w, 200, out)
+}
+func (a *App) getOrder(w http.ResponseWriter, r *http.Request) {
+	owner := a.uid(w, r)
+	if owner == "" {
+		return
+	}
+	o, ok := a.db.order(r.PathValue("id"))
+	if !ok || o.Owner != owner {
+		fail(w, 404, "订单不存在")
+		return
+	}
+	o.Owner = ""
+	reply(w, 200, o)
+}

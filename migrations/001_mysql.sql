@@ -1,0 +1,15 @@
+-- MySQL 8+; optional manual schema deployment (Go initializes automatically).
+CREATE TABLE IF NOT EXISTS ty_store_lock (
+  id INTEGER PRIMARY KEY
+) ENGINE=InnoDB;
+INSERT IGNORE INTO ty_store_lock(id) VALUES (1);
+CREATE TABLE IF NOT EXISTS ty_works (
+  id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL,
+  created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL,
+  INDEX ix_ty_works_owner (owner_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS ty_orders (
+  id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL,
+  created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL,
+  INDEX ix_ty_orders_owner (owner_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

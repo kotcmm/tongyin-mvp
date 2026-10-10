@@ -1,0 +1,10 @@
+<view class="container">
+ <view class="hero-title">从一张画，<text style="color:#F27750">开始变身</text></view>
+ <view class="sub" style="margin-top:15rpx">画一只小动物、怪兽或独一无二的幻想角色。尽量拍清楚整张画。</view>
+ <view class="pick" bindtap="choose">
+   <image wx:if="{{path}}" src="{{path}}" mode="aspectFit" class="picked"/>
+   <view wx:else class="empty"><view style="font-size:100rpx">＋</view><view>拍照或从相册选择</view><view style="font-size:24rpx;color:#A69993;margin-top:12rpx">JPG / PNG，建议主体清晰</view></view>
+ </view>
+ <button class="btn" disabled="{{!path || busy}}" loading="{{busy}}" bindtap="send">开始 AI 变身</button>
+ <view class="muted" style="margin-top:34rpx">请由家长上传有权使用的画作。图片仅用于定制服务，不会默认公开展示。</view>
+</view>

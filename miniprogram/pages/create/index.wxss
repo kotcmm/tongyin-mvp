@@ -1,0 +1,2 @@
+.pick{margin:48rpx 0 34rpx;border:3rpx dashed #E8BEA9;border-radius:30rpx;background:#fff;min-height:570rpx;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.empty{text-align:center;color:#B66E51;font-weight:600}.picked{width:100%;height:570rpx}

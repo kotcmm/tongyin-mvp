@@ -1,0 +1,18 @@
+<view class="container">
+  <view class="eyebrow">✦ TONG YIN · 童印</view>
+  <view class="hero-title" style="margin-top:38rpx">孩子笔下的想象，<text style="color:#F27750">真的能捧在手心</text></view>
+  <view class="sub" style="margin-top:28rpx">上传一张画，让 AI 把它变成立体形象。我们打印成白色小摆件，孩子还可以亲手涂上喜欢的颜色。</view>
+  <view class="showcase">
+    <view class="paper"><view class="face">✿</view><view class="paper-desc">一张童真的画</view></view>
+    <view class="arrow">→</view>
+    <view class="paper raised"><view class="face">♟</view><view class="paper-desc">一个立体作品</view></view>
+  </view>
+  <button class="btn" bindtap="toCreate">开始制作我的童印 →</button>
+  <view class="card">
+    <view class="section-title" style="margin-top:0">只需要 3 步</view>
+    <view class="step"><text class="no">01</text><text>上传孩子的画作</text></view>
+    <view class="step"><text class="no">02</text><text>选出喜欢的立体形象</text></view>
+    <view class="step"><text class="no">03</text><text>确认白模并定制实物</text></view>
+  </view>
+  <view class="muted" style="text-align:center;margin:34rpx 14rpx">定制白模为 3D 打印作品，实物细节可能与预览略有差异。由家长操作和下单。</view>
+</view>

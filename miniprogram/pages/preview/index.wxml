@@ -1,0 +1,20 @@
+<view class="container">
+ <view class="section-title">看看它的立体模样</view>
+ <view class="sub">以下是白色 3D 打印摆件的造型预览。</view>
+ <view wx:if="{{item && item.status==='model_pending'}}" class="card" style="text-align:center;padding:80rpx 25rpx"><view style="font-size:88rpx">☁</view><view class="section-title">正在生成 3D 模型</view><view class="muted">生成任务已提交，稍后刷新即可看到白模。</view></view>
+ <view wx:elif="{{item && item.status==='failed'}}" class="card">生成失败：{{item.note || '请联系客服'}}</view>
+ <view wx:elif="{{item && item.status==='model_ready'}}">
+   <swiper indicator-dots autoplay="false" style="height:560rpx;margin:26rpx 0" circular><swiper-item wx:for="{{item.preview}}" wx:key="index"><image class="preview-image" src="{{item}}" mode="aspectFit" style="height:560rpx"/></swiper-item></swiper>
+   <view class="tag">白色打印 · 可自行涂色</view>
+   <view class="card">
+     <view class="section-title" style="margin:0">确认定制</view>
+     <view class="sub">童印白色立体摆件（固定规格）</view>
+     <view style="margin:20rpx 0;font-size:42rpx;color:#F27750;font-weight:750">¥ {{price}}</view>
+     <input class="field" placeholder="收件人姓名" value="{{name}}" bindinput="name" maxlength="30"/>
+     <input class="field" placeholder="联系电话" value="{{phone}}" bindinput="phone" type="number" maxlength="20"/>
+     <textarea class="field" style="width:auto;height:145rpx" placeholder="详细收件地址（省市区、街道门牌号）" value="{{address}}" bindinput="address" maxlength="300"/>
+     <view class="muted">按所选造型定制，实际表面纹理和细节可能略有差异。请确认收货信息后下单。</view>
+     <button class="btn" style="margin-top:28rpx" disabled="{{busy || !name || !phone || !address}}" loading="{{busy}}" bindtap="submit">确认订单，去付款</button>
+   </view>
+ </view>
+</view>

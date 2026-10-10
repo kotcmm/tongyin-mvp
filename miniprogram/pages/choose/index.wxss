@@ -1,0 +1,1 @@
+.option{background:#fff;padding:16rpx;border:3rpx solid transparent;border-radius:28rpx;margin:24rpx 0}.option.active{border-color:#F27750}.candidate{width:100%;height:390rpx}.choice{display:flex;justify-content:space-between;padding:18rpx 12rpx;color:#8B746C}

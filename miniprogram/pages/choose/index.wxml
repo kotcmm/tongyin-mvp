@@ -1,0 +1,13 @@
+<view class="container">
+ <view class="section-title">选出最喜欢的形象</view>
+ <view class="sub">尽量保留孩子原画里与众不同的模样。</view>
+ <view wx:if="{{item && item.status==='image_pending'}}" class="card" style="text-align:center;padding:80rpx 25rpx"><view style="font-size:88rpx">🎨</view><view class="section-title">正在绘制立体形象</view><view class="muted">生成任务已提交，稍后会显示两个方案。可以先离开此页面。</view></view>
+ <view wx:elif="{{item && item.status==='failed'}}" class="card">生成未成功：{{item.note || '请联系客服处理'}}</view>
+ <view wx:elif="{{item && item.status==='image_ready'}}">
+  <view wx:for="{{item.candidates}}" wx:key="index" class="option {{selected===index?'active':''}}" data-index="{{index}}" bindtap="select">
+   <image src="{{item}}" mode="aspectFit" class="candidate"/>
+   <view class="choice"><text>方案 {{index+1}}</text><text>{{selected===index?'✓ 已选择':'点按选择'}}</text></view>
+  </view>
+  <button class="btn" disabled="{{selected<0 || busy}}" loading="{{busy}}" bindtap="confirm">用这个形象生成 3D</button>
+ </view>
+</view>

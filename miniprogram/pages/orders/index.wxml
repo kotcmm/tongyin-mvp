@@ -1,0 +1,9 @@
+<view class="container">
+ <view class="section-title">我的童印订单</view>
+ <view wx:if="{{!loading && items.length===0}}" class="card" style="text-align:center;padding:80rpx 20rpx"><view style="font-size:80rpx">📦</view><view class="sub">还没有订单，去制作第一个童印吧！</view><button class="btn" style="margin-top:35rpx" bindtap="make">开始制作</button></view>
+ <view wx:for="{{items}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="open">
+   <view style="display:flex;justify-content:space-between"><text style="font-weight:700">订单 #{{item.shortid}}</text><text style="color:#E97B54">{{item.label}}</text></view>
+   <view class="muted" style="margin:20rpx 0">{{item.created_at}}</view>
+   <view style="display:flex;justify-content:space-between"><text>童印白模定制</text><text style="font-weight:700">¥ {{item.price}}</text></view>
+ </view>
+</view>

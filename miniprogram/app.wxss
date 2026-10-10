@@ -1,0 +1,14 @@
+page{background:#FFF9F3;color:#33312F;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;font-size:30rpx;box-sizing:border-box}
+.container{padding:34rpx 34rpx 66rpx}
+.hero-title{font-size:56rpx;line-height:1.24;font-weight:800;letter-spacing:1rpx}
+.sub{font-size:26rpx;color:#807873;line-height:1.75}
+.card{background:#fff;border-radius:30rpx;padding:32rpx;margin-top:24rpx;box-shadow:0 8rpx 28rpx rgba(102,61,39,.055)}
+.btn{background:#F27750;color:white;border-radius:60rpx;font-size:30rpx;font-weight:650;height:94rpx;line-height:94rpx;border:none;box-shadow:0 10rpx 24rpx rgba(242,119,80,.16)}
+.btn::after{border:none}.btn[disabled]{background:#E3C7BC;box-shadow:none}
+.secondary-btn{color:#F27750;background:#FFF0E8;border-radius:60rpx;border:0}
+.secondary-btn::after{border:none}
+.section-title{font-size:36rpx;font-weight:750;margin:30rpx 0 10rpx}
+.muted{color:#8B807A;font-size:25rpx;line-height:1.65}
+.preview-image{width:100%;border-radius:22rpx;background:#F5F2EF;display:block}
+.field{display:block;background:#FFF;border:2rpx solid #F1E9E3;border-radius:20rpx;padding:20rpx;margin:14rpx 0;font-size:29rpx}
+.tag{display:inline-block;background:#FFF0E6;color:#AA6948;border-radius:30rpx;padding:9rpx 18rpx;font-size:23rpx}
