@@ -1,7 +1,7 @@
 const {request,tip}=require('../../utils/api')
 const STATES={
   image_pending:{title:'等待形象制作',hint:'作品已收到，等待处理',step:1,tone:'processing'},
-  image_ready:{title:'等你挑选形象',hint:'两张方案已准备好',step:2,tone:'action'},
+  image_ready:{title:'等待确认形象',hint:'已生成1张形象图，可以继续或重试',step:2,tone:'action'},
   model_pending:{title:'等待白模制作',hint:'已选好形象，等待白模完成',step:3,tone:'processing'},
   model_ready:{title:'可以确认定制',hint:'白模预览已准备好',step:4,tone:'ready'},
   failed:{title:'需要重新处理',hint:'这次生成没有完成',step:0,tone:'failed'}
