@@ -1,31 +1,54 @@
 const {request,tip}=require('../../utils/api')
 Page({
- data:{id:'',item:null,selected:-1,busy:false,dev:false,aiAutoEnabled:true,loading:true},
+ data:{id:'',item:null,busy:false,dev:false,aiAutoEnabled:true,loading:true,maxAttempts:2},
  onLoad(q){
   this.setData({id:q.id})
-  request('GET','/api/config').then(cfg=>this.setData({dev:!!cfg.dev,aiAutoEnabled:cfg.ai_auto_enabled!==false})).catch(()=>{})
+  request('GET','/api/config').then(cfg=>this.setData({
+    dev:!!cfg.dev,aiAutoEnabled:cfg.ai_auto_enabled!==false,maxAttempts:cfg.free_image_attempts||2
+  })).catch(()=>{})
  },
- onShow(){this.refresh();this.poll=setInterval(()=>this.refresh(true),5000)},
- onHide(){clearInterval(this.poll)},
- onUnload(){clearInterval(this.poll)},
+ onShow(){this.refresh();this.beginPolling()},
+ onHide(){this.stopPolling()},
+ onUnload(){this.stopPolling()},
+ beginPolling(){this.stopPolling();this.poll=setInterval(()=>this.refresh(true),5000)},
+ stopPolling(){if(this.poll){clearInterval(this.poll);this.poll=null}},
  async refresh(silent){
   if(!this.data.id)return
   try{
    const item=await request('GET','/api/works/'+this.data.id)
-   this.setData({item,loading:false})
+   const used=item.image_attempts||0
+   this.setData({item,loading:false,canRetry:used<this.data.maxAttempts,remaining:Math.max(0,this.data.maxAttempts-used)})
    if(item.status==='model_pending'||item.status==='model_ready'){
-    clearInterval(this.poll)
+    this.stopPolling()
     wx.redirectTo({url:'/pages/preview/index?id='+this.data.id})
-   }else if(item.status==='image_ready')clearInterval(this.poll)
+   }else if(item.status==='image_ready')this.stopPolling()
   }catch(e){this.setData({loading:false});if(!silent)tip(e)}
  },
- select(e){this.setData({selected:Number(e.currentTarget.dataset.index)})},
  async confirm(){
-  if(this.data.selected<0||this.data.busy)return
+  if(this.data.busy||!this.data.item||this.data.item.status!=='image_ready')return
   this.setData({busy:true})
-  try{await request('POST','/api/works/'+this.data.id+'/select',{index:this.data.selected});wx.redirectTo({url:'/pages/preview/index?id='+this.data.id})}
-  catch(e){tip(e)}
-  finally{this.setData({busy:false})}
+  try{
+   await request('POST','/api/works/'+this.data.id+'/select',{index:0})
+   wx.redirectTo({url:'/pages/preview/index?id='+this.data.id})
+  }catch(e){tip(e)}finally{this.setData({busy:false})}
+ },
+ retry(){
+  if(this.data.busy||!this.data.canRetry)return
+  wx.showModal({
+   title:'重新生成形象？',
+   content:'本次只会生成1张新图，将替换当前效果。当前还剩'+this.data.remaining+'次免费机会，确认继续吗？',
+   confirmText:'重新生成',
+   success:res=>{if(res.confirm)this.submitRetry()}
+  })
+ },
+ async submitRetry(){
+  if(this.data.busy)return
+  this.setData({busy:true})
+  try{
+   await request('POST','/api/works/'+this.data.id+'/generate',{})
+   await this.refresh()
+   this.beginPolling()
+  }catch(e){tip(e)}finally{this.setData({busy:false})}
  },
  toWorks(){wx.switchTab({url:'/pages/works/index'})}
 })
