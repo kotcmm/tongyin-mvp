@@ -41,7 +41,7 @@ h2{font-size:21px;margin:0 0 14px}h3{font-size:16px;margin:0 0 10px}p{line-heigh
 <div class="row"><input type="password" id="token" placeholder="请输入 ADMIN_TOKEN"><button onclick="login()">进入后台</button><button class="secondary" onclick="logout()">退出</button></div></header>
 <main><p id="msg">登录后可以查看正在制作的作品。</p>
 <section class="panel"><div class="title-row"><h2>作品制作进度</h2><button class="secondary" onclick="refresh()">刷新列表</button></div>
-<p class="muted">操作顺序：① 查看原画 → ② 上传 1 张 AI 形象图 → ③ 家长确认后上传 GLB，自动生成正面/侧面/背面白模预览 → ④ 家长付款后打印发货。</p><div id="works"></div></section>
+<p class="muted">操作顺序：① 查看原画 → ② 上传 1 张 AI 形象图 → ③ 家长确认后上传 GLB，小程序直接交互式 3D 预览 → ④ 家长付款后打印发货。</p><div id="works"></div></section>
 <section class="panel"><h2>第 4 步 · 订单 / 打印 / 发货</h2>
 <p class="muted">用户确认白模并付款后，在这里按顺序更新制作状态；未付款订单不能开始打印。</p><div id="orders"></div></section>
 </main>
@@ -86,16 +86,16 @@ function stepTwo(w){
 function stepThree(w){
  const selected=w.selected>=0;
  const hasModel=!!w.model, previews=w.preview||[];
- let contents='<div class="step-hint">上传 GLB 后，会在当前浏览器自动生成正面、侧面、背面三张白色模型预览并上传。生成期间请保持后台页面打开。</div>';
+ let contents='<div class="step-hint">GLB 上传完成后小程序即可手指旋转、缩放查看。预览图片不再是必填项，需要兼容旧设备时才生成备用图片。</div>';
  if(selected){
   contents+='<div class="step-model"><div class="minor">3A · 3D 模型文件：'+(hasModel?'已上传':'未上传')+'</div>';
   if(hasModel)contents+='<a target="_blank" rel="noreferrer" href="'+h(w.model)+'">下载目前的 GLB 模型</a>';
   if(w.status==='model_pending'||w.status==='model_ready'){
-   contents+=uploadRow(w.id,'model','模型文件（只接受 .glb）','.glb','上传 GLB 并自动生成三视图');
+   contents+=uploadRow(w.id,'model','模型文件（只接受 .glb）','.glb','上传 GLB（完成后即可 3D 预览）');
    contents+='<div id="render_status_'+w.id+'" class="render-status" role="status" aria-live="polite"></div>';
-   if(hasModel && previews.length===0)contents+='<button class="secondary" onclick="renderExisting(\''+w.id+'\')">为已上传 GLB 自动补生成预览</button>';
-   contents+='<div class="minor">3B · 白模角度图片（'+previews.length+'/4）</div><div class="thumb-list">'+thumbs(previews)+'</div>';
-   if(previews.length<4)contents+='<div class="step-hint">若模型使用了不支持的压缩格式，或自动渲染失败，可在下方手动上传预览图：</div>'+uploadRow(w.id,'preview','手动上传白模预览（备用）','image/png,image/jpeg,image/webp','手动上传下一张预览');
+   if(hasModel && previews.length===0)contents+='<button class="secondary" onclick="renderExisting(\''+w.id+'\')">可选：生成三张备用预览图</button>';
+   contents+='<div class="minor">备用静态图片（可选，'+previews.length+'/4）</div><div class="thumb-list">'+thumbs(previews)+'</div>';
+   if(previews.length<4)contents+='<div class="step-hint">只有遇到不兼容 XR Frame 的手机时，才需要手动上传备用预览图：</div>'+uploadRow(w.id,'preview','手动上传白模预览（备用）','image/png,image/jpeg,image/webp','手动上传下一张预览');
   }else contents+='<div class="callout">当前状态需要先处理，请联系管理员检查。</div>';
   contents+='</div>';
  }else{
@@ -195,20 +195,17 @@ async function uploadAsset(id,kind){
   renderStatus(id,'正在上传文件…');
   await api('/api/admin/works/'+id+'/asset?kind='+kind,{method:'POST',body:form});
   uploaded=true;
-  if(kind==='model'){
-   await generatePreviews(id,await file.arrayBuffer());
-  }
   await refresh();
  }catch(e){
   const network=/Failed to fetch|NetworkError|fetch failed|Load failed/i.test(e.message||'');
   const reason=network?'网络连接中断，请检查后端服务。':e.message;
   alert(kind==='model'&&uploaded?
-   'GLB 已保存，但自动生成预览失败：'+reason+'。可以用「为已上传 GLB 自动补生成预览」重试，或手动上传预览图。':
+   'GLB 已保存，但是后续操作失败：'+reason+'。GLB 仍可在小程序直接预览。':
    '上传失败：'+reason);
   await refresh();
  }finally{
   if(kind==='model')renderingIds.delete(id);
-  if(button&&button.isConnected){button.disabled=false;button.textContent=kind==='model'?'上传 GLB 并自动生成三视图':kind==='preview'?'手动上传下一张预览':'上传 / 替换本张形象图'}
+  if(button&&button.isConnected){button.disabled=false;button.textContent=kind==='model'?'上传 GLB（完成后即可 3D 预览）':kind==='preview'?'手动上传下一张预览':'上传 / 替换本张形象图'}
  }
 }
 async function changeWork(id,status){
