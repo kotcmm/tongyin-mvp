@@ -12,7 +12,7 @@ Component({
     },
     handleProgress() {},
     handleAssetsLoaded() {
-      this.triggerEvent('modelLoaded');
+      this.triggerEvent('modelloaded');
     }
   },
   lifetimes: {
