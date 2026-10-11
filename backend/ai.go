@@ -32,7 +32,7 @@ func (a *App) dispatchAI(wk *Work, stage string) {
 		}
 		source = wk.Candidates[wk.Selected]
 	}
-	data, _ := json.Marshal(map[string]any{"work_id": wk.ID, "stage": stage, "generation_id": wk.GenerationID, "source_url": a.signedMedia(source), "callback_url": a.cfg.PublicURL + "/api/internal/ai-result", "instructions": "Preserve distinctive features of original children's drawing. Single full-body printable character, neutral background, no unsupported thin parts. For image stage return exactly one candidate image; for model stage return GLB and 1-4 white clay render previews."})
+	data, _ := json.Marshal(map[string]any{"work_id": wk.ID, "stage": stage, "generation_id": wk.GenerationID, "source_url": a.signedMedia(source), "callback_url": a.cfg.PublicURL + "/api/internal/ai-result", "instructions": "Preserve distinctive features of original children's drawing. Single full-body printable character, neutral background, no unsupported thin parts. For image stage return exactly one candidate image; for model stage return GLB; preview images are optional fallback."})
 	go func() {
 		req, err := http.NewRequest("POST", a.cfg.AIWorkerURL, bytes.NewReader(data))
 		if err != nil {
@@ -102,8 +102,8 @@ func (a *App) aiResult(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "每次形象生成必须返回一张图片")
 		return
 	}
-	if q.Stage == "model" && (q.ModelURL == "" || len(q.URLs) < 1 || len(q.URLs) > 4) {
-		fail(w, 400, "模型阶段必须包含模型URL和1-4张预览图")
+	if q.Stage == "model" && (q.ModelURL == "" || len(q.URLs) > 4) {
+		fail(w, 400, "模型阶段须提供GLB URL，预览图片可选（最多4张）")
 		return
 	}
 	local := []string{}
