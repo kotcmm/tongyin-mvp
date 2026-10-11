@@ -75,7 +75,7 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 			// could see the previous character while ordering the replacement.
 			wk.Model = name
 			wk.Preview = []string{}
-			wk.Status = "model_pending"
+			wk.Status = "model_ready" // GLB itself is sufficient for interactive 3D preview
 		}
 		return nil
 	})
@@ -105,8 +105,8 @@ func (a *App) adminWorkStatus(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			return errNotFound
 		}
-		if q.Status == "model_ready" && (wk.Model == "" || len(wk.Preview) == 0) {
-			return fmt.Errorf("缺少模型或预览图")
+		if q.Status == "model_ready" && wk.Model == "" {
+			return fmt.Errorf("缺少GLB模型")
 		}
 		wk.Status = q.Status
 		wk.Note = strings.TrimSpace(q.Note)
