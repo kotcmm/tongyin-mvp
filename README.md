@@ -17,7 +17,7 @@
 
 ## 本地启动（默认 PostgreSQL）
 
-Windows PowerShell：在项目根目录执行 `Copy-Item backend/.env.example backend/.env`，编辑 `.env` 的数据库和密钥配置后执行 `./scripts/dev.ps1`。脚本会加载环境变量并启动 Go，不需手工逐项设置。
+Windows PowerShell：在项目根目录执行 `Copy-Item backend/.env.example backend/.env`，编辑 `.env` 的数据库和密钥配置后执行 `./scripts/dev.ps1`。默认本地端口 **18080**；即使原来的 `.env` 仍是 8080，启动脚本也会覆盖本次运行的 `LISTEN_ADDR` 和 `PUBLIC_URL`（不修改 `.env` 文件）。如端口仍冲突，可以指定 `./scripts/dev.ps1 -Port 18081`，并同步修改 `miniprogram/config.js` 的 `API_BASE`。
 
 ```bash
 cd backend
@@ -29,11 +29,11 @@ set -a; source .env; set +a
 go run .
 ```
 
-健康检查：`curl http://localhost:8080/health`。数据库 `tongyin` 需预先创建并给账号授予建表权限；Go 启动时自动创建三张 `ty_*` 表及索引。
+健康检查：`curl http://localhost:18080/health`。数据库 `tongyin` 需预先创建并给账号授予建表权限；Go 启动时自动创建三张 `ty_*` 表及索引。
 
 不想先启动数据库时，仅限本地调试：把 `DB_DRIVER=file`、`DEV_MODE=true` 写入 `.env`，会使用 `DATA_DIR/store.json`。
 
-运营后台：`http://localhost:8080/admin/`，输入 `.env` 中的 `ADMIN_TOKEN`。
+运营后台：`http://localhost:18080/admin/`，输入 `.env` 中的 `ADMIN_TOKEN`。
 
 小程序：使用微信开发者工具导入 `miniprogram/`，将 `miniprogram/config.js` 的 `API_BASE` 改为本地地址或 HTTPS API 域名。在开发者工具的本地调试中可关闭域名校验（**仅用于本地调试**）；开发模式使用 `DEV_LOGIN: true` 并确保后端 `DEV_MODE=true`。正式环境必须双端禁用 DEV 模式。
 
@@ -146,7 +146,7 @@ mkdir -p runtime-data secrets
 docker compose up -d --build
 ```
 
-现有 Nginx/HTTPS 反向代理指向 `127.0.0.1:8080`，见 `nginx.example.conf`。小程序后台需配置 `request` 和 `uploadFile` 合法服务器域名。浏览器通过 `https://api.example.com/admin/` 访问后台。
+现有 Nginx/HTTPS 反向代理指向 `127.0.0.1:18080`，见 `nginx.example.conf`。小程序后台需配置 `request` 和 `uploadFile` 合法服务器域名。浏览器通过 `https://api.example.com/admin/` 访问后台。
 
 > 当前项目是**可本地运行的业务原型**，不是已上线的正式收款系统。上线前最少要完成：接已有数据库、对接 AI 提供商/人工生产流程、设置生产 HTTPS 与真实 AppID、实测微信支付回调和订单、配置访问控制/备份、完成小程序资质及隐私披露，并在开发者工具真机验收。
 
