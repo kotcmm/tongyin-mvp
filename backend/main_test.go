@@ -102,10 +102,9 @@ func TestCompleteOrderUntilPay(t *testing.T) {
 	mustJSON(t, makeReq("POST", "/api/works/"+work.ID+"/select", `{"index":0}`, false), 202, nil)
 	glb := append([]byte("glTF"), make([]byte, 16)...)
 	mustJSON(t, postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=model", "", true, glb, "model.glb"), 200, nil)
-	mustJSON(t, postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=preview", "", true, pngbuf.Bytes(), "preview.png"), 200, nil)
 	mustJSON(t, makeReq("GET", "/api/works/"+work.ID, "", false), 200, &ready)
-	if ready.Status != "model_ready" {
-		t.Fatalf("model stage failed: %s", ready.Status)
+	if ready.Status != "model_ready" || ready.Model == "" || len(ready.Preview) != 0 {
+		t.Fatalf("GLB-only ready expected: %+v", ready)
 	}
 	var order Order
 	mustJSON(t, makeReq("POST", "/api/orders", `{"work_id":"`+work.ID+`","name":"张三","phone":"13800138000","address":"广东省广州市天河区测试路100号"}`, false), 201, &order)
@@ -201,7 +200,7 @@ func TestReplacingGLBInvalidatesOldPreviews(t *testing.T) {
  w:=postFile(t,a.routes(),"/api/admin/works/"+work.ID+"/asset?kind=model","",true,glb,"new.glb")
  mustJSON(t,w,200,nil)
  updated,_:=db.work(work.ID)
- if updated.Status!="model_pending"||updated.Model==""||updated.Model=="old.glb"||len(updated.Preview)!=0{
+ if updated.Status!="model_ready"||updated.Model==""||updated.Model=="old.glb"||len(updated.Preview)!=0{
   t.Fatalf("model replacement kept stale preview or incorrect status: %+v",updated)
  }
  pic:=new(bytes.Buffer)
