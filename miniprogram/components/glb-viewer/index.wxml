@@ -1,0 +1,20 @@
+<xr-scene
+  id="xr-scene"
+  width="{{renderWidth}}"
+  height="{{renderHeight}}"
+  style="width:100%;height:100%;"
+  bind:ready="handleSceneReady">
+  <xr-assets bind:loaded="handleAssetsLoaded" bind:progress="handleProgress">
+    <xr-asset-load type="gltf" asset-id="tongyin-glb" src="{{modelUrl}}"></xr-asset-load>
+  </xr-assets>
+  <xr-node>
+    <xr-node node-id="camera-target" position="0 0 0"></xr-node>
+    <xr-gltf id="figurine" node-id="figurine" model="tongyin-glb" position="0 0 0" scale="{{modelScale}}"></xr-gltf>
+    <xr-camera id="camera" node-id="camera" position="0 0.4 3" near="0.01" far="1000" clear-color="0.95 0.96 0.94 1" target="camera-target" camera-orbit-control=""></xr-camera>
+  </xr-node>
+  <xr-node>
+    <xr-light type="ambient" color="1 1 1" intensity="1.6"></xr-light>
+    <xr-light type="directional" color="1 1 1" rotation="40 130 0" intensity="2.5"></xr-light>
+    <xr-light type="directional" color="1 1 1" rotation="-30 -50 0" intensity="0.8"></xr-light>
+  </xr-node>
+</xr-scene>
