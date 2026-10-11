@@ -221,6 +221,21 @@ func TestAdminBundledPreviewScripts(t *testing.T) {
  }
 }
 
+func TestMigrateLegacyGLBWorks(t *testing.T) {
+ db,err:=newStore(filepath.Join(t.TempDir(),"works.json"))
+ if err!=nil{t.Fatal(err)}
+ if err=db.update(func(data *Data)error {
+  data.Works["legacy"]=&Work{ID:"legacy",Status:"model_pending",Model:"old.glb",Preview:[]string{}}
+  data.Works["waiting"]=&Work{ID:"waiting",Status:"model_pending",Model:""}
+  return nil
+ });err!=nil{t.Fatal(err)}
+ if err=activateLegacyGLBWorks(db);err!=nil{t.Fatal(err)}
+ a,_:=db.work("legacy")
+ b,_:=db.work("waiting")
+ if a.Status!="model_ready" || b.Status!="model_pending" {t.Fatalf("migration changed unexpected states: %+v %+v",a,b)}
+ if err=activateLegacyGLBWorks(db);err!=nil{t.Fatal(err)}
+}
+
 func TestDBDialectBindings(t *testing.T) {
 	if got := (&SQLStore{dialect: "postgres"}).bind("SELECT * FROM ty_orders WHERE id=? AND owner_id=?"); got != "SELECT * FROM ty_orders WHERE id=$1 AND owner_id=$2" {
 		t.Fatalf("PostgreSQL binding failed: %s", got)
