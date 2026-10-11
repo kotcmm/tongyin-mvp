@@ -12,7 +12,9 @@
             "ignore": [],
             "disablePlugins": [],
             "outputPath": ""
-        }
+        },
+        "ignoreDevUnusedFiles": false,
+        "ignoreUploadUnusedFiles": false
     },
     "libVersion": "3.8.0",
     "packOptions": {
