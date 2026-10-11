@@ -1,1 +1,0 @@
-<web-view wx:if="{{viewerUrl}}" src="{{viewerUrl}}"></web-view><view wx:else class="viewer-error">{{error || '正在打开模型…'}}</view>

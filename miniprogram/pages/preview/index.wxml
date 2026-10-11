@@ -13,18 +13,22 @@
  <view wx:elif="{{item && item.status==='failed'}}" class="waiting"><view class="waiting-title">这次还没有完成</view><view class="waiting-desc">{{item.note || '模型需要重新处理，请稍后查看。'}}</view><view class="nav-action" bindtap="toWorks"><text>前往我的作品</text><text>→</text></view></view>
  <view wx:elif="{{item && item.model}}">
   <view class="preview-gallery">
-   <view class="gallery-top"><view class="gallery-label">你的专属 3D 作品</view><view class="gallery-tag">交互式模型</view></view>
-   <view class="launch-3d" bindtap="open3D">
-    <view class="launch-shape">✳</view>
-    <view class="launch-title">打开 3D 互动预览</view>
-    <view class="launch-caption">查看真实 GLB 造型 · 旋转、缩放、看清每个角度</view>
-    <view class="launch-button">进入立体模型 <text>→</text></view>
+   <view class="gallery-top">
+    <view class="gallery-label">你的专属 3D 白模</view>
+    <view class="gallery-tag">自由旋转 · 缩放</view>
    </view>
-   <view wx:if="{{hasPreviews}}" class="fallback-label">备用角度图</view>
-   <swiper wx:if="{{hasPreviews}}" indicator-dots indicator-color="#D7DDD6" indicator-active-color="#E87955" autoplay="{{false}}" style="height:380rpx" circular>
-    <swiper-item wx:for="{{item.preview}}" wx:key="index"><image class="preview-image" src="{{item}}" mode="aspectFit" style="height:380rpx"/></swiper-item>
-   </swiper>
-   <view class="gallery-bottom">模型可在独立 3D 页面里用手势查看 <text>◦ 白色 PLA 打印</text></view>
+   <view class="model-stage">
+    <canvas wx:if="{{showCanvas}}" type="webgl" id="modelCanvas" class="model-canvas"
+      bindtouchstart="canvasTouchStart" catchtouchmove="canvasTouchMove"
+      bindtouchend="canvasTouchEnd" bindtouchcancel="canvasTouchEnd"></canvas>
+    <view wx:if="{{viewerLoading}}" class="model-message">{{viewerMessage}}</view>
+    <view wx:if="{{viewerError}}" class="model-error">
+     <view>当前 3D 模型未能显示</view>
+     <view class="model-error-detail">{{viewerError}}</view>
+     <view class="model-retry" bindtap="retryViewer">重新加载模型 →</view>
+    </view>
+   </view>
+   <view class="gallery-bottom">单指拖动旋转 · 双指捏合缩放 <text>◦ 白色 PLA 打印</text></view>
   </view>
   <view class="product-note"><view class="note-symbol">✳</view><view><view class="note-title">留白，留给孩子的创造力</view><view class="note-desc">收到白色模型后，可以自行涂色，继续完成自己的作品。</view></view></view>
   <view class="checkout">
