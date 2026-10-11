@@ -2,21 +2,49 @@
  <view class="page-kicker">STEP 03 / 03 <text class="kicker-line"></text> 3D 白模</view>
  <view class="section-title preview-title">看看它的<text class="accent">立体模样.</text></view>
  <view class="sub">这就是即将变成白色实物的造型。</view>
- <view wx:if="{{item && item.status==='model_pending'}}" class="waiting">
+ <view wx:if="{{item && item.status==='model_pending' && !item.model}}" class="waiting">
   <view class="orbit"><view class="orb-head"></view><view class="orb-body"></view><view class="orb-base"></view><view class="orb-star">✦</view></view>
   <view class="waiting-kicker">FINAL STEP · 白模准备</view>
   <view class="waiting-title">{{!aiAutoEnabled ? '正在准备你的白模' : '立体形象正在成型'}}</view>
-  <view class="waiting-desc">{{!aiAutoEnabled && dev ? '当前未接入自动 3D 服务，请在管理后台上传 GLB 模型和至少一张白模预览图。' : !aiAutoEnabled ? '已记录你的选择，白模准备好后可以回来确认。' : '正在生成模型。稍后到我的作品继续查看。'}}</view>
+  <view class="waiting-desc">{{!aiAutoEnabled && dev ? '当前为人工处理模式，请在管理后台上传 GLB 模型，上传后即可预览。' : !aiAutoEnabled ? '已记录你的选择，白模准备好后可以回来确认。' : '正在生成模型。稍后到我的作品继续查看。'}}</view>
   <view class="waiting-hint">不需要一直停留，制作进度会保存在我的作品里。</view>
   <view class="nav-action" bindtap="toWorks"><text>查看我的作品</text><text>→</text></view>
  </view>
  <view wx:elif="{{item && item.status==='failed'}}" class="waiting"><view class="waiting-title">这次还没有完成</view><view class="waiting-desc">{{item.note || '模型需要重新处理，请稍后查看。'}}</view><view class="nav-action" bindtap="toWorks"><text>前往我的作品</text><text>→</text></view></view>
- <view wx:elif="{{item && item.status==='model_ready'}}">
-  <view class="preview-gallery"><view class="gallery-top"><view class="gallery-label">你的立体作品</view><view class="gallery-tag">白模预览</view></view>
-   <swiper indicator-dots indicator-color="#D7DDD6" indicator-active-color="#E87955" autoplay="{{false}}" style="height:540rpx" circular>
-    <swiper-item wx:for="{{item.preview}}" wx:key="index"><image class="preview-image" src="{{item}}" mode="aspectFit" style="height:540rpx"/></swiper-item>
+ <view wx:elif="{{item && item.model}}">
+  <view class="preview-gallery">
+   <view class="gallery-top">
+    <view class="gallery-label">你的专属 3D 模型</view>
+    <view class="gallery-tag">可旋转 · 可缩放</view>
+   </view>
+   <view wx:if="{{viewMode==='model'}}" class="viewer-area">
+    <glb-viewer
+      wx:if="{{show3D}}"
+      model-url="{{viewerUrl}}"
+      render-width="{{renderWidth}}"
+      render-height="{{renderHeight}}"
+      disable-scroll
+      style="display:block;width:100%;height:580rpx;"
+      bind:modelLoaded="onModelLoaded"
+      bind:modelError="onModelError"></glb-viewer>
+    <view wx:if="{{viewerLoading}}" class="viewer-message">正在加载立体模型，请稍候…</view>
+    <view wx:if="{{viewerFailed}}" class="viewer-error">
+     <view>这台设备暂时无法加载交互式 3D</view>
+     <view class="muted">请检查模型网络连接或微信基础库。可重试或切换静态预览。</view>
+     <view class="viewer-retry" bindtap="retryModel">重新加载 3D →</view>
+    </view>
+    <view wx:if="{{!viewerLoading && !viewerFailed}}" class="gesture-hint">手指左右拖动旋转 · 双指捏合缩放</view>
+   </view>
+   <swiper wx:elif="{{hasPreviews}}" indicator-dots indicator-color="#D7DDD6" indicator-active-color="#E87955" autoplay="{{false}}" style="height:580rpx" circular>
+    <swiper-item wx:for="{{item.preview}}" wx:key="index">
+     <image class="preview-image" src="{{item}}" mode="aspectFit" style="height:580rpx"/>
+    </swiper-item>
    </swiper>
-   <view class="gallery-bottom">左右滑动，查看不同角度 <text>◦  白色 PLA 打印</text></view>
+   <view class="viewer-switches">
+    <view class="viewer-switch {{viewMode==='model'?'selected':''}}" bindtap="showModel">交互式 3D</view>
+    <view wx:if="{{hasPreviews}}" class="viewer-switch {{viewMode==='images'?'selected':''}}" bindtap="showImages">静态备用图</view>
+   </view>
+   <view class="gallery-bottom">以 GLB 实体造型为准 <text>◦ 实物为白色 PLA 打印</text></view>
   </view>
   <view class="product-note"><view class="note-symbol">✳</view><view><view class="note-title">留白，留给孩子的创造力</view><view class="note-desc">收到白色模型后，可以自行涂色，继续完成自己的作品。</view></view></view>
   <view class="checkout">
