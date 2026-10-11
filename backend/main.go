@@ -39,6 +39,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+	if err := activateLegacyGLBWorks(db); err != nil { log.Fatal(err) }
 	app := &App{cfg: c, db: db, client: &http.Client{Timeout: 90 * time.Second}}
 	s := &http.Server{Addr: c.Addr, Handler: app.routes(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 1 << 20}
 	if c.AIWorkerURL == "" {
@@ -46,6 +47,23 @@ func main() {
 	}
 	log.Printf("童印 API listening on %s", c.Addr)
 	log.Fatal(s.ListenAndServe())
+}
+// Older versions required GLB + preview images to become ready.
+// When upgrading, make existing uploaded GLBs immediately viewable.
+func activateLegacyGLBWorks(db Repository) error {
+ needMigration := false
+ for _, work := range db.works("", true) {
+  if work.Status == "model_pending" && work.Model != "" { needMigration = true; break }
+ }
+ if !needMigration { return nil }
+ return db.update(func(data *Data) error {
+  for _, work := range data.Works {
+   if work.Status == "model_pending" && work.Model != "" {
+    work.Status = "model_ready"
+   }
+  }
+  return nil
+ })
 }
 func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
