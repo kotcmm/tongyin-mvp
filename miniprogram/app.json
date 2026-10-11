@@ -6,7 +6,8 @@
     "pages/create/index",
     "pages/choose/index",
     "pages/preview/index",
-    "pages/order/index"
+    "pages/order/index",
+    "pages/viewer/index"
   ],
   "window": {
     "navigationBarTitleText": "童印 · 把想象变成立体",
@@ -41,6 +42,5 @@
     ]
   },
   "style": "v2",
-  "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "sitemapLocation": "sitemap.json"
 }

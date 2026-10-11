@@ -236,6 +236,19 @@ func TestMigrateLegacyGLBWorks(t *testing.T) {
  if err=activateLegacyGLBWorks(db);err!=nil{t.Fatal(err)}
 }
 
+func TestInteractiveViewerAvailable(t *testing.T) {
+ cfg:=Config{}
+ a:=&App{cfg:cfg}
+ req:=httptest.NewRequest("GET","/admin/3d/",nil)
+ w:=httptest.NewRecorder()
+ a.routes().ServeHTTP(w,req)
+ if w.Code!=200 {t.Fatalf("viewer route HTTP %d: %s",w.Code,w.Body.String())}
+ html:=w.Body.String()
+ for _,expected:=range []string{"GLTFLoader","camera","model","旋转"} {
+  if !strings.Contains(html,expected){t.Fatalf("viewer missing %s",expected)}
+ }
+}
+
 func TestDBDialectBindings(t *testing.T) {
 	if got := (&SQLStore{dialect: "postgres"}).bind("SELECT * FROM ty_orders WHERE id=? AND owner_id=?"); got != "SELECT * FROM ty_orders WHERE id=$1 AND owner_id=$2" {
 		t.Fatalf("PostgreSQL binding failed: %s", got)

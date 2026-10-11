@@ -1,6 +1,3 @@
 {
-  "navigationBarTitleText": "3D 模型预览与定制",
-  "usingComponents": {
-    "glb-viewer": "../../components/glb-viewer/index"
-  }
+  "navigationBarTitleText": "3D 模型预览与定制"
 }

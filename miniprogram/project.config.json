@@ -12,21 +12,12 @@
             "ignore": [],
             "disablePlugins": [],
             "outputPath": ""
-        },
-        "ignoreDevUnusedFiles": false,
-        "ignoreUploadUnusedFiles": false,
-        "minifyWXSS": false,
-        "compileHotReLoad": false
+        }
     },
     "libVersion": "3.8.0",
     "packOptions": {
         "ignore": [],
-        "include": [
-            {
-                "type": "folder",
-                "value": "components/glb-viewer"
-            }
-        ]
+        "include": []
     },
     "condition": {},
     "editorSetting": {
