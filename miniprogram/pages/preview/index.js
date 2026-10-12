@@ -7,7 +7,7 @@ Page({
  data:{
   id:'',item:null,price:'--',name:'',phone:'',address:'',busy:false,
   dev:false,aiAutoEnabled:true,
-  showCanvas:false,viewerLoading:false,viewerError:'',viewerMessage:'正在加载白模…'
+  showCanvas:false,viewerLoading:false,viewerError:'',viewerMessage:'正在加载白模…',fullscreen:false
  },
  onLoad(q){
   this.setData({id:q.id})
@@ -138,6 +138,47 @@ Page({
    }catch(err){this.showViewerError('3D 画布初始化失败：'+(err.message||err))}
   })
  },
+ // Expand the existing canvas in place; preserve GLB, orbit and zoom state.
+ // Re-measure it instead of re-creating or re-downloading the model.
+ toggleFullscreen(){
+  const expanded=!this.data.fullscreen
+  this.setData({fullscreen:expanded},()=>{
+   wx.nextTick(()=>this.resizeViewer())
+  })
+ },
+ resizeViewer(){
+  if(!this._renderer||!this._camera)return
+  wx.createSelectorQuery().select('#modelCanvas').boundingClientRect(rect=>{
+   if(!rect||!rect.width||!rect.height||!this._renderer)return
+   this._renderer.setSize(rect.width,rect.height,false)
+   const aspect=rect.width/rect.height
+   this._camera.left=-aspect
+   this._camera.right=aspect
+   this._camera.top=1
+   this._camera.bottom=-1
+   this._camera.updateProjectionMatrix()
+   this.paintViewer()
+  }).exec()
+ },
+ zoomViewer(factor){
+  if(!this._camera)return
+  this._camera.zoom=Math.max(.6,Math.min(8,this._camera.zoom*factor))
+  this._camera.updateProjectionMatrix()
+  this.paintViewer()
+ },
+ zoomIn(){this.zoomViewer(1.4)},
+ zoomOut(){this.zoomViewer(1/1.4)},
+ resetView(){
+  if(this._model){
+   this._model.rotation.x=0
+   this._model.rotation.y=0
+  }
+  if(this._camera){
+   this._camera.zoom=1
+   this._camera.updateProjectionMatrix()
+  }
+  this.paintViewer()
+ },
  paintViewer(){
   if(!this._canvas||!this._renderer||!this._scene||!this._camera||this._frame)return
   const canvas=this._canvas
@@ -161,7 +202,7 @@ Page({
   if(ts.length>=2){
    const dist=this.touchDistance(ts)
    if(this._pinch>0){
-    this._camera.zoom=Math.max(.6,Math.min(4,this._camera.zoom*dist/this._pinch))
+    this._camera.zoom=Math.max(.6,Math.min(8,this._camera.zoom*dist/this._pinch))
     this._camera.updateProjectionMatrix()
    }
    this._pinch=dist

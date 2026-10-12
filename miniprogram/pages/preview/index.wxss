@@ -8,3 +8,16 @@
 .model-error-detail{font-size:21rpx;color:#89958B;margin-top:15rpx;word-break:break-all}
 .model-retry{color:#D97554;font-size:27rpx;font-weight:750;padding:20rpx;margin-top:12rpx}
 .gallery-bottom{gap:20rpx;flex-wrap:wrap}
+
+/* Expand one persistent GLB canvas, without reopening another page or GLB. */
+.gallery-actions{display:flex;align-items:center;justify-content:flex-end;gap:14rpx;flex-wrap:wrap}
+.expand-action{border-radius:14rpx;background:#304238;color:#fff;font-size:23rpx;font-weight:700;min-height:66rpx;padding:15rpx 22rpx;display:flex;align-items:center;justify-content:center}
+.fullscreen-gallery{position:fixed;left:0;right:0;top:0;bottom:0;z-index:9999;margin:0;width:100%;height:100vh;border-radius:0;background:#F6F7F3;padding:30rpx 26rpx 44rpx;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box}
+.fullscreen-gallery .gallery-top{flex-shrink:0;padding:8rpx 0 24rpx;gap:15rpx}
+.fullscreen-gallery .gallery-label{font-size:31rpx}
+.fullscreen-gallery .model-stage{height:auto;flex:1;min-height:0;border-radius:17rpx;background:#EDF1EB}
+.fullscreen-gallery .model-canvas{width:100%;height:100%}
+.fullscreen-gallery .gallery-bottom{flex-shrink:0;align-items:center;justify-content:space-between;padding:18rpx 2rpx 4rpx;font-size:22rpx}
+.model-toolbar{display:flex;gap:15rpx;justify-content:space-between;align-items:center;padding-top:19rpx;flex-shrink:0}
+.model-tool{flex:1;min-height:74rpx;border-radius:16rpx;background:#E5EDE5;color:#385943;display:flex;justify-content:center;align-items:center;font-size:24rpx;font-weight:740}
+.model-tool:active{background:#D1E0D1}

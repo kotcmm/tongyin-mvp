@@ -1,3 +1,4 @@
+<page-meta page-style="{{fullscreen ? 'overflow:hidden;' : ''}}"></page-meta>
 <view class="container preview-page">
  <view class="page-kicker">STEP 03 / 03 <text class="kicker-line"></text> 3D 白模</view>
  <view class="section-title preview-title">看看它的<text class="accent">立体模样.</text></view>
@@ -12,10 +13,13 @@
  </view>
  <view wx:elif="{{item && item.status==='failed'}}" class="waiting"><view class="waiting-title">这次还没有完成</view><view class="waiting-desc">{{item.note || '模型需要重新处理，请稍后查看。'}}</view><view class="nav-action" bindtap="toWorks"><text>前往我的作品</text><text>→</text></view></view>
  <view wx:elif="{{item && item.model}}">
-  <view class="preview-gallery">
+  <view class="preview-gallery {{fullscreen ? 'fullscreen-gallery' : ''}}">
    <view class="gallery-top">
-    <view class="gallery-label">你的专属 3D 白模</view>
-    <view class="gallery-tag">自由旋转 · 缩放</view>
+    <view class="gallery-label">{{fullscreen ? '放大查看白模细节' : '你的专属 3D 白模'}}</view>
+    <view class="gallery-actions">
+     <view wx:if="{{!fullscreen}}" class="gallery-tag">自由旋转 · 缩放</view>
+     <view class="expand-action" catchtap="toggleFullscreen">{{fullscreen ? '退出全屏 ✕' : '全屏查看 ⛶'}}</view>
+    </view>
    </view>
    <view class="model-stage">
     <canvas wx:if="{{showCanvas}}" type="webgl" id="modelCanvas" class="model-canvas"
@@ -28,7 +32,12 @@
      <view class="model-retry" bindtap="retryViewer">重新加载模型 →</view>
     </view>
    </view>
-   <view class="gallery-bottom">单指拖动旋转 · 双指捏合缩放 <text>◦ 白色 PLA 打印</text></view>
+   <view wx:if="{{fullscreen}}" class="model-toolbar">
+    <view class="model-tool" catchtap="zoomOut">－ 缩小</view>
+    <view class="model-tool" catchtap="zoomIn">＋ 放大</view>
+    <view class="model-tool" catchtap="resetView">重置视角</view>
+   </view>
+   <view class="gallery-bottom">单指旋转 · 双指缩放 <text>◦ 白色 PLA 打印</text></view>
   </view>
   <view class="product-note"><view class="note-symbol">✳</view><view><view class="note-title">留白，留给孩子的创造力</view><view class="note-desc">收到白色模型后，可以自行涂色，继续完成自己的作品。</view></view></view>
   <view class="checkout">
