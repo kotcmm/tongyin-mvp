@@ -10,8 +10,18 @@
 .gallery-bottom{gap:20rpx;flex-wrap:wrap}
 
 /* Expand one persistent GLB canvas, without reopening another page or GLB. */
-.gallery-actions{display:flex;align-items:center;justify-content:flex-end;gap:14rpx;flex-wrap:wrap}
-.expand-action{border-radius:14rpx;background:#304238;color:#fff;font-size:23rpx;font-weight:700;min-height:66rpx;padding:15rpx 22rpx;display:flex;align-items:center;justify-content:center}
+.gallery-top{gap:16rpx}
+.gallery-label{flex:1;min-width:0}
+.gallery-actions{display:flex;align-items:center;justify-content:flex-end;flex-shrink:0}
+.expand-action{display:flex;align-items:center;justify-content:center;gap:12rpx;min-height:64rpx;padding:13rpx 19rpx;border:1rpx solid #E2E9E1;border-radius:100rpx;background:#F3F7F2;color:#637E69;font-size:22rpx;font-weight:600;line-height:1.2;white-space:nowrap}
+.expand-action-pressed{background:#E5EEE5}
+.expand-icon{position:relative;width:24rpx;height:24rpx;flex-shrink:0}
+.expand-corner{position:absolute;width:9rpx;height:9rpx;border-color:#668570;border-style:solid;border-width:0}
+.corner-tl{top:0;left:0;border-top-width:3rpx;border-left-width:3rpx}
+.corner-tr{top:0;right:0;border-top-width:3rpx;border-right-width:3rpx}
+.corner-bl{bottom:0;left:0;border-bottom-width:3rpx;border-left-width:3rpx}
+.corner-br{bottom:0;right:0;border-bottom-width:3rpx;border-right-width:3rpx}
+.expand-close-icon{font-size:34rpx;line-height:20rpx;color:#668570;font-weight:400}
 .fullscreen-gallery{position:fixed;left:0;right:0;top:0;bottom:0;z-index:9999;margin:0;width:100%;height:100vh;border-radius:0;background:#F6F7F3;padding:30rpx 26rpx 44rpx;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box}
 .fullscreen-gallery .gallery-top{flex-shrink:0;padding:8rpx 0 24rpx;gap:15rpx}
 .fullscreen-gallery .gallery-label{font-size:31rpx}

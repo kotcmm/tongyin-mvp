@@ -17,8 +17,17 @@
    <view class="gallery-top">
     <view class="gallery-label">{{fullscreen ? '放大查看白模细节' : '你的专属 3D 白模'}}</view>
     <view class="gallery-actions">
-     <view wx:if="{{!fullscreen}}" class="gallery-tag">自由旋转 · 缩放</view>
-     <view class="expand-action" catchtap="toggleFullscreen">{{fullscreen ? '退出全屏 ✕' : '全屏查看 ⛶'}}</view>
+     <view class="expand-action" hover-class="expand-action-pressed" role="button"
+       aria-label="{{fullscreen ? '退出全屏' : '全屏查看'}}" catchtap="toggleFullscreen">
+      <view wx:if="{{!fullscreen}}" class="expand-icon" aria-hidden="true">
+       <view class="expand-corner corner-tl"></view>
+       <view class="expand-corner corner-tr"></view>
+       <view class="expand-corner corner-bl"></view>
+       <view class="expand-corner corner-br"></view>
+      </view>
+      <text wx:else class="expand-close-icon">×</text>
+      <text>{{fullscreen ? '退出全屏' : '全屏查看'}}</text>
+     </view>
     </view>
    </view>
    <view class="model-stage">
