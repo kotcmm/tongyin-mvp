@@ -13,3 +13,8 @@ CREATE TABLE IF NOT EXISTS ty_orders (
   created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL,
   INDEX ix_ty_orders_owner (owner_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS ty_addresses (
+  id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL,
+  created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

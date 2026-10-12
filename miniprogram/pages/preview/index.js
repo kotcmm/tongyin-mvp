@@ -7,10 +7,12 @@ Page({
  data:{
   id:'',item:null,price:'--',name:'',phone:'',address:'',busy:false,
   dev:false,aiAutoEnabled:true,
-  showCanvas:false,viewerLoading:false,viewerError:'',viewerMessage:'正在加载白模…',fullscreen:false
+  showCanvas:false,viewerLoading:false,viewerError:'',viewerMessage:'正在加载白模…',fullscreen:false,
+  shippingLoaded:false,shippingEditing:false,shippingExists:false,shippingSaving:false
  },
  onLoad(q){
   this.setData({id:q.id})
+  this.loadShipping()
   request('GET','/api/config').then(x=>this.setData({
    price:(x.price_fen/100).toFixed(2),dev:!!x.dev,aiAutoEnabled:x.ai_auto_enabled!==false
   })).catch(()=>{})
@@ -258,12 +260,73 @@ Page({
   this._scene=null;this._camera=null;this._model=null;this._loadedKey=''
   this._lastTouch=null;this._pinch=0
  },
+ async loadShipping(){
+  try{
+   const response=await request('GET','/api/shipping-address')
+   const address=response&&response.address
+   if(address&&address.name&&address.phone&&address.address){
+    this.setData({
+     name:address.name,phone:address.phone,address:address.address,
+     shippingExists:true,shippingEditing:false,shippingLoaded:true
+    })
+   }else this.setData({shippingLoaded:true,shippingEditing:true,shippingExists:false})
+  }catch(e){
+   this.setData({shippingLoaded:true,shippingEditing:true})
+   tip(e)
+  }
+ },
+ editShipping(){this.setData({shippingEditing:true})},
+ async saveShipping(){
+  if(this.data.shippingSaving)return false
+  const name=(this.data.name||'').trim()
+  const phone=(this.data.phone||'').trim()
+  const address=(this.data.address||'').trim()
+  if(name.length<2 || phone.length<6 || address.length<8){
+   wx.showToast({title:'请填写完整收货信息',icon:'none'})
+   this.setData({shippingEditing:true})
+   return false
+  }
+  this.setData({shippingSaving:true})
+  try{
+   await request('PUT','/api/shipping-address',{name,phone,address})
+   this.setData({name,phone,address,shippingExists:true,shippingEditing:false})
+   return true
+  }catch(e){
+   tip(e)
+   this.setData({shippingEditing:true})
+   return false
+  }finally{
+   this.setData({shippingSaving:false})
+  }
+ },
+ chooseWeChatAddress(){
+  if(typeof wx.chooseAddress!=='function'){
+   wx.showToast({title:'当前环境不支持微信地址，请手动填写',icon:'none'})
+   this.setData({shippingEditing:true})
+   return
+  }
+  wx.chooseAddress({
+   success:res=>{
+    const address=[
+     res.provinceName||'',res.cityName||'',res.countyName||'',res.detailInfo||''
+    ].join('')
+    this.setData({name:res.userName||'',phone:res.telNumber||'',address,shippingEditing:true},()=>{
+     this.saveShipping()
+    })
+   },
+   fail:err=>{
+    if(/cancel/i.test((err&&err.errMsg)||''))return
+    this.setData({shippingEditing:true})
+    wx.showToast({title:'微信地址暂不可用，请手动填写',icon:'none'})
+   }
+  })
+ },
  name(e){this.setData({name:e.detail.value})},
  phone(e){this.setData({phone:e.detail.value})},
  address(e){this.setData({address:e.detail.value})},
  toWorks(){wx.switchTab({url:'/pages/works/index'})},
  async submit(){
-  if(this.data.busy)return
+  if(this.data.busy||!this.data.shippingLoaded||this.data.shippingSaving)return
   this.setData({busy:true})
   try{
    const order=await request('POST','/api/orders',{

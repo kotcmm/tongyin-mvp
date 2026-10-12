@@ -52,12 +52,37 @@
   <view class="checkout">
    <view class="checkout-head"><view><view class="checkout-kicker">CUSTOM MADE · 专属定制</view><view class="checkout-title">童印立体白模</view><view class="checkout-sub">一件作品 · 一份专属回忆</view></view><view class="checkout-price"><text>¥</text>{{price}}</view></view>
    <view class="divider"></view>
-   <view class="field-label">收件人信息</view>
-   <input class="field" placeholder="收件人姓名" value="{{name}}" bindinput="name" maxlength="30"/>
-   <input class="field" placeholder="联系电话" value="{{phone}}" bindinput="phone" type="number" maxlength="20"/>
-   <textarea class="field address-field" placeholder="详细地址（省市区、街道门牌号）" value="{{address}}" bindinput="address" maxlength="300"/>
+   <view class="shipping-header">
+    <view class="field-label">收货地址</view>
+    <view wx:if="{{shippingExists && !shippingEditing}}" class="address-change" bindtap="editShipping">更换 / 编辑 <text>›</text></view>
+   </view>
+   <view wx:if="{{!shippingLoaded}}" class="shipping-loading">正在读取保存的收货地址…</view>
+   <view wx:elif="{{shippingExists && !shippingEditing}}" class="shipping-summary" bindtap="editShipping">
+    <view class="shipping-icon">⌖</view>
+    <view class="shipping-content">
+     <view class="shipping-person">{{name}}　{{phone}}</view>
+     <view class="shipping-location">{{address}}</view>
+     <view class="shipping-desc">已保存，下次下单可直接使用</view>
+    </view>
+    <view class="shipping-arrow">›</view>
+   </view>
+   <view wx:else class="shipping-editor">
+    <view class="shipping-wechat" bindtap="chooseWeChatAddress">
+     <view class="wechat-symbol">微</view>
+     <view class="wechat-text"><view>选择微信收货地址</view><view class="wechat-sub">一键带入姓名、电话和地址</view></view>
+     <view class="shipping-arrow">›</view>
+    </view>
+    <view class="shipping-manual-label">或者手动填写</view>
+    <input class="field" placeholder="收件人姓名" value="{{name}}" bindinput="name" maxlength="30"/>
+    <input class="field" placeholder="联系电话" value="{{phone}}" bindinput="phone" type="number" maxlength="20"/>
+    <textarea class="field address-field" placeholder="详细地址（省市区、街道门牌号）" value="{{address}}" bindinput="address" maxlength="300"/>
+    <view class="shipping-editor-actions">
+     <view class="shipping-save" bindtap="saveShipping">{{shippingSaving ? '保存中…' : '保存为常用地址'}}</view>
+     <view wx:if="{{shippingExists}}" class="shipping-cancel" bindtap="loadShipping">取消修改</view>
+    </view>
+   </view>
    <view class="fine-print">按所选造型定制。3D 打印层纹和局部细节可能与预览略有差异。</view>
-   <button class="btn checkout-btn" disabled="{{busy || !name || !phone || !address}}" loading="{{busy}}" bindtap="submit">确认定制，去付款 <text>→</text></button>
+   <button class="btn checkout-btn" disabled="{{busy || !shippingLoaded || shippingSaving || !name || !phone || !address}}" loading="{{busy}}" bindtap="submit">确认定制，去付款 <text>→</text></button>
   </view>
   <view class="go-back" bindtap="toWorks">先不下单？作品会为你保留 →</view>
  </view>

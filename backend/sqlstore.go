@@ -101,12 +101,14 @@ func (s *SQLStore) ensureSchema(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS ty_store_lock (id INTEGER PRIMARY KEY)`,
 		`CREATE TABLE IF NOT EXISTS ty_works (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL)`,
 		`CREATE TABLE IF NOT EXISTS ty_orders (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL)`,
+        `CREATE TABLE IF NOT EXISTS ty_addresses (id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL)`,
 	}
 	if s.dialect == "mysql" {
 		ddl = []string{
 			`CREATE TABLE IF NOT EXISTS ty_store_lock (id INTEGER PRIMARY KEY) ENGINE=InnoDB`,
 			`CREATE TABLE IF NOT EXISTS ty_works (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL, INDEX ix_ty_works_owner (owner_id, created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 			`CREATE TABLE IF NOT EXISTS ty_orders (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL, INDEX ix_ty_orders_owner (owner_id, created_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
+            `CREATE TABLE IF NOT EXISTS ty_addresses (id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 		}
 	} else {
 		ddl = append(ddl,
@@ -129,7 +131,7 @@ func (s *SQLStore) ensureSchema(ctx context.Context) error {
 }
 
 func (s *SQLStore) readSnapshot(ctx context.Context, tx *sql.Tx) (Data, error) {
-	d := Data{Works: map[string]*Work{}, Orders: map[string]*Order{}}
+	d := Data{Works: map[string]*Work{}, Orders: map[string]*Order{}, Addresses: map[string]*ShippingAddress{}}
 	rows, err := tx.QueryContext(ctx, `SELECT payload FROM ty_works`)
 	if err != nil {
 		return d, err
@@ -170,8 +172,20 @@ func (s *SQLStore) readSnapshot(ctx context.Context, tx *sql.Tx) (Data, error) {
 	if err == nil {
 		err = rows.Err()
 	}
-	_ = rows.Close()
-	return d, err
+    _ = rows.Close()
+    if err != nil {return d,err}
+    rows,err=tx.QueryContext(ctx,`SELECT payload FROM ty_addresses`)
+    if err!=nil{return d,err}
+    for rows.Next() {
+      var raw string
+      if err=rows.Scan(&raw);err!=nil{break}
+      var a ShippingAddress
+      if err=json.Unmarshal([]byte(raw),&a);err!=nil{break}
+      d.Addresses[a.Owner]=&a
+    }
+    if err==nil {err=rows.Err()}
+    _=rows.Close()
+    return d,err
 }
 
 func (s *SQLStore) update(fn func(*Data) error) error {
@@ -208,8 +222,9 @@ func (s *SQLStore) update(fn func(*Data) error) error {
 		return err
 	}
 	if err := s.persistDiff(ctx, tx, "ty_orders", before.Orders, after.Orders); err != nil {
-		return err
-	}
+        return err
+    }
+    if err:=s.persistDiff(ctx,tx,"ty_addresses",before.Addresses,after.Addresses);err!=nil{return err}
 	return tx.Commit()
 }
 
@@ -350,4 +365,17 @@ func (s *SQLStore) list(table, owner string, all bool) []string {
 		log.Printf("SQL rows failed: %v", err)
 	}
 	return result
+}
+
+func (s *SQLStore) address(owner string) (*ShippingAddress, bool) {
+ ctx,cancel:=context.WithTimeout(context.Background(),5*time.Second)
+ defer cancel()
+ var raw string
+ err:=s.db.QueryRowContext(ctx,s.bind(`SELECT payload FROM ty_addresses WHERE id=? AND owner_id=?`),owner,owner).Scan(&raw)
+ if err==sql.ErrNoRows{return nil,false}
+ if err!=nil {log.Printf("SQL read address failed: %v",err);return nil,false}
+ var a ShippingAddress
+ if err=json.Unmarshal([]byte(raw),&a);err!=nil{return nil,false}
+ if a.Owner!=owner {return nil,false}
+ return &a,true
 }

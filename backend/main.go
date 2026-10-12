@@ -78,7 +78,9 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /api/works/{id}", a.getWork)
 	mux.HandleFunc("POST /api/works/{id}/generate", a.startImageGeneration)
 	mux.HandleFunc("POST /api/works/{id}/select", a.selectImage)
-	mux.HandleFunc("POST /api/orders", a.createOrder)
+	mux.HandleFunc("GET /api/shipping-address", a.getShippingAddress)
+    mux.HandleFunc("PUT /api/shipping-address", a.putShippingAddress)
+    mux.HandleFunc("POST /api/orders", a.createOrder)
 	mux.HandleFunc("GET /api/orders", a.listOrders)
 	mux.HandleFunc("GET /api/orders/{id}", a.getOrder)
 	mux.HandleFunc("POST /api/orders/{id}/pay", a.startPay)
@@ -386,6 +388,53 @@ func (a *App) selectImage(w http.ResponseWriter, r *http.Request) {
 	a.dispatchAI(copyWork, "model")
 	reply(w, 202, map[string]string{"status": "model_pending", "message": a.taskMessage()})
 }
+// Shipping address is a single server-side default per authenticated WeChat OpenID.
+// Existing customers are migrated on read from their most recent historical order.
+func validateShipping(name, phone, address string) (string, string, string, error) {
+ name=strings.TrimSpace(name)
+ phone=strings.TrimSpace(phone)
+ address=strings.TrimSpace(address)
+ if len([]rune(name)) < 2 || len([]rune(name)) > 30 || len(phone)<6 || len(phone)>20 || len([]rune(address))<8 || len([]rune(address))>300 {
+  return "","","",fmt.Errorf("请填写完整收货信息")
+ }
+ return name,phone,address,nil
+}
+func (a *App) lastShippingAddress(owner string) *ShippingAddress {
+ if v,ok:=a.db.address(owner);ok && v.Owner==owner {return v}
+ var latest *Order
+ for _,o:=range a.db.orders(owner,false) {
+  if o.Owner!=owner || o.Name=="" || o.Phone=="" || o.Address=="" {continue}
+  if latest==nil || o.CreatedAt>latest.CreatedAt {latest=o}
+ }
+ if latest==nil {return nil}
+ return &ShippingAddress{Owner:owner,Name:latest.Name,Phone:latest.Phone,Address:latest.Address,CreatedAt:latest.CreatedAt}
+}
+func (a *App) getShippingAddress(w http.ResponseWriter,r *http.Request) {
+ owner:=a.uid(w,r)
+ if owner=="" {return}
+ addr:=a.lastShippingAddress(owner)
+ if addr==nil {reply(w,200,map[string]any{"address":nil});return}
+ cp:=*addr
+ cp.Owner=""
+ reply(w,200,map[string]any{"address":&cp})
+}
+func (a *App) putShippingAddress(w http.ResponseWriter,r *http.Request) {
+ owner:=a.uid(w,r)
+ if owner=="" {return}
+ var q struct {Name string `json:"name"`; Phone string `json:"phone"`; Address string `json:"address"`}
+ if decode(r,&q)!=nil {fail(w,400,"参数有误");return}
+ name,phone,address,err:=validateShipping(q.Name,q.Phone,q.Address)
+ if err!=nil {fail(w,400,err.Error());return}
+ v:=&ShippingAddress{Owner:owner,CreatedAt:now(),Name:name,Phone:phone,Address:address}
+ if err:=a.db.update(func(d *Data) error {
+   if d.Addresses==nil {d.Addresses=map[string]*ShippingAddress{}}
+   d.Addresses[owner]=v
+   return nil
+ });err!=nil {fail(w,500,"地址保存失败");return}
+ cp:=*v
+ cp.Owner=""
+ reply(w,200,map[string]any{"address":&cp})
+}
 func (a *App) createOrder(w http.ResponseWriter, r *http.Request) {
 	owner := a.uid(w, r)
 	if owner == "" {
@@ -401,13 +450,9 @@ func (a *App) createOrder(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "参数有误")
 		return
 	}
-	q.Name = strings.TrimSpace(q.Name)
-	q.Phone = strings.TrimSpace(q.Phone)
-	q.Address = strings.TrimSpace(q.Address)
-	if len([]rune(q.Name)) < 2 || len(q.Phone) < 6 || len(q.Phone) > 20 || len([]rune(q.Address)) < 8 || len(q.Address) > 800 {
-		fail(w, 400, "请填写完整收货信息")
-		return
-	}
+	var validationErr error
+    q.Name,q.Phone,q.Address,validationErr=validateShipping(q.Name,q.Phone,q.Address)
+    if validationErr!=nil {fail(w,400,validationErr.Error());return}
 	order := &Order{ID: newID(), Owner: owner, WorkID: q.WorkID, CreatedAt: now(), Name: q.Name, Phone: q.Phone, Address: q.Address, PriceFen: a.cfg.PriceFen, Status: "awaiting_payment"}
 	err := a.db.update(func(d *Data) error {
 		wk, ok := d.Works[q.WorkID]
@@ -420,6 +465,8 @@ func (a *App) createOrder(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		d.Orders[order.ID] = order
+        if d.Addresses==nil {d.Addresses=map[string]*ShippingAddress{}}
+        d.Addresses[owner]=&ShippingAddress{Owner:owner,Name:q.Name,Phone:q.Phone,Address:q.Address,CreatedAt:now()}
 		return nil
 	})
 	if err != nil {

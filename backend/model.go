@@ -39,9 +39,19 @@ type Order struct {
 	Tracking  string `json:"tracking,omitempty"`
 }
 
+// ShippingAddress is private to the authenticated owner; it is never shared across users.
+type ShippingAddress struct {
+ Owner     string `json:"owner"`
+ CreatedAt string `json:"created_at"`
+ Name      string `json:"name"`
+ Phone     string `json:"phone"`
+ Address   string `json:"address"`
+}
+
 type Data struct {
-	Works  map[string]*Work  `json:"works"`
-	Orders map[string]*Order `json:"orders"`
+ Works  map[string]*Work `json:"works"`
+ Orders map[string]*Order `json:"orders"`
+ Addresses map[string]*ShippingAddress `json:"addresses"`
 }
 
 // Repository isolates the persistence backend. Business handlers need not know SQL dialects.
@@ -51,6 +61,7 @@ type Repository interface {
 	order(string) (*Order, bool)
 	works(string, bool) []*Work
 	orders(string, bool) []*Order
+ address(string) (*ShippingAddress, bool)
 	Close() error
 }
 
@@ -61,7 +72,7 @@ type Store struct {
 }
 
 func newStore(path string) (*Store, error) {
-	s := &Store{path: path, d: Data{Works: map[string]*Work{}, Orders: map[string]*Order{}}}
+	s := &Store{path: path, d: Data{Works: map[string]*Work{}, Orders: map[string]*Order{}, Addresses: map[string]*ShippingAddress{}}}
 	b, e := os.ReadFile(path)
 	if e == nil {
 		if err := json.Unmarshal(b, &s.d); err != nil {
@@ -76,6 +87,7 @@ func newStore(path string) (*Store, error) {
 	if s.d.Orders == nil {
 		s.d.Orders = map[string]*Order{}
 	}
+	if s.d.Addresses == nil {s.d.Addresses=map[string]*ShippingAddress{}}
 	return s, nil
 }
 func (s *Store) Close() error { return nil }
@@ -168,3 +180,12 @@ var errNotFound = errors.New("not found")
 
 func newID() string { var b [12]byte; _, _ = rand.Read(b[:]); return hex.EncodeToString(b[:]) }
 func now() string   { return time.Now().Format(time.RFC3339) }
+
+func (s *Store) address(owner string) (*ShippingAddress, bool) {
+ s.mu.Lock()
+ defer s.mu.Unlock()
+ v, ok:=s.d.Addresses[owner]
+ if !ok {return nil,false}
+ cp:=*v
+ return &cp,true
+}

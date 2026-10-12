@@ -102,4 +102,45 @@ assert.strictEqual(resized[1].h,400,'canvas was not resized when closing')
 assert.strictEqual(active._loadedKey,'unchanged.glb','fullscreen changed model key')
 assert.strictEqual(downloads,0,'fullscreen must not reload the GLB')
 assert(repaints>=4,'fullscreen must repaint on resize and controls')
-console.log('Mini-program inline GLB viewer and fullscreen checks passed.')
+// Shipping must be reusable without revealing another user's address.
+// The UI keeps the one-canvased 3D flow and adds an explicit edit + wx address path.
+const shippingWxml=read('miniprogram/pages/preview/index.wxml')
+for(const term of ['shipping-summary','shipping-editor','shipping-wechat','chooseWeChatAddress','saveShipping','shippingLoaded']){
+ assert(shippingWxml.includes(term),'shipping action missing: '+term)
+}
+assert(pageSource.includes("'/api/shipping-address'"),'server-side address endpoint missing')
+assert(pageSource.includes('wx.chooseAddress'),'WeChat address picker missing')
+let shippingPage
+const calls=[]
+vm.runInNewContext(pageSource,{
+ Page:opts=>shippingPage=opts,
+ require:name=>name.endsWith('utils/api')?{
+  request:async(method,route,data)=>{
+   calls.push({method,route,data})
+   if(method==='GET')return {address:{name:'旧地址',phone:'13800138000',address:'广州市海珠区老街100号'}}
+   return {address:data}
+  },tip(err){throw err}
+ }:name.endsWith('/index')?{createScopedThreejs(){}}:{registerGLTFLoader(){}},
+ wx:{
+  chooseAddress({success}){success({
+   userName:'新收件人',telNumber:'13900139000',provinceName:'广东省',
+   cityName:'广州市',countyName:'海珠区',detailInfo:'测试路200号'
+  })},
+  showToast(){},nextTick(fn){fn()}
+ },setInterval(){return 1},clearInterval(){}
+})
+const pageWithState=Object.assign({},shippingPage,{
+ data:{name:'',phone:'',address:'',shippingLoaded:false,shippingSaving:false},
+ setData(data,cb){Object.assign(this.data,data);if(cb)cb()}
+})
+;(async()=>{
+ await pageWithState.loadShipping()
+ assert(pageWithState.data.shippingExists,'saved server address not detected')
+ assert(!pageWithState.data.shippingEditing,'returning buyer should not retype shipping address')
+ pageWithState.chooseWeChatAddress()
+ await new Promise(resolve=>setImmediate(resolve))
+ assert(calls.some(x=>x.method==='PUT'&&x.route==='/api/shipping-address'&&x.data.address.includes('测试路200号')),'wx address not saved server-side')
+ assert.strictEqual(pageWithState.data.shippingEditing,false,'wx address did not collapse to card')
+ console.log('Mini-program 3D, fullscreen and shipping checks passed.')
+})().catch(e=>{console.error(e);process.exitCode=1})
+

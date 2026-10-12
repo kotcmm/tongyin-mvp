@@ -11,3 +11,8 @@ CREATE TABLE IF NOT EXISTS ty_orders (
   created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ix_ty_orders_owner ON ty_orders(owner_id, created_at);
+
+CREATE TABLE IF NOT EXISTS ty_addresses (
+  id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL,
+  created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL
+);

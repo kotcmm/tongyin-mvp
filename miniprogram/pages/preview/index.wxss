@@ -31,3 +31,26 @@
 .model-toolbar{display:flex;gap:15rpx;justify-content:space-between;align-items:center;padding-top:19rpx;flex-shrink:0}
 .model-tool{flex:1;min-height:74rpx;border-radius:16rpx;background:#E5EDE5;color:#385943;display:flex;justify-content:center;align-items:center;font-size:24rpx;font-weight:740}
 .model-tool:active{background:#D1E0D1}
+
+/* Reusable server-side shipping address selection and edit state. */
+.shipping-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:17rpx;gap:18rpx}
+.shipping-header .field-label{margin:0}
+.address-change{color:#537561;font-size:24rpx;line-height:1.3;display:flex;align-items:center;gap:5rpx;padding:12rpx}
+.address-change text{font-size:31rpx;font-weight:400}
+.shipping-loading{color:#9AABA0;font-size:24rpx;padding:35rpx 14rpx;text-align:center}
+.shipping-summary{display:flex;align-items:flex-start;gap:18rpx;padding:28rpx 22rpx;background:#F5F8F4;border:2rpx solid #E0EADF;border-radius:20rpx;min-height:145rpx}
+.shipping-icon{color:#5E866C;font-size:40rpx;line-height:1}
+.shipping-content{flex:1;min-width:0;word-break:break-all}
+.shipping-person{font-size:28rpx;font-weight:750;color:#2E4437;line-height:1.4}
+.shipping-location{font-size:24rpx;line-height:1.6;color:#617366;margin-top:11rpx}
+.shipping-desc{font-size:21rpx;color:#97A69A;margin-top:14rpx}
+.shipping-arrow{font-size:37rpx;color:#A1B3A4;line-height:1}
+.shipping-editor{padding-top:2rpx}
+.shipping-wechat{display:flex;gap:20rpx;align-items:center;border-radius:19rpx;background:#EFF5EF;border:2rpx solid #DCEADD;padding:20rpx 25rpx;margin-bottom:24rpx;min-height:103rpx}
+.wechat-symbol{display:flex;align-items:center;justify-content:center;width:59rpx;height:59rpx;flex-shrink:0;border-radius:15rpx;background:#3D9762;color:#fff;font-size:29rpx;font-weight:700}
+.wechat-text{flex:1;color:#344B3C;font-weight:740;font-size:26rpx}
+.wechat-sub{font-size:21rpx;color:#8A9C8E;margin-top:6rpx;font-weight:400}
+.shipping-manual-label{font-size:23rpx;color:#939C93;margin:15rpx 0}
+.shipping-editor-actions{display:flex;gap:25rpx;align-items:center;padding:18rpx 0 4rpx}
+.shipping-save{color:#4F7B5C;border-bottom:1rpx solid #B2CBB6;font-size:25rpx;font-weight:700;padding:13rpx 0}
+.shipping-cancel{color:#9B9E99;font-size:24rpx;padding:13rpx}

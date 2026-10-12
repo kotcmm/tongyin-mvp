@@ -123,6 +123,65 @@ func TestCompleteOrderUntilPay(t *testing.T) {
 	}
 }
 
+func TestShippingAddressServerPersistenceAndUserIsolation(t *testing.T) {
+ cfg:=Config{DataDir:t.TempDir(),SessionKey:"test-secret-longer-than-24-chars",PriceFen:9900,PublicURL:"http://localhost:18080",Dev:true}
+ store,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
+ app:=&App{cfg:cfg,db:store}
+ mux:=app.routes()
+ alice:=app.token("alice-openid")
+ bob:=app.token("bob-openid")
+ call:=func(method,path,token,body string) *httptest.ResponseRecorder {
+  req:=httptest.NewRequest(method,path,strings.NewReader(body))
+  req.Header.Set("Content-Type","application/json")
+  if token!="" {req.Header.Set("Authorization","Bearer "+token)}
+  rec:=httptest.NewRecorder()
+  mux.ServeHTTP(rec,req)
+  return rec
+ }
+ mustJSON(t,call("GET","/api/shipping-address","",""),401,nil)
+ var empty struct { Address *ShippingAddress `json:"address"` }
+ mustJSON(t,call("GET","/api/shipping-address",alice,""),200,&empty)
+ if empty.Address!=nil {t.Fatalf("new user should have no saved address: %+v",empty)}
+ address1:=`{"name":"张小明","phone":"13800138000","address":"广东省广州市海珠区测试路100号"}`
+ mustJSON(t,call("PUT","/api/shipping-address",alice,address1),200,nil)
+ var got struct {Address *ShippingAddress `json:"address"`}
+ mustJSON(t,call("GET","/api/shipping-address",alice,""),200,&got)
+ if got.Address==nil||got.Address.Name!="张小明"||got.Address.Owner!="" {t.Fatalf("saved address incorrect: %+v",got)}
+ mustJSON(t,call("GET","/api/shipping-address",bob,""),200,&empty)
+ if empty.Address!=nil{t.Fatal("one user read another user's address")}
+ mustJSON(t,call("PUT","/api/shipping-address",alice,`{"name":"A","phone":"1","address":"short"}`),400,nil)
+ work:=&Work{ID:"order-work",Owner:"alice-openid",Status:"model_ready",Model:"valid.glb"}
+ if err:=store.update(func(d *Data)error{d.Works[work.ID]=work;return nil});err!=nil{t.Fatal(err)}
+ var order Order
+ address2:=`{"work_id":"order-work","name":"李小红","phone":"13900139000","address":"广东省广州市天河区测试新路200号"}`
+ mustJSON(t,call("POST","/api/orders",alice,address2),201,&order)
+ if order.Name!="李小红"||order.Owner!=""{t.Fatalf("order snapshot invalid: %+v",order)}
+ mustJSON(t,call("GET","/api/shipping-address",alice,""),200,&got)
+ if got.Address.Name!="李小红" {t.Fatalf("checkout did not update saved default: %+v",got)}
+ mustJSON(t,call("PUT","/api/shipping-address",alice,address1),200,nil)
+ savedOrder,ok:=store.order(order.ID)
+ if !ok||savedOrder.Name!="李小红" {t.Fatal("changing default must not modify existing order")}
+ reloaded,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
+ persisted,ok:=reloaded.address("alice-openid")
+ if !ok||persisted.Name!="张小明"{t.Fatalf("address not persisted on server: %+v",persisted)}
+ _,leaked:=reloaded.address("bob-openid");if leaked{t.Fatal("other user has unrelated address")}
+}
+
+func TestLegacyOrdersRestoreLastAddress(t *testing.T) {
+ cfg:=Config{DataDir:t.TempDir(),SessionKey:"test-secret-longer-than-24-chars"}
+ store,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
+ app:=&App{db:store,cfg:cfg}
+ if err:=store.update(func(d *Data)error {
+  d.Orders["old"]=&Order{ID:"old",Owner:"alice",Name:"张三",Phone:"13800138000",Address:"广州市天河区测试路10号",CreatedAt:"2026-01-01T00:00:00+08:00"}
+  d.Orders["new"]=&Order{ID:"new",Owner:"alice",Name:"李四",Phone:"13900139000",Address:"广州市海珠区测试路20号",CreatedAt:"2026-02-01T00:00:00+08:00"}
+  d.Orders["foreign"]=&Order{ID:"foreign",Owner:"bob",Name:"其他",Phone:"13600136000",Address:"上海市徐汇区测试路30号",CreatedAt:"2026-03-01T00:00:00+08:00"}
+  return nil
+ });err!=nil{t.Fatal(err)}
+ a:=app.lastShippingAddress("alice")
+ if a==nil||a.Name!="李四"{t.Fatalf("legacy address recovery failed: %+v",a)}
+ if app.lastShippingAddress("unknown")!=nil {t.Fatal("other user legacy address leaked")}
+}
+
 func TestOneImageAndFreeRetryLimit(t *testing.T) {
  cfg := Config{DataDir:t.TempDir(),PublicURL:"http://localhost:8080",AdminToken:"admin-secret",SessionKey:"test-secret-longer-than-24-chars",Dev:true,FreeImageAttempts:2}
  _ = os.MkdirAll(filepath.Join(cfg.DataDir,"media"),0700)
