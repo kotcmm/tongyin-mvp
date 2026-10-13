@@ -83,7 +83,8 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 			wk.Preview = []string{}
 			wk.Status = "model_ready" // GLB itself is sufficient for interactive 3D preview
 		}
-		recordAudit(d,"legacy-admin","work.asset",id,kind)
+		actor,_,_:=a.adminIdentity(r)
+        recordAudit(d,actor,"work.asset",id,kind)
         return nil
     })
     if err != nil {
@@ -117,7 +118,8 @@ func (a *App) adminWorkStatus(w http.ResponseWriter, r *http.Request) {
 		}
 		wk.Status = q.Status
         wk.Note = strings.TrimSpace(q.Note)
-        recordAudit(d,"legacy-admin","work.status",wk.ID,q.Status)
+        actor,_,_:=a.adminIdentity(r)
+        recordAudit(d,actor,"work.status",wk.ID,q.Status)
 		return nil
 	})
 	if err != nil {
@@ -162,8 +164,9 @@ func (a *App) adminOrderStatus(w http.ResponseWriter, r *http.Request) {
 		if q.Status == "shipped" && strings.TrimSpace(q.Tracking) == "" {
 			return errors.New("请填写快递单号")
 		}
-		o.History=append(o.History,OrderHistory{At:now(),Actor:"legacy-admin",Action:"status."+q.Status})
-        recordAudit(d,"legacy-admin","order.status",o.ID,q.Status)
+		o.History=append(o.History,OrderHistory{At:now(),Actor:"admin",Action:"status."+q.Status})
+        actor,_,_:=a.adminIdentity(r)
+        recordAudit(d,actor,"order.status",o.ID,q.Status)
         o.Status = q.Status
         if q.Tracking != "" {
 			o.Tracking = strings.TrimSpace(q.Tracking)

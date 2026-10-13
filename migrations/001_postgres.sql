@@ -16,3 +16,9 @@ CREATE TABLE IF NOT EXISTS ty_addresses (
   id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL,
   created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL
 );
+ 
+CREATE TABLE IF NOT EXISTS ty_users (id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ty_admins (id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ty_audit (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS ix_ty_users_owner ON ty_users(owner_id, created_at);
+CREATE INDEX IF NOT EXISTS ix_ty_admins_owner ON ty_admins(owner_id, created_at);

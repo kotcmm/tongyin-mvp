@@ -205,3 +205,24 @@ func recordAudit(d *Data,actor,action,target,detail string){
  id:=newID()
  d.Audit[id]=&AuditRecord{ID:id,Owner:actor,CreatedAt:now(),Action:action,Target:target,Detail:detail}
 }
+
+func checkAdminReady(db Repository,c Config) error{
+ if c.AdminToken!=""{return nil}
+ count:=0
+ err:=db.update(func(d *Data)error{
+  for _,v:=range d.Admins{if !v.Disabled{count++}}
+  return nil
+ })
+ if err!=nil{return err}
+ if count==0{return errors.New("请配置 ADMIN_BOOTSTRAP_PASSWORD（至少12位）建立首个管理员账号")}
+ return nil
+}
+func (a *App) trackLogin(owner string) error{
+ return a.db.update(func(d *Data)error{
+  u,exists:=d.Users[owner]
+  if !exists{return errors.New("用户档案不存在")}
+  if u.Disabled{return errors.New("账号已停用")}
+  u.LastLogin=now()
+  return nil
+ })
+}

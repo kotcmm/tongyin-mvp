@@ -12,3 +12,19 @@
 .edit-cancel{color:#999E97;font-size:24rpx;padding:17rpx}
 .edit-save{background:#E8F0E8;border-radius:15rpx;color:#3B6246;font-size:25rpx;font-weight:700;padding:19rpx 23rpx}
 .existing-order-tip{font-size:23rpx;color:#68866F;text-align:center;margin-top:18rpx}
+
+/* Authentic shipping status and timeline: no synthetic courier events. */
+.logistics-card{margin-top:22rpx}
+.tracking-header{display:flex;justify-content:space-between;align-items:center;gap:14rpx;padding:20rpx 0}
+.tracking-company{color:#375641;font-size:29rpx;font-weight:750}
+.tracking-number{color:#829485;font-size:22rpx;padding-top:12rpx;word-break:break-all}
+.tracking-copy{color:#5E8065;font-size:23rpx;border:1rpx solid #D2E2D1;border-radius:20rpx;padding:10rpx 17rpx;flex-shrink:0}
+.tracking-timeline{margin:12rpx 4rpx 15rpx 12rpx;border-left:3rpx solid #C8DAC8;padding-left:25rpx}
+.tracking-event{position:relative;padding:0 0 28rpx;color:#708474}
+.tracking-event:before{content:'';position:absolute;left:-34rpx;top:8rpx;width:14rpx;height:14rpx;border-radius:50%;background:#8AAC92}
+.tracking-time{font-size:22rpx;color:#8D9A8E}
+.tracking-context{font-size:25rpx;line-height:1.7;color:#344C3A;margin-top:7rpx}
+.tracking-source{font-size:20rpx;color:#A5B1A5;margin-top:5rpx}
+.tracking-empty{font-size:24rpx;line-height:1.8;color:#829385;padding:22rpx 0}
+.tracking-footer{font-size:21rpx;color:#A4AFA5}
+.refund-notice{color:#B97B57;font-size:24rpx}

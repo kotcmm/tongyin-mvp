@@ -31,6 +31,25 @@
   </view>
   <view wx:if="{{item.tracking}}" class="tracking">物流单号：{{item.tracking}}</view>
  </view>
+ <view wx:if="{{item.status==='shipped' || item.status==='completed'}}" class="detail-card logistics-card">
+  <view class="shipping-heading"><view class="detail-heading">物流进度</view><view class="shipping-edit-link" bindtap="loadTracking">刷新显示 ↻</view></view>
+  <view class="tracking-header">
+   <view><view class="tracking-company">{{item.carrier || '物流运输中'}}</view><view class="tracking-number">运单号：{{item.tracking || '待录入'}}</view></view>
+   <view wx:if="{{item.tracking}}" class="tracking-copy" bindtap="copyTracking">复制</view>
+  </view>
+  <view wx:if="{{trackingLoading}}" class="tracking-empty">正在获取已保存的物流轨迹…</view>
+  <view wx:elif="{{trackingError}}" class="tracking-empty">{{trackingError}}</view>
+  <view wx:elif="{{tracking && tracking.events && tracking.events.length}}" class="tracking-timeline">
+   <view wx:for="{{tracking.events}}" wx:key="index" class="tracking-event">
+    <view class="tracking-time">{{item.time}}</view>
+    <view class="tracking-context">{{item.context}}</view>
+    <view wx:if="{{item.source==='manual'}}" class="tracking-source">运营人员核实录入</view>
+   </view>
+  </view>
+  <view wx:else class="tracking-empty">运单已录入，暂无轨迹记录。快递平台同步后会显示；可凭运单号到快递官方渠道查询。</view>
+  <view wx:if="{{tracking && tracking.updated_at}}" class="tracking-footer">最近更新：{{tracking.updated_at}}</view>
+ </view>
+ <view wx:if="{{item.refund_status}}" class="detail-card refund-notice">退款处理：{{item.refund_status==='requested' ? '已提交申请，等待工作人员处理' : item.refund_status}}</view>
  <button wx:if="{{item.status==='awaiting_payment'}}" class="btn pay-btn" loading="{{paying}}" disabled="{{paying || editingShipping || savingShipping}}" bindtap="pay">微信支付 ¥{{item.price}} <text>→</text></button>
  <view class="under-link" bindtap="toWorks">返回我的作品 <text>→</text></view>
  <view class="muted foot">支付结果以订单最新状态为准，如已支付可重新进入页面确认。</view>

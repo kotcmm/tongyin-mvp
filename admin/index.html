@@ -1,162 +1,324 @@
 <!doctype html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>童印 · 制作后台</title>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>童印 · 运营管理中心</title>
 <style>
-:root{font-family:-apple-system,BlinkMacSystemFont,"Microsoft YaHei",sans-serif;color:#303b35;background:#f5f5f0}
-*{box-sizing:border-box}body{margin:0}header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px max(20px,4vw);background:#fff;border-bottom:1px solid #e8e9e1;flex-wrap:wrap}
-header h1{font-size:23px;margin:0}header small{display:block;font-size:12px;font-weight:400;color:#8d978e;margin-top:6px}
-main{max-width:1200px;margin:28px auto;padding:0 18px 70px}
-input,button,select{font:inherit}button{cursor:pointer;border:0;border-radius:11px;padding:11px 16px;background:#e87955;color:#fff;font-weight:600}button:hover{filter:brightness(.96)}
-button.secondary{background:#eef1ea;color:#47634d}button.danger{background:#fff0e9;color:#b86d52}
-input,select{max-width:100%;border:1px solid #dce0d8;background:#fff;border-radius:9px;padding:10px}
-input[type=file]{width:100%;max-width:390px;background:#f9faf6}
-.panel{background:#fff;border:1px solid #e9ece5;border-radius:20px;padding:25px;margin:20px 0}
-.title-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
-h2{font-size:21px;margin:0 0 14px}h3{font-size:16px;margin:0 0 10px}p{line-height:1.6}small,.muted{color:#889187;font-size:13px}#msg{color:#667d6c;font-size:13px;margin:0 0 14px}
-.item{border:1px solid #e6e9e1;padding:23px;border-radius:18px;margin:17px 0}
-.item-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:19px}
-.item-top strong{font-size:18px}.pill{font-size:13px;border-radius:50px;background:#fff0e7;color:#b26949;padding:7px 12px}
-.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
-.step{border:1px solid #e7eae3;border-radius:15px;padding:20px;background:#fcfdfa;min-width:0}
-.step.wait{background:#f8f8f5;border-color:#e6e8e1}.step.done{border-color:#cfe2d3;background:#f8fcf7}
-.step-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}.number{display:flex;align-items:center;justify-content:center;width:34px;height:34px;flex-shrink:0;border-radius:50%;background:#e87955;color:#fff;font-size:14px;font-weight:700}.step.done .number{background:#7d9d85}
-.step-title{font-size:15px;font-weight:750}.step-hint{font-size:12px;color:#919990;line-height:1.5;margin:12px 0}
-.thumb-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}
-.thumb-list img{width:92px;height:100px;border-radius:10px;object-fit:contain;background:#eff1ed}
-.upload-row{display:flex;flex-direction:column;gap:9px;margin-top:13px}
-.upload-row button{width:100%;max-width:390px}.upload-row label{font-size:13px;color:#627567;font-weight:650}
-.callout{background:#ecf2eb;border-radius:11px;padding:13px;color:#66806b;font-size:13px;line-height:1.7}
-.step-model{display:flex;flex-direction:column;gap:10px}
-.section-bottom{border-top:1px solid #eeeee9;margin-top:17px;padding-top:14px}
-.order{border:1px solid #e8eae4;border-radius:15px;padding:20px;margin:12px 0}
-.order .meta{display:flex;align-items:center;flex-wrap:wrap;gap:15px}.order .details{line-height:1.8;margin:13px 0;color:#626c63;font-size:14px}
-.work-empty{padding:32px;text-align:center;color:#8c948c}.minor{color:#8d968c;font-size:13px}.upload-row button:disabled{opacity:.6;cursor:wait}
-@media(max-width:850px){.steps{grid-template-columns:1fr}.panel{padding:16px}.item{padding:14px}header{padding:16px}}
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#293e32;background:#f5f6f3;font-size:14px}
+*{box-sizing:border-box}body{margin:0}button,input,select,textarea{font:inherit}
+button{border:0;background:#3f644b;color:white;padding:10px 15px;border-radius:11px;cursor:pointer;font-weight:650}
+button:disabled{opacity:.45;cursor:not-allowed}.ghost{background:#eff4ef;color:#446e51}.danger{background:#fff0e9;color:#b25d47}
+input,select,textarea{border:1px solid #dae3d9;border-radius:10px;padding:10px 12px;background:#fff;color:#2e4236;max-width:100%}
+input[type=file]{background:#f7faf6;width:100%}
+h1,h2,h3,p{margin-top:0}.muted{color:#8c9b90}.small{font-size:12px}.hidden{display:none!important}
+#loginWrap{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:25px;background:linear-gradient(135deg,#edf2e9,#f8f6f0)}
+.login{width:100%;max-width:420px;background:white;border:1px solid #e3e9df;border-radius:24px;padding:32px;box-shadow:0 18px 70px #1f392a0d}
+.logo{width:52px;height:52px;display:flex;align-items:center;justify-content:center;border-radius:16px;background:#dcebdc;color:#416f4e;font-size:26px;font-weight:900;margin-bottom:20px}
+.login input{display:block;width:100%;margin:12px 0}.login button{width:100%;margin:8px 0}.linklike{color:#567d5e;text-decoration:underline;cursor:pointer}
+#app{display:grid;grid-template-columns:246px minmax(0,1fr);min-height:100dvh}
+aside{background:#fff;border-right:1px solid #e2e9e0;padding:27px 16px;position:sticky;top:0;height:100dvh;overflow-y:auto}
+.brand{padding:0 17px 24px}.brand strong{font-size:23px}.brand small{display:block;color:#97a69b;padding-top:6px}
+.nav-item{display:flex;gap:12px;align-items:center;padding:14px 17px;margin:4px 0;color:#5f7765;border-radius:12px;cursor:pointer;font-weight:600}
+.nav-item.active{background:#e7efe6;color:#355840}.nav-item:hover{background:#f1f6f0}
+.nav-item .glyph{font-size:17px;width:22px;text-align:center}
+aside .account{margin-top:25px;padding:15px;border-top:1px solid #e7eae6;font-size:12px;color:#819386}
+.content{padding:28px clamp(18px,3vw,52px) 70px;min-width:0;max-width:1800px;width:100%}
+.topline{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap}
+.topline h1{font-size:27px;margin-bottom:7px}.topline p{font-size:13px;color:#91a096;margin:0}
+.panel{border:1px solid #e2e9e0;background:#fff;border-radius:18px;padding:23px;margin:16px 0}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 20px}
+.toolbar input{min-width:240px;flex:1;max-width:370px}.toolbar select{min-width:145px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.stat{background:#fff;border:1px solid #e3eae1;padding:21px;border-radius:17px;min-width:0}
+.stat b{display:block;font-size:32px;letter-spacing:-1px;margin-top:12px}.stat span{font-size:13px;color:#829485}
+.note{border-radius:12px;padding:13px;background:#eff4ed;color:#607e67;line-height:1.65}
+.pill{display:inline-block;border-radius:22px;padding:5px 10px;background:#edf2ec;color:#587760;font-size:12px;font-weight:650}
+.pill.warning{background:#fef0e8;color:#ba7758}.pill.done{background:#e4f1e7;color:#39804e}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.step{border:1px solid #e3eae1;background:#fbfcfa;border-radius:14px;padding:16px;min-width:0}
+.step h4{margin:0 0 13px}.step p{color:#849489;line-height:1.6;font-size:12px}
+.preview{width:94px;height:98px;object-fit:contain;border-radius:10px;background:#ecf1eb;border:1px solid #edf0e8}
+.card{border:1px solid #e7ebe4;border-radius:16px;padding:18px;margin-top:14px}
+.card-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.meta{color:#819183;font-size:12px;line-height:1.85}.meta strong{color:#374d3d}
+.detail{color:#526959;line-height:1.8;word-break:break-all}
+.upload{display:flex;flex-direction:column;gap:9px;margin-top:14px}.upload button{max-width:220px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row>button{white-space:nowrap}
+.table-wrap{overflow-x:auto}.table{border-collapse:collapse;width:100%;font-size:13px}.table th{text-align:left;background:#f6f8f4;color:#839486;padding:13px}.table td{border-bottom:1px solid #eef1ec;padding:13px;vertical-align:middle}.table td .row{gap:6px}
+.timeline{border-left:2px solid #c8ddca;padding-left:17px;margin-left:8px}.event{position:relative;margin:12px 0 17px;color:#536c58;line-height:1.6}
+.event:before{content:'';position:absolute;left:-24px;top:6px;width:10px;height:10px;border-radius:50%;background:#8bae92}
+.pager{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-top:17px}
+.toast{position:fixed;top:22px;right:24px;background:#304c38;color:#fff;padding:15px 20px;border-radius:12px;box-shadow:0 6px 20px #0002;z-index:1000}
+.modal-back{position:fixed;inset:0;background:#162b217c;display:flex;align-items:center;justify-content:center;z-index:700;padding:20px}
+.modal{background:#fff;border-radius:20px;width:min(100%,620px);max-height:88vh;overflow-y:auto;padding:27px}
+.modal label{display:block;margin:15px 0 7px;font-weight:650}.modal input,.modal select,.modal textarea{width:100%}
+@media(max-width:1050px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+@media(max-width:780px){#app{grid-template-columns:1fr}aside{height:auto;position:relative;display:flex;flex-wrap:wrap;padding:12px;gap:5px}aside .brand{width:100%;padding:7px}aside .brand small,aside .account{display:none}.nav-item{padding:9px 10px;margin:0}.nav-item .glyph{display:none}.content{padding:22px 14px 55px}.topline h1{font-size:22px}}
 </style></head>
 <body>
-<header><div><h1>童印 · 制作管理</h1><small>按步骤处理每一份画作，不用猜文件上传位置</small></div>
-<div class="row"><input type="password" id="token" placeholder="请输入 ADMIN_TOKEN"><button onclick="login()">进入后台</button><button class="secondary" onclick="logout()">退出</button></div></header>
-<main><p id="msg">登录后可以查看正在制作的作品。</p>
-<section class="panel"><div class="title-row"><h2>作品制作进度</h2><button class="secondary" onclick="refresh()">刷新列表</button></div>
-<p class="muted">操作顺序：① 查看原画 → ② 上传 1 张 AI 形象图 → ③ 家长确认后上传 GLB，小程序页面内直接交互式 3D 预览 → ④ 家长付款后打印发货。</p><div id="works"></div></section>
-<section class="panel"><h2>第 4 步 · 订单 / 打印 / 发货</h2>
-<p class="muted">用户确认白模并付款后，在这里按顺序更新制作状态；未付款订单不能开始打印。</p><div id="orders"></div></section>
-</main>
+<div id="loginWrap">
+ <form class="login" onsubmit="event.preventDefault();login()">
+  <div class="logo">童</div><h1>童印运营中心</h1><p class="muted">登录后管理用户、画作、模型、订单与物流。</p>
+  <input id="username" autocomplete="username" placeholder="管理员账号" value="admin">
+  <input id="password" type="password" autocomplete="current-password" placeholder="登录密码">
+  <button type="submit" id="loginSubmit">登录管理后台</button>
+  <div class="muted small" id="loginError"></div>
+  <p class="small muted" style="margin:15px 0 0">第一次部署：在后端 .env 设置 ADMIN_BOOTSTRAP_USER 和 ADMIN_BOOTSTRAP_PASSWORD，然后重启 Go 服务。</p>
+  <details style="margin-top:18px"><summary class="muted small">旧版后台应急密钥登录</summary>
+   <input id="legacy" type="password" autocomplete="off" placeholder="ADMIN_TOKEN（过渡用途）">
+   <button type="button" class="ghost" onclick="legacyLogin()">使用应急密钥</button>
+  </details>
+ </form>
+</div>
+<div id="app" class="hidden">
+ <aside><div class="brand"><strong>童印<span style="color:#e58160">.</span></strong><small>单体业务运营中心</small></div>
+  <div id="nav"></div>
+  <div class="account"><div id="accountName"></div><div class="row" style="margin-top:12px"><button class="ghost" onclick="logout()">退出登录</button></div></div>
+ </aside>
+ <section class="content">
+  <div class="topline"><div><h1 id="pageTitle">运营概览</h1><p id="pageIntro">用户、作品、订单和物流集中管理</p></div>
+  <div class="row"><button class="ghost" onclick="loadTab()">刷新当前数据 ↻</button><span class="muted small" id="lastLoaded"></span></div></div>
+  <div id="body"></div>
+ </section>
+</div>
+<div id="modalContainer"></div><div id="toast" class="toast hidden"></div>
 <script>
-let auth=sessionStorage.getItem('tongyin_admin')||'';
-const renderingIds = new Set();
-document.getElementById('token').value=auth;
-const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const msg=s=>document.getElementById('msg').textContent=s;
-const labels={image_pending:'等待形象图',image_ready:'形象图已好·待家长确认',model_pending:'等待3D白模',model_ready:'白模已完成',failed:'处理失败',awaiting_payment:'待付款',paid:'已付款',printing:'制作中',shipped:'已发货',completed:'已完成',canceled:'已取消'};
-async function api(path,opts={}){
- const res=await fetch(path,{...opts,headers:{'X-Admin-Token':auth,...(opts.headers||{})}});
- const data=await res.json().catch(()=>({error:'返回格式有误'}));
- if(!res.ok)throw Error(data.error||String(res.status));
- return data;
-}
-function login(){auth=document.getElementById('token').value.trim();sessionStorage.setItem('tongyin_admin',auth);refresh()}
-function logout(){auth='';sessionStorage.removeItem('tongyin_admin');document.getElementById('token').value='';document.getElementById('works').innerHTML='';document.getElementById('orders').innerHTML='';msg('已退出')}
-function thumbs(urls){
- return (urls||[]).filter(Boolean).map(u=>'<a target="_blank" rel="noreferrer" href="'+h(u)+'"><img alt="作品图片" src="'+h(u)+'"></a>').join('')||'<span class="muted">尚未上传</span>';
-}
-function uploadRow(id,kind,label,accept,caption){
- return '<div class="upload-row"><label for="'+kind+'_'+id+'">'+h(label)+'</label>'+
- '<input type="file" id="'+kind+'_'+id+'" accept="'+accept+'">'+
- '<button onclick="uploadAsset(\''+id+'\',\''+kind+'\')">'+h(caption)+'</button></div>';
-}
-function stepOne(w){
- return '<div class="step done"><div class="step-header"><span class="number">1</span><span class="step-title">原始画作 · 已上传</span></div>'+
- '<div class="step-hint">这张是家长上传的原画，不需要在后台重复上传。</div><div class="thumb-list">'+thumbs([w.original])+'</div></div>';
-}
-function stepTwo(w){
- const ready=w.status==='image_ready'||w.status==='model_pending'||w.status==='model_ready';
- const locked=w.selected>=0;
- const canUpload=!locked && (w.status==='image_pending'||w.status==='image_ready'||w.status==='failed');
- let middle='<div class="step-hint">形象生成阶段一次只有 1 张图片。上传后，小程序立即显示给家长确认。</div><div class="thumb-list">'+thumbs((w.candidates||[]).slice(0,1))+'</div>';
- if(canUpload)middle+=uploadRow(w.id,'candidate','上传 AI 立体形象图（PNG/JPG）','image/png,image/jpeg,image/webp','上传 / 替换本张形象图');
- else middle+='<div class="callout">'+(locked?'家长已确认形象，进入第 3 步。':'当前不允许修改形象图。')+'</div>';
- return '<div class="step '+(ready?'done':'')+'"><div class="step-header"><span class="number">2</span><span class="step-title">AI 形象图 · '+(ready?'已完成':'待处理')+'</span></div>'+middle+'</div>';
-}
-function stepThree(w){
- const selected=w.selected>=0;
- const hasModel=!!w.model;
- let contents='<div class="step-hint">GLB 上传完成后，小程序直接显示可旋转、缩放的 3D 白模，不需要制作多角度截图。</div>';
- if(selected){
-  contents+='<div class="step-model"><div class="minor">GLB 模型文件：'+(hasModel?'已上传':'未上传')+'</div>';
-  if(hasModel)contents+='<a target="_blank" rel="noreferrer" href="'+h(w.model)+'">下载目前的 GLB 模型</a>';
-  if(w.status==='model_pending'||w.status==='model_ready'){
-   contents+=uploadRow(w.id,'model','模型文件（只接受 .glb）','.glb','上传 / 替换 GLB 模型');
-  }else contents+='<div class="callout">当前状态需要先处理，请检查作品进度。</div>';
-  contents+='</div>';
- }else{
-  contents+='<div class="callout">家长确认形象图后，这里才能上传 GLB 模型。</div>';
+const $=id=>document.getElementById(id), h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const labels={image_pending:'待生成形象',image_ready:'形象待确认',model_pending:'待上传模型',model_ready:'3D模型已完成',failed:'处理失败',awaiting_payment:'待付款',paid:'已支付',printing:'制作中',shipped:'已发货',completed:'已完成',canceled:'已取消'};
+const names={dashboard:['概览','运营数据与待办'],works:['作品生产','原画、形象图与 GLB 模型'],orders:['全部订单','支付、生产、取消及退款'],shipping:['物流管理','待发货、运单与物流轨迹'],users:['微信用户','用户的作品与订单归属'],accounts:['管理人员','角色权限和管理员账号'],audit:['操作记录','敏感后台操作追溯']};
+const state={token:sessionStorage.getItem('ty_admin_session')||'',legacy:sessionStorage.getItem('ty_admin_legacy')||'',role:'',username:'',tab:'dashboard',q:'',filter:'',page:1,perPage:12,works:[],orders:[],users:[],accounts:[]};
+let toastTimer;
+function toast(message){$('toast').textContent=message;$('toast').classList.remove('hidden');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.add('hidden'),3600)}
+async function api(path,options={}){
+ const headers={...(options.headers||{})};
+ if(state.token)headers.Authorization='Bearer '+state.token;
+ else if(state.legacy)headers['X-Admin-Token']=state.legacy;
+ const response=await fetch(path,{...options,headers,cache:'no-store'});
+ const data=await response.json().catch(()=>({error:'服务器未返回 JSON'}));
+ if(!response.ok){
+  if(response.status===401 && path!=='/api/admin/auth/login'){showLogin()}
+  const error=new Error(data.error||'请求失败 HTTP '+response.status);error.status=response.status;throw error
  }
- return '<div class="step '+(w.status==='model_ready'?'done':'wait')+'"><div class="step-header"><span class="number">3</span><span class="step-title">3D 白模 · '+(w.status==='model_ready'?'已完成':'待处理')+'</span></div>'+contents+'</div>';
+ return data
+}
+function jsonPost(path,data,method='POST'){return api(path,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})}
+function showLogin(){state.token='';state.legacy='';sessionStorage.removeItem('ty_admin_session');sessionStorage.removeItem('ty_admin_legacy');$('app').classList.add('hidden');$('loginWrap').classList.remove('hidden')}
+async function login(){
+ $('loginError').textContent='';
+ $('loginSubmit').disabled=true;
+ try{
+  const result=await api('/api/admin/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('username').value.trim(),password:$('password').value})});
+  state.token=result.token;state.legacy='';sessionStorage.setItem('ty_admin_session',result.token);sessionStorage.removeItem('ty_admin_legacy');$('password').value='';
+  await start()
+ }catch(e){$('loginError').textContent=e.message}
+ finally{$('loginSubmit').disabled=false}
+}
+async function legacyLogin(){
+ state.legacy=$('legacy').value.trim();state.token='';
+ if(!state.legacy){toast('请填写后台密钥');return}
+ try{
+  await api('/api/admin/me');
+  sessionStorage.setItem('ty_admin_legacy',state.legacy);sessionStorage.removeItem('ty_admin_session');await start()
+ }catch(e){state.legacy='';toast(e.message)}
+}
+function logout(){showLogin();$('body').innerHTML=''}
+function showModal(content){$('modalContainer').innerHTML='<div class="modal-back" onclick="if(event.target===this)closeModal()"><div class="modal">'+content+'</div></div>'}
+function closeModal(){$('modalContainer').innerHTML=''}
+function nav(){
+ const tabs=['dashboard','works','orders','shipping','users',...(state.role==='owner'?['accounts','audit']:[])];
+ const icons={dashboard:'◈',works:'▣',orders:'▤',shipping:'◇',users:'♙',accounts:'⚙',audit:'≡'};
+ $('nav').innerHTML=tabs.map(t=>'<div class="nav-item '+(state.tab===t?'active':'')+'" onclick="openTab(\''+t+'\')"><span class="glyph">'+icons[t]+'</span>'+names[t][0]+'</div>').join('')
+}
+async function start(){
+ const me=await api('/api/admin/me');state.role=me.role;state.username=me.username;
+ $('loginWrap').classList.add('hidden');$('app').classList.remove('hidden');
+ $('accountName').textContent=me.username+' · '+me.role;
+ nav();await loadTab()
+}
+function openTab(tab){state.tab=tab;state.q='';state.filter='';state.page=1;nav();loadTab()}
+function setSearch(s){state.q=s.toLowerCase();state.page=1;renderItems()}
+function setFilter(s){state.filter=s;state.page=1;renderItems()}
+function pageBy(delta){state.page=Math.max(1,state.page+delta);renderItems()}
+function pager(total){
+ const pages=Math.max(1,Math.ceil(total/state.perPage));state.page=Math.min(state.page,pages);
+ return '<div class="pager"><span class="muted small">'+total+' 条 · 第 '+state.page+'/'+pages+' 页</span><button class="ghost" onclick="pageBy(-1)" '+(state.page===1?'disabled':'')+'>上一页</button><button class="ghost" onclick="pageBy(1)" '+(state.page===pages?'disabled':'')+'>下一页</button></div>'
+}
+function currentPage(rows){const start=(state.page-1)*state.perPage;return rows.slice(start,start+state.perPage)}
+function status(s){return '<span class="pill '+(['completed','model_ready','paid'].includes(s)?'done':['failed','canceled','awaiting_payment'].includes(s)?'warning':'')+'">'+h(labels[s]||s)+'</span>'}
+function date(s){return h((s||'').replace('T',' ').slice(0,19))}
+async function loadTab(){
+ if(!$('app')||$('app').classList.contains('hidden'))return;
+ $('pageTitle').textContent=names[state.tab][0];$('pageIntro').textContent=names[state.tab][1];
+ $('body').innerHTML='<div class="panel muted">正在读取最新数据…</div>';
+ try{
+  if(state.tab==='dashboard')await renderDashboard();
+  else if(state.tab==='works'){state.works=await api('/api/admin/works');renderItems()}
+  else if(state.tab==='orders'||state.tab==='shipping'){state.orders=await api('/api/admin/orders');renderItems()}
+  else if(state.tab==='users'){state.users=await api('/api/admin/users');renderItems()}
+  else if(state.tab==='accounts'){state.accounts=await api('/api/admin/accounts');renderItems()}
+  else if(state.tab==='audit'){const data=await api('/api/admin/audit');renderAudit(data)}
+  $('lastLoaded').textContent=new Date().toLocaleTimeString()
+ }catch(e){$('body').innerHTML='<div class="panel">加载失败：'+h(e.message)+' <button onclick="loadTab()">重试</button></div>'}
+}
+async function renderDashboard(){
+ const res=await api('/api/admin/dashboard'),m=res.metrics||{};
+ const stats=[['用户数',m.users||0],['作品数',m.works||0],['待处理形象',m.image_pending||0],['等待模型',m.model_pending||0],['待付款',m.awaiting_payment||0],['已支付待制作',m.paid||0],['制作中',m.printing||0],['已发货',m.shipped||0]];
+ $('body').innerHTML='<div class="stats">'+stats.map(x=>'<div class="stat"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join('')+'</div>'+
+ '<div class="panel"><h3>业务运行状态</h3><p>已支付订单金额（含未处理退款）　<strong>¥ '+((res.paid_gross_fen||0)/100).toFixed(2)+'</strong></p>'+
+ '<p>微信支付：'+(res.pay_configured?'已配置':'尚未配置商户参数')+'　|　快递100：'+(res.tracking_configured?'已配置查询凭证':'尚未配置凭证')+'</p>'+
+ '<div class="note">作品与订单归属同一个微信用户 ID。物流轨迹只有真实接口返回或人工核实录入才会显示；未开通微信支付/物流商户权限时，这两项不会伪装成已联通。</div>'+
+ '<p style="margin-top:18px"><button onclick="openTab(\'works\')">处理作品</button> <button class="ghost" onclick="openTab(\'shipping\')">查看发货队列</button></p></div>';
+}
+function toolbar(statuses){
+ return '<div class="toolbar"><input id="keyword" placeholder="搜索 ID、用户、订单、运单…" value="'+h(state.q)+'" oninput="setSearch(this.value)">'+
+ (statuses?'<select onchange="setFilter(this.value)"><option value="">全部状态</option>'+statuses.map(s=>'<option value="'+s+'" '+(state.filter===s?'selected':'')+'>'+h(labels[s]||s)+'</option>').join('')+'</select>':'')+
+ '</div>'
+}
+function thumb(url){return url?'<a href="'+h(url)+'" target="_blank" rel="noreferrer"><img class="preview" loading="lazy" src="'+h(url)+'"></a>':'<span class="muted small">待上传</span>'}
+function uploadRow(id,kind,title){
+ return '<div class="upload"><span class="small muted">'+h(title)+'</span>'+
+ '<input id="'+kind+'_'+h(id)+'" type="file" accept="'+(kind==='model'?'.glb':'image/png,image/jpeg,image/webp')+'">'+
+ '<button onclick="uploadAsset(\''+h(id)+'\',\''+kind+'\')">上传 / 替换</button></div>'
 }
 function workCard(w){
- return '<article class="item"><div class="item-top"><strong>作品 #'+h(w.id.slice(0,10))+'</strong><span class="pill">'+h(labels[w.status]||w.status)+'</span><small>'+h(w.created_at.replace('T',' ').slice(0,16))+'</small><span class="minor">形象生成 '+(w.image_attempts||0)+' 次</span></div>'+
- '<div class="steps">'+stepOne(w)+stepTwo(w)+stepThree(w)+'</div>'+
- '<div class="section-bottom row"><input id="note_'+w.id+'" placeholder="失败原因 / 内部备注" aria-label="失败原因">'+
- '<button class="danger" onclick="changeWork(\''+w.id+'\',\'failed\')">标记失败</button>'+
- (w.status==='failed'&&w.selected>=0?'<button class="secondary" onclick="changeWork(\''+w.id+'\',\'model_pending\')">重新处理白模阶段</button>':'')+
- '</div></article>';
+ const one='<div class="step"><h4>① 原始画作</h4>'+thumb(w.original)+'</div>';
+ const canImage=(w.selected<0&&['image_pending','image_ready','failed'].includes(w.status));
+ const two='<div class="step"><h4>② AI 形象图</h4>'+thumb((w.candidates||[])[0])+(canImage?uploadRow(w.id,'candidate','一次一张形象图'):'<p>家长已确认此形象</p>')+'</div>';
+ const canModel=w.selected>=0&&['model_pending','model_ready'].includes(w.status);
+ const three='<div class="step"><h4>③ GLB 白模</h4>'+(w.model?'<a target="_blank" rel="noreferrer" href="'+h(w.model)+'">下载 3D 模型</a>':'<p>尚无 GLB 模型</p>')+
+ (canModel?uploadRow(w.id,'model','上传 GLB 后手机可以旋转查看'):'')+'</div>';
+ return '<article class="card"><div class="card-header"><div><strong>作品 #'+h(w.id.slice(0,12))+'</strong>　'+status(w.status)+'</div><span class="meta">用户 '+h(w.owner_user_id||'旧数据')+'　'+date(w.created_at)+'</span></div>'+
+ '<div class="grid">'+one+two+three+'</div><div class="row" style="margin-top:15px"><input id="note_'+h(w.id)+'" placeholder="失败原因 / 处理备注" style="flex:1">'+
+ '<button class="danger" onclick="changeWork(\''+h(w.id)+'\',\'failed\')">标记失败</button>'+
+ (w.status==='failed'&&w.selected>=0?'<button class="ghost" onclick="changeWork(\''+h(w.id)+'\',\'model_pending\')">重新处理模型</button>':'')+'</div></article>'
 }
-function orderCard(o){
- return '<article class="order"><div class="meta"><strong>订单 #'+h(o.id.slice(0,10))+'</strong><span class="pill">'+h(labels[o.status]||o.status)+'</span><b>¥'+(o.price_fen/100).toFixed(2)+'</b><span class="minor">'+h(o.created_at)+'</span></div>'+
- '<div class="details">'+h(o.name)+' · '+h(o.phone)+' · '+h(o.address)+'<br>对应作品：'+h(o.work_id)+'</div>'+
- '<div class="row"><select id="order_'+o.id+'"><option value="printing">制作中</option><option value="shipped">已发货</option><option value="completed">已完成</option><option value="canceled">取消</option></select>'+
- '<input id="tracking_'+o.id+'" placeholder="快递单号" value="'+h(o.tracking||'')+'">'+
- '<button onclick="changeOrder(\''+o.id+'\')">更新订单</button></div></article>';
+function renderWorks(){
+ const rows=state.works.filter(w=>(!state.filter||w.status===state.filter)&&
+  (!state.q||(w.id+' '+(w.owner_user_id||'')+' '+w.status).toLowerCase().includes(state.q))).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+ $('body').innerHTML='<div class="panel"><h3>作品制作队列</h3><p class="muted">原画 → AI 形象 → GLB。保留已经验收的步骤式上传方式。</p>'+toolbar(['image_pending','image_ready','model_pending','model_ready','failed'])+
+ (rows.length?currentPage(rows).map(workCard).join(''):'<div class="note">暂无匹配的作品。</div>')+pager(rows.length)+'</div>'
 }
-async function refresh(){
- try{
-  const [works,orders]=await Promise.all([api('/api/admin/works'),api('/api/admin/orders')]);
-  works.sort((a,b)=>b.created_at.localeCompare(a.created_at));orders.sort((a,b)=>b.created_at.localeCompare(a.created_at));
-  document.getElementById('works').innerHTML=works.length?works.map(workCard).join(''):'<div class="work-empty">还没有任何作品，先在小程序里上传一张画。</div>';
-  document.getElementById('orders').innerHTML=orders.length?orders.map(orderCard).join(''):'<div class="work-empty">还没有订单。</div>';
-  msg('已更新 · '+new Date().toLocaleTimeString());
- }catch(e){msg('加载失败：'+e.message)}
+function orderRow(o){
+ let controls='';
+ if(o.status==='awaiting_payment')controls='<button class="danger" onclick="changeOrder(\''+h(o.id)+'\',\'canceled\')">取消未付款</button>';
+ if(o.status==='paid')controls='<button onclick="changeOrder(\''+h(o.id)+'\',\'printing\')">开始制作</button>';
+ if(o.status==='printing')controls='<button onclick="shipmentModal(\''+h(o.id)+'\')">录入发货</button>';
+ if(o.status==='shipped')controls='<button class="ghost" onclick="refreshTracking(\''+h(o.id)+'\')">查询物流</button> <button class="ghost" onclick="manualTracking(\''+h(o.id)+'\')">补录轨迹</button> <button onclick="changeOrder(\''+h(o.id)+'\',\'completed\')">完成订单</button>';
+ if(['paid','printing'].includes(o.status) && !o.refund_status)controls+=' <button class="danger" onclick="requestRefund(\''+h(o.id)+'\')">记录退款申请</button>';
+ const events=(o.tracking_events||[]).slice(0,3).map(e=>'<div class="event"><b>'+date(e.time)+'</b>　'+h(e.context)+' <span class="muted small">('+h(e.source||'手工')+')</span></div>').join('');
+ return '<article class="card"><div class="card-header"><div><strong>订单 #'+h(o.id.slice(0,12))+'</strong>　'+status(o.status)+
+ (o.refund_status?'　<span class="pill warning">退款申请：'+h(o.refund_status)+'</span>':'')+'</div><strong>¥'+(o.price_fen/100).toFixed(2)+'</strong></div>'+
+ '<div class="meta">用户 '+h(o.owner_user_id||'未知')+'　|　作品 '+h(o.work_id)+'　|　'+date(o.created_at)+'</div>'+
+ '<div class="detail">收件人：'+h(o.name)+'　'+h(o.phone)+'<br>地址：'+h(o.address)+
+ (o.tracking?'<br>物流：'+h(o.carrier||'快递')+' · '+h(o.tracking)+'　'+h(o.tracking_state||'尚无轨迹'):'')+'</div>'+
+ (events?'<div class="timeline">'+events+'</div>':'')+
+ '<div class="row" style="margin-top:14px">'+controls+'</div></article>'
 }
-
+function renderOrders(){
+ let rows=state.orders.filter(o=>{
+  const category=state.tab==='shipping' ? ['printing','shipped','completed'].includes(o.status) : true;
+  return category&&(!state.filter||o.status===state.filter)&&(!state.q||(o.id+' '+o.work_id+' '+o.name+' '+o.phone+' '+(o.tracking||'')+' '+(o.owner_user_id||'')).toLowerCase().includes(state.q))
+ }).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+ $('body').innerHTML='<div class="panel"><h3>'+(state.tab==='shipping'?'发货与物流管理':'订单履约管理')+'</h3>'+
+ '<p class="muted">状态流转按服务器校验；不能跳过支付，也不能把退款申请当成退款成功。</p>'+
+ toolbar(state.tab==='shipping'?['printing','shipped','completed']:['awaiting_payment','paid','printing','shipped','completed','canceled'])+
+ (rows.length?currentPage(rows).map(orderRow).join(''):'<div class="note">没有匹配的订单。</div>')+pager(rows.length)+'</div>'
+}
+function renderUsers(){
+ const rows=state.users.filter(u=>!state.q||u.id.toLowerCase().includes(state.q)).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+ $('body').innerHTML='<div class="panel"><h3>微信用户列表</h3><p class="muted">使用内部用户编号显示，后台不直接暴露微信 OpenID。</p>'+
+ toolbar(null)+'<div class="table-wrap"><table class="table"><tr><th>用户编号</th><th>作品</th><th>订单</th><th>创建时间</th><th>状态</th><th>操作</th></tr>'+
+ currentPage(rows).map(u=>'<tr><td>'+h(u.id)+'</td><td>'+u.works+'</td><td>'+u.orders+'</td><td>'+date(u.created_at)+'</td><td>'+status(u.disabled?'canceled':'completed')+'</td>'+
+ '<td><button class="'+(u.disabled?'ghost':'danger')+'" onclick="toggleUser(\''+h(u.id)+'\','+(!u.disabled)+')">'+(u.disabled?'启用':'停用')+'</button></td></tr>').join('')+
+ '</table></div>'+pager(rows.length)+'</div>'
+}
+function renderAccounts(){
+ $('body').innerHTML='<div class="panel"><div class="card-header"><h3>运营后台账号</h3><button onclick="createStaff()">新增账号</button></div>'+
+ '<div class="note">owner：全权限；operator：处理作品及订单；production：作品制作；shipping：发货物流；service：查询客服信息。修改账号会使旧会话失效。</div>'+
+ '<div class="table-wrap"><table class="table"><tr><th>账号</th><th>角色</th><th>启用状态</th><th>创建时间</th><th>操作</th></tr>'+
+ state.accounts.map(a=>'<tr><td>'+h(a.username)+'</td><td>'+h(a.role)+'</td><td>'+(a.disabled?'停用':'正常')+'</td><td>'+date(a.created_at)+'</td><td><button class="ghost" onclick="editStaff(\''+h(a.username)+'\')">管理</button></td></tr>').join('')+'</table></div></div>';
+}
+function renderAudit(rows){
+ $('body').innerHTML='<div class="panel"><h3>后台操作日志（最近300条）</h3>'+
+ '<div class="table-wrap"><table class="table"><tr><th>时间</th><th>操作人</th><th>事件</th><th>对象</th><th>备注</th></tr>'+
+ rows.map(a=>'<tr><td>'+date(a.created_at)+'</td><td>'+h(a.owner)+'</td><td>'+h(a.action)+'</td><td>'+h(a.target)+'</td><td>'+h(a.detail||'')+'</td></tr>').join('')+'</table></div></div>'
+}
+function renderItems(){if(state.tab==='works')renderWorks();else if(state.tab==='orders'||state.tab==='shipping')renderOrders();else if(state.tab==='users')renderUsers();else if(state.tab==='accounts')renderAccounts()}
 async function uploadAsset(id,kind){
- const input=document.getElementById(kind+'_'+id);
- if(!input||!input.files.length){alert('请先选择文件');return}
- if(renderingIds.has(id)){alert('正在上传，请稍候');return}
- const file=input.files[0],limit=(kind==='model'?100:10)*1024*1024;
- if(file.size>limit){
-  alert('文件超限：'+(file.size/1048576).toFixed(1)+' MiB');
-  return;
- }
- const button=input.nextElementSibling;
- if(button){button.disabled=true;button.textContent='正在上传…'}
- renderingIds.add(id);
- const form=new FormData();form.append('file',file);
- try{
-  await api('/api/admin/works/'+id+'/asset?kind='+kind,{method:'POST',body:form});
-  await refresh();
- }catch(e){
-  const network=/Failed to fetch|NetworkError|fetch failed|Load failed/i.test(e.message||'');
-  alert('上传失败：'+(network?'连接中断，请检查后端服务。':e.message));
- }finally{
-  renderingIds.delete(id);
-  if(button&&button.isConnected){
-   button.disabled=false;
-   button.textContent=kind==='model'?'上传 / 替换 GLB 模型':'上传 / 替换形象图';
-  }
- }
+ const f=$(kind+'_'+id)?.files?.[0];if(!f){toast('请先选择文件');return}
+ if(f.size>(kind==='model'?100:10)*1048576){toast('文件超出上传限制');return}
+ const form=new FormData();form.append('file',f);
+ try{await api('/api/admin/works/'+id+'/asset?kind='+kind,{method:'POST',body:form});toast('上传完成');await loadTab()}
+ catch(e){toast(e.message)}
 }
 async function changeWork(id,status){
- try{await api('/api/admin/works/'+id+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Status:status,Note:document.getElementById('note_'+id).value})});await refresh()}
- catch(e){alert(e.message)}
+ if(!confirm('确定修改这件作品的处理状态？'))return;
+ try{await jsonPost('/api/admin/works/'+id+'/status',{Status:status,Note:$('note_'+id)?.value||''});toast('作品状态已更新');loadTab()}catch(e){toast(e.message)}
 }
-async function changeOrder(id){
- try{await api('/api/admin/orders/'+id+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({Status:document.getElementById('order_'+id).value,Tracking:document.getElementById('tracking_'+id).value})});await refresh()}
- catch(e){alert(e.message)}
+async function changeOrder(id,status){
+ if(!confirm('确定将订单状态调整为「'+(labels[status]||status)+'」？'))return;
+ try{await jsonPost('/api/admin/orders/'+id+'/status',{Status:status});toast('订单状态已更新');loadTab()}catch(e){toast(e.message)}
 }
-if(auth)refresh();
-</script>
-</body></html>
+function shipmentModal(id){
+ showModal('<div class="card-header"><h2>录入物流发货</h2><button class="ghost" onclick="closeModal()">关闭 ✕</button></div>'+
+ '<p class="muted">仅制作中订单可以发货，系统会保存快递公司、运单号和发货时间。</p>'+
+ '<label>快递公司</label><input id="carrier" placeholder="例如 顺丰速运">'+
+ '<label>快递100公司编码</label><input id="carrierCode" placeholder="例如 shunfeng">'+
+ '<label>快递单号</label><input id="number" placeholder="真实运单号码">'+
+ '<div class="row" style="margin-top:25px"><button onclick="submitShipment(\''+id+'\')">确认发货</button></div>')
+}
+async function submitShipment(id){
+ if(!confirm('请核对真实运单号，确定标记已发货？'))return;
+ try{
+  await jsonPost('/api/admin/orders/'+id+'/shipment',{carrier:$('carrier').value,carrier_code:$('carrierCode').value,tracking:$('number').value});
+  closeModal();toast('发货信息已保存');loadTab()
+ }catch(e){toast(e.message)}
+}
+async function refreshTracking(id){
+ try{const result=await jsonPost('/api/admin/orders/'+id+'/tracking/refresh',{});toast('已更新 '+result.events.length+' 条物流轨迹');loadTab()}
+ catch(e){toast(e.message)}
+}
+function manualTracking(id){
+ showModal('<div class="card-header"><h2>人工补录真实物流信息</h2><button class="ghost" onclick="closeModal()">关闭 ✕</button></div>'+
+ '<p class="muted">仅填写已核实的信息，页面将明确标记为「人工录入」。</p>'+
+ '<label>轨迹时间</label><input id="eventTime" placeholder="2026-10-14 16:20:00">'+
+ '<label>物流信息</label><textarea rows="3" id="eventText" placeholder="如：快件已被签收"></textarea>'+
+ '<div class="row" style="margin-top:25px"><button onclick="submitManual(\''+id+'\')">保存记录</button></div>')
+}
+async function submitManual(id){
+ try{await jsonPost('/api/admin/orders/'+id+'/tracking',{time:$('eventTime').value,context:$('eventText').value});closeModal();toast('轨迹已保存');loadTab()}
+ catch(e){toast(e.message)}
+}
+async function requestRefund(id){
+ const reason=prompt('请输入退款原因。此操作只登记退款申请，不会发起微信资金退款。');
+ if(!reason)return;
+ try{const v=await jsonPost('/api/admin/orders/'+id+'/refund',{reason});alert(v.message);loadTab()}catch(e){toast(e.message)}
+}
+async function toggleUser(id,disabled){
+ if(!confirm(disabled?'确定停用此用户？其小程序登录将受限。':'重新启用此用户？'))return;
+ try{await jsonPost('/api/admin/users/'+id+'/status',{disabled});toast('用户状态已修改');loadTab()}catch(e){toast(e.message)}
+}
+const roles=['owner','operator','production','shipping','service'];
+function roleOptions(selected){return roles.map(r=>'<option value="'+r+'" '+(selected===r?'selected':'')+'>'+r+'</option>').join('')}
+function createStaff(){
+ showModal('<div class="card-header"><h2>新增管理人员</h2><button class="ghost" onclick="closeModal()">关闭 ✕</button></div>'+
+ '<label>管理员账号</label><input id="staffName" autocomplete="off" placeholder="例如 printer01">'+
+ '<label>登录密码（不少于12位）</label><input id="staffPassword" type="password" autocomplete="new-password">'+
+ '<label>角色</label><select id="staffRole">'+roleOptions('production')+'</select>'+
+ '<div class="row" style="margin-top:20px"><button onclick="saveNewStaff()">创建账号</button></div>')
+}
+async function saveNewStaff(){
+ try{await jsonPost('/api/admin/accounts',{username:$('staffName').value,password:$('staffPassword').value,role:$('staffRole').value});closeModal();toast('账号已创建');loadTab()}catch(e){toast(e.message)}
+}
+function editStaff(name){
+ const u=state.accounts.find(x=>x.username===name);
+ if(!u)return;
+ showModal('<div class="card-header"><h2>修改管理员 '+h(name)+'</h2><button class="ghost" onclick="closeModal()">关闭 ✕</button></div>'+
+ '<label>角色</label><select id="staffRole">'+roleOptions(u.role)+'</select>'+
+ '<label>新密码（留空则不修改）</label><input type="password" id="staffPassword" autocomplete="new-password">'+
+ '<label><input type="checkbox" style="width:auto" id="staffDisabled" '+(u.disabled?'checked':'')+'> 停用账号</label>'+
+ '<div class="row" style="margin-top:20px"><button onclick="saveStaff(\''+h(name)+'\')">保存修改</button></div>')
+}
+async function saveStaff(name){
+ try{await jsonPost('/api/admin/accounts/'+name,{role:$('staffRole').value,password:$('staffPassword').value,disabled:$('staffDisabled').checked},'PUT');closeModal();toast('管理员已更新');loadTab()}
+ catch(e){toast(e.message)}
+}
+if(state.token||state.legacy)start().catch(()=>showLogin());
+</script></body></html>

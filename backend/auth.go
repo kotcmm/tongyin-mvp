@@ -68,6 +68,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Code == "DEV_LOGIN" && a.cfg.Dev {
         if err:=a.ensureUser("dev-user");err!=nil{fail(w,403,err.Error());return}
+        if err:=a.trackLogin("dev-user");err!=nil{fail(w,500,"登录记录失败");return}
         reply(w, 200, map[string]string{"token": a.token("dev-user")})
 		return
 	}
@@ -93,5 +94,6 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err:=a.ensureUser(v.OpenID);err!=nil{fail(w,403,err.Error());return}
+    if err:=a.trackLogin(v.OpenID);err!=nil{fail(w,500,"登录记录失败");return}
     reply(w, 200, map[string]string{"token": a.token(v.OpenID)})
 }

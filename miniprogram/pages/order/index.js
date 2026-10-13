@@ -2,7 +2,8 @@ const {request,tip}=require('../../utils/api')
 Page({
  data:{
   id:'',item:null,paying:false,editingShipping:false,savingShipping:false,
-  editName:'',editPhone:'',editAddress:''
+  editName:'',editPhone:'',editAddress:'',
+  tracking:null,trackingLoading:false,trackingError:''
  },
  onLoad(q){
   this._editOnOpen=q.editAddress==='1'
@@ -20,7 +21,23 @@ Page({
     item,editName:item.name,editPhone:item.phone,editAddress:item.address,
     editingShipping:openEdit
    })
+   if(item.status==='shipped'||item.status==='completed')this.loadTracking()
+   else this.setData({tracking:null,trackingError:''})
   }catch(e){tip(e)}
+ },
+ async loadTracking(){
+  this.setData({trackingLoading:true,trackingError:''})
+  try{
+   const v=await request('GET','/api/orders/'+this.data.id+'/tracking')
+   this.setData({tracking:v})
+  }catch(e){
+   this.setData({trackingError:e.message||'物流暂时无法查询'})
+  }finally{this.setData({trackingLoading:false})}
+ },
+ copyTracking(){
+  const number=this.data.tracking&&this.data.tracking.tracking_no||this.data.item&&this.data.item.tracking
+  if(!number)return
+  wx.setClipboardData({data:number})
  },
  startShippingEdit(){
   if(!this.data.item || this.data.item.status!=='awaiting_payment')return

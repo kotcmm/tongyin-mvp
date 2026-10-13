@@ -25,9 +25,10 @@ type App struct {
 
 func main() {
 	c := config()
-	if c.AdminToken == "" || len(c.SessionKey) < 24 {
-		log.Fatal("配置 ADMIN_TOKEN 和长度至少24位的 SESSION_SECRET 后启动")
-	}
+	if len(c.SessionKey)<24{log.Fatal("SESSION_SECRET 至少需要24位")}
+    if c.AdminToken=="" && c.AdminPassword==""{
+      log.Print("提示：没有提供 ADMIN_TOKEN 或 ADMIN_BOOTSTRAP_PASSWORD；需要数据库中已有可用管理员才能登录")
+    }
 	if !c.Dev && (!strings.HasPrefix(c.PublicURL, "https://") || c.AppID == "" || c.AppSecret == "") {
 		log.Fatal("生产模式需要 HTTPS PUBLIC_URL、WX_APP_ID、WX_APP_SECRET")
 	}
@@ -40,6 +41,7 @@ func main() {
 	}
 	defer db.Close()
  if err:=bootstrapAdmin(db,c);err!=nil{log.Fatal(err)}
+ if err:=checkAdminReady(db,c);err!=nil{log.Fatal(err)}
  if err:=backfillLegacyUsers(db);err!=nil{log.Fatal(err)}
  if err := activateLegacyGLBWorks(db); err != nil { log.Fatal(err) }
 	app := &App{cfg: c, db: db, client: &http.Client{Timeout: 90 * time.Second}}
@@ -111,6 +113,12 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/orders/{id}/status", a.adminOrderStatus)
 	mux.HandleFunc("POST /api/internal/ai-result", a.aiResult)
 	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/admin/", 302) })
+    mux.HandleFunc("GET /admin/{$}",func(w http.ResponseWriter,r *http.Request){
+      w.Header().Set("Content-Type","text/html; charset=utf-8")
+      w.Header().Set("Cache-Control","no-store")
+      w.WriteHeader(http.StatusOK)
+      _,_=w.Write(embeddedAdminHTML)
+    })
 	adminFiles := http.FileServer(http.Dir(env("ADMIN_DIR", "../admin")))
 	mux.Handle("GET /admin/", http.StripPrefix("/admin/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// On Windows the .mjs MIME type may be missing or provided by the
@@ -520,7 +528,7 @@ func (a *App) createOrder(w http.ResponseWriter, r *http.Request) {
 	var validationErr error
     q.Name,q.Phone,q.Address,validationErr=validateShipping(q.Name,q.Phone,q.Address)
     if validationErr!=nil {fail(w,400,validationErr.Error());return}
-	order := &Order{ID: newID(), Owner: owner, WorkID: q.WorkID, CreatedAt: now(), Name: q.Name, Phone: q.Phone, Address: q.Address, PriceFen: a.cfg.PriceFen, Status: "awaiting_payment"}
+	order := &Order{ID: newID(), Owner: owner, WorkID: q.WorkID, CreatedAt: now(), Name: q.Name, Phone: q.Phone, Address: q.Address, PriceFen: a.cfg.PriceFen, Status: "awaiting_payment",History:[]OrderHistory{{At:now(),Actor:"customer",Action:"created"}}}
 	err := a.db.update(func(d *Data) error {
 		wk, ok := d.Works[q.WorkID]
 		if !ok || wk.Owner != owner || wk.Status != "model_ready" {

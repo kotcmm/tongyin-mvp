@@ -273,8 +273,10 @@ func (a *App) payNotify(w http.ResponseWriter, r *http.Request) {
 			return fmt.Errorf("订单身份或金额不符")
 		}
 		if o.Status == "awaiting_payment" {
-			o.Status = "paid"
-		}
+            o.Status="paid"
+            o.History=append(o.History,OrderHistory{At:now(),Actor:"wechatpay",Action:"paid",Note:"微信支付通知已验签"})
+            recordAudit(d,"wechatpay","order.paid",o.ID,"微信支付验签通过")
+        }
 		return nil
 	})
 	if err != nil {
