@@ -76,6 +76,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /api/works", a.createWork)
 	mux.HandleFunc("GET /api/works", a.listWorks)
 	mux.HandleFunc("GET /api/works/{id}", a.getWork)
+    mux.HandleFunc("GET /api/works/{id}/order", a.getWorkOrder)
 	mux.HandleFunc("POST /api/works/{id}/generate", a.startImageGeneration)
 	mux.HandleFunc("POST /api/works/{id}/select", a.selectImage)
 	mux.HandleFunc("GET /api/shipping-address", a.getShippingAddress)
@@ -83,6 +84,7 @@ func (a *App) routes() http.Handler {
     mux.HandleFunc("POST /api/orders", a.createOrder)
 	mux.HandleFunc("GET /api/orders", a.listOrders)
 	mux.HandleFunc("GET /api/orders/{id}", a.getOrder)
+    mux.HandleFunc("PUT /api/orders/{id}/shipping-address", a.updateOrderShipping)
 	mux.HandleFunc("POST /api/orders/{id}/pay", a.startPay)
 	mux.HandleFunc("POST /api/pay/notify", a.payNotify)
 	mux.HandleFunc("GET /api/admin/works", a.adminWorks)
@@ -434,6 +436,54 @@ func (a *App) putShippingAddress(w http.ResponseWriter,r *http.Request) {
  cp:=*v
  cp.Owner=""
  reply(w,200,map[string]any{"address":&cp})
+}
+// Return the active order of this work without creating a duplicate.
+func (a *App) getWorkOrder(w http.ResponseWriter, r *http.Request) {
+ owner:=a.uid(w,r)
+ if owner=="" {return}
+ id:=r.PathValue("id")
+ work,ok:=a.db.work(id)
+ if !ok || work.Owner!=owner {fail(w,404,"作品不存在");return}
+ var latest *Order
+ for _,o:=range a.db.orders(owner,false) {
+  if o.Owner!=owner || o.WorkID!=id || o.Status=="canceled" {continue}
+  if latest==nil || o.CreatedAt>latest.CreatedAt {latest=o}
+ }
+ if latest==nil {reply(w,200,map[string]any{"order":nil});return}
+ cp:=*latest
+ cp.Owner=""
+ reply(w,200,map[string]any{"order":&cp})
+}
+
+// Only an unpaid order's shipping snapshot may be updated online.
+// Editing the order never rewrites a separately saved default address.
+func (a *App) updateOrderShipping(w http.ResponseWriter, r *http.Request) {
+ owner:=a.uid(w,r)
+ if owner=="" {return}
+ id:=r.PathValue("id")
+ var q struct {
+  Name string `json:"name"`
+  Phone string `json:"phone"`
+  Address string `json:"address"`
+ }
+ if decode(r,&q)!=nil {fail(w,400,"参数有误");return}
+ name,phone,address,err:=validateShipping(q.Name,q.Phone,q.Address)
+ if err!=nil {fail(w,400,err.Error());return}
+ var updated Order
+ err=a.db.update(func(d *Data) error {
+  order,exists:=d.Orders[id]
+  if !exists || order.Owner!=owner {return errNotFound}
+  if order.Status!="awaiting_payment" {return fmt.Errorf("只有待付款订单可以修改收货地址")}
+  order.Name=name
+  order.Phone=phone
+  order.Address=address
+  updated=*order
+  return nil
+ })
+ if errors.Is(err,errNotFound) {fail(w,404,"订单不存在");return}
+ if err!=nil {fail(w,409,err.Error());return}
+ updated.Owner=""
+ reply(w,200,&updated)
 }
 func (a *App) createOrder(w http.ResponseWriter, r *http.Request) {
 	owner := a.uid(w, r)

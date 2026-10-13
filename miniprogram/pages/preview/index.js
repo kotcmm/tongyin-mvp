@@ -8,7 +8,8 @@ Page({
   id:'',item:null,price:'--',name:'',phone:'',address:'',busy:false,
   dev:false,aiAutoEnabled:true,
   showCanvas:false,viewerLoading:false,viewerError:'',viewerMessage:'正在加载白模…',fullscreen:false,
-  shippingLoaded:false,shippingEditing:false,shippingExists:false,shippingSaving:false
+  shippingLoaded:false,shippingEditing:false,shippingExists:false,shippingSaving:false,
+  existingOrder:null,checkingOrder:true,orderLookupFailed:false
  },
  onLoad(q){
   this.setData({id:q.id})
@@ -23,6 +24,7 @@ Page({
  },
  onShow(){
   this._visible=true
+  this.loadExistingOrder()
   this.refresh()
   this.timer=setInterval(()=>this.refresh(true),5000)
  },
@@ -260,10 +262,42 @@ Page({
   this._scene=null;this._camera=null;this._model=null;this._loadedKey=''
   this._lastTouch=null;this._pinch=0
  },
+ async loadExistingOrder(){
+  if(!this.data.id)return
+  this.setData({checkingOrder:true,orderLookupFailed:false})
+  try{
+   const response=await request('GET','/api/works/'+this.data.id+'/order')
+   const order=response&&response.order||null
+   const patch={existingOrder:order,checkingOrder:false,orderLookupFailed:false}
+   if(order){
+    Object.assign(patch,{name:order.name,phone:order.phone,address:order.address,
+     shippingExists:true,shippingEditing:false,shippingLoaded:true})
+   }
+   this.setData(patch)
+   return order
+  }catch(e){
+   this.setData({checkingOrder:false,orderLookupFailed:true})
+   tip(e)
+   return null
+  }
+ },
+ openExistingOrder(editAddress){
+  const order=this.data.existingOrder
+  if(!order)return
+  wx.navigateTo({url:'/pages/order/index?id='+order.id+(editAddress&&order.status==='awaiting_payment'?'&editAddress=1':'')})
+ },
+ changeShipping(){
+  if(this.data.existingOrder){
+   this.openExistingOrder(true)
+   return
+  }
+  this.editShipping()
+ },
  async loadShipping(){
   try{
    const response=await request('GET','/api/shipping-address')
    const address=response&&response.address
+   if(this.data.existingOrder)return
    if(address&&address.name&&address.phone&&address.address){
     this.setData({
      name:address.name,phone:address.phone,address:address.address,
@@ -286,6 +320,7 @@ Page({
    this.setData({shippingEditing:true})
    return false
   }
+  if(this.data.existingOrder){this.openExistingOrder(true);return false}
   this.setData({shippingSaving:true})
   try{
    await request('PUT','/api/shipping-address',{name,phone,address})
@@ -300,6 +335,7 @@ Page({
   }
  },
  chooseWeChatAddress(){
+  if(this.data.existingOrder){this.openExistingOrder(true);return}
   if(typeof wx.chooseAddress!=='function'){
    wx.showToast({title:'当前环境不支持微信地址，请手动填写',icon:'none'})
    this.setData({shippingEditing:true})
@@ -326,13 +362,21 @@ Page({
  address(e){this.setData({address:e.detail.value})},
  toWorks(){wx.switchTab({url:'/pages/works/index'})},
  async submit(){
-  if(this.data.busy||!this.data.shippingLoaded||this.data.shippingSaving)return
+  if(this.data.busy||this.data.checkingOrder||this.data.orderLookupFailed)return
+  if(this.data.existingOrder){this.openExistingOrder(false);return}
+  if(!this.data.shippingLoaded||this.data.shippingSaving)return
   this.setData({busy:true})
   try{
    const order=await request('POST','/api/orders',{
     work_id:this.data.id,name:this.data.name,phone:this.data.phone,address:this.data.address
    })
    wx.redirectTo({url:'/pages/order/index?id='+order.id})
-  }catch(e){tip(e)}finally{this.setData({busy:false})}
+  }catch(e){
+   if(e.statusCode===409){
+    const existing=await this.loadExistingOrder()
+    if(existing){this.openExistingOrder(false);return}
+   }
+   tip(e)
+  }finally{this.setData({busy:false})}
  }
 })

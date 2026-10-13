@@ -25,3 +25,5 @@ jobs:
           node --check miniprogram/vendor/threejs-miniprogram/index.js
           node --check miniprogram/vendor/threejs-miniprogram/gltf-loader.js
           node scripts/check-miniapp-3d.cjs
+          node --check miniprogram/pages/order/index.js
+          node scripts/check-order-flow.cjs

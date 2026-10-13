@@ -8,12 +8,30 @@
   <view class="divider"></view><view class="amount"><text>订单金额</text><view>¥ {{item.price}}</view></view>
  </view>
  <view class="detail-card">
-  <view class="detail-heading">收货信息</view>
-  <view class="address-name">{{item.name}} <text>{{item.phone}}</text></view>
-  <view class="address">{{item.address}}</view>
+  <view class="shipping-heading">
+   <view class="detail-heading">收货信息</view>
+   <view wx:if="{{item.status==='awaiting_payment' && !editingShipping}}" class="shipping-edit-link" bindtap="startShippingEdit">修改地址 ›</view>
+  </view>
+  <view wx:if="{{!editingShipping}}">
+   <view class="address-name">{{item.name}} <text>{{item.phone}}</text></view>
+   <view class="address">{{item.address}}</view>
+   <view wx:if="{{item.status==='awaiting_payment'}}" class="shipping-help">付款前可修改本订单的收货信息</view>
+  </view>
+  <view wx:else class="edit-shipping">
+   <view class="wechat-select" bindtap="chooseWeChatAddress">从微信选择收货地址 <text>›</text></view>
+   <view class="edit-shipping-hint">也可以直接修改以下信息</view>
+   <input class="edit-field" placeholder="收件人姓名" value="{{editName}}" bindinput="changeName" maxlength="30"/>
+   <input class="edit-field" placeholder="联系电话" value="{{editPhone}}" bindinput="changePhone" type="number" maxlength="20"/>
+   <textarea class="edit-field edit-address" placeholder="详细地址（省市区、街道门牌号）" value="{{editAddress}}" bindinput="changeAddress" maxlength="300"/>
+   <view class="edit-actions">
+    <view class="edit-cancel" bindtap="cancelShippingEdit">取消</view>
+    <view class="edit-save" bindtap="saveShipping">{{savingShipping ? '保存中…' : '保存本订单地址'}}</view>
+   </view>
+   <view class="shipping-help">只修改这笔订单，不影响其他订单或常用收货地址。</view>
+  </view>
   <view wx:if="{{item.tracking}}" class="tracking">物流单号：{{item.tracking}}</view>
  </view>
- <button wx:if="{{item.status==='awaiting_payment'}}" class="btn pay-btn" loading="{{paying}}" disabled="{{paying}}" bindtap="pay">微信支付 ¥{{item.price}} <text>→</text></button>
+ <button wx:if="{{item.status==='awaiting_payment'}}" class="btn pay-btn" loading="{{paying}}" disabled="{{paying || editingShipping || savingShipping}}" bindtap="pay">微信支付 ¥{{item.price}} <text>→</text></button>
  <view class="under-link" bindtap="toWorks">返回我的作品 <text>→</text></view>
  <view class="muted foot">支付结果以订单最新状态为准，如已支付可重新进入页面确认。</view>
 </view>

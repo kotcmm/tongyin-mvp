@@ -54,15 +54,15 @@
    <view class="divider"></view>
    <view class="shipping-header">
     <view class="field-label">收货地址</view>
-    <view wx:if="{{shippingExists && !shippingEditing}}" class="address-change" bindtap="editShipping">更换 / 编辑 <text>›</text></view>
+    <view wx:if="{{shippingExists && !shippingEditing}}" class="address-change" bindtap="changeShipping">{{existingOrder ? '修改订单地址' : '更换 / 编辑'}} <text>›</text></view>
    </view>
    <view wx:if="{{!shippingLoaded}}" class="shipping-loading">正在读取保存的收货地址…</view>
-   <view wx:elif="{{shippingExists && !shippingEditing}}" class="shipping-summary" bindtap="editShipping">
+   <view wx:elif="{{shippingExists && !shippingEditing}}" class="shipping-summary" bindtap="changeShipping">
     <view class="shipping-icon">⌖</view>
     <view class="shipping-content">
      <view class="shipping-person">{{name}}　{{phone}}</view>
      <view class="shipping-location">{{address}}</view>
-     <view class="shipping-desc">已保存，下次下单可直接使用</view>
+     <view class="shipping-desc">{{existingOrder ? '此订单使用的收货地址' : '已保存，下次下单可直接使用'}}</view>
     </view>
     <view class="shipping-arrow">›</view>
    </view>
@@ -82,7 +82,10 @@
     </view>
    </view>
    <view class="fine-print">按所选造型定制。3D 打印层纹和局部细节可能与预览略有差异。</view>
-   <button class="btn checkout-btn" disabled="{{busy || !shippingLoaded || shippingSaving || !name || !phone || !address}}" loading="{{busy}}" bindtap="submit">确认定制，去付款 <text>→</text></button>
+   <view wx:if="{{existingOrder && existingOrder.status==='awaiting_payment'}}" class="existing-order-tip">此作品已有待付款订单，无需重复下单。</view>
+   <view wx:if="{{existingOrder && existingOrder.status!=='awaiting_payment'}}" class="existing-order-tip">此作品已有订单，可直接查看订单进度。</view>
+   <view wx:if="{{orderLookupFailed}}" class="existing-order-tip order-check-error" bindtap="loadExistingOrder">订单状态获取失败，点击重试</view>
+   <button class="btn checkout-btn" disabled="{{busy || checkingOrder || orderLookupFailed || (!existingOrder && (!shippingLoaded || shippingSaving || !name || !phone || !address))}}" loading="{{busy || checkingOrder}}" bindtap="submit">{{existingOrder ? (existingOrder.status==='awaiting_payment' ? '继续付款' : '查看订单') : '确认定制，去付款'}} <text>→</text></button>
   </view>
   <view class="go-back" bindtap="toWorks">先不下单？作品会为你保留 →</view>
  </view>

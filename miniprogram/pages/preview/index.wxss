@@ -54,3 +54,6 @@
 .shipping-editor-actions{display:flex;gap:25rpx;align-items:center;padding:18rpx 0 4rpx}
 .shipping-save{color:#4F7B5C;border-bottom:1rpx solid #B2CBB6;font-size:25rpx;font-weight:700;padding:13rpx 0}
 .shipping-cancel{color:#9B9E99;font-size:24rpx;padding:13rpx}
+
+.existing-order-tip{font-size:23rpx;color:#68866F;line-height:1.6;text-align:center;margin-top:18rpx}
+.order-check-error{color:#C36E4B;text-decoration:underline;padding:16rpx}
