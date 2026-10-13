@@ -39,6 +39,8 @@ type Order struct {
 	PriceFen  int    `json:"price_fen"`
 	Status    string `json:"status"` // awaiting_payment, paid, printing, shipped, completed, canceled
 	Tracking  string `json:"tracking,omitempty"`
+ PaymentStartedAt string `json:"payment_started_at,omitempty"`
+ CancelReason string `json:"cancel_reason,omitempty"`
  Carrier string `json:"carrier,omitempty"`
  CarrierCode string `json:"carrier_code,omitempty"`
  ShippedAt string `json:"shipped_at,omitempty"`

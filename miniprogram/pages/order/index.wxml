@@ -51,6 +51,8 @@
  </view>
  <view wx:if="{{item.refund_status}}" class="detail-card refund-notice">退款处理：{{item.refund_status==='requested' ? '已提交申请，等待工作人员处理' : item.refund_status}}</view>
  <button wx:if="{{item.status==='awaiting_payment'}}" class="btn pay-btn" loading="{{paying}}" disabled="{{paying || editingShipping || savingShipping}}" bindtap="pay">微信支付 ¥{{item.price}} <text>→</text></button>
+ <view wx:if="{{item.status==='awaiting_payment' && !item.payment_started_at}}" class="cancel-order-link" bindtap="cancelOrder">暂不购买，取消未付款订单</view>
+ <view wx:if="{{item.status==='awaiting_payment' && item.payment_started_at}}" class="payment-status-hint">该订单已发起微信支付。如需取消，请等待支付结果确认后联系运营人员处理。</view>
  <view class="under-link" bindtap="toWorks">返回我的作品 <text>→</text></view>
  <view class="muted foot">支付结果以订单最新状态为准，如已支付可重新进入页面确认。</view>
 </view>

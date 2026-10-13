@@ -91,6 +91,21 @@ Page({
   }finally{this.setData({savingShipping:false})}
  },
  toWorks(){wx.switchTab({url:'/pages/works/index'})},
+ async cancelOrder(){
+  const item=this.data.item
+  if(!item || item.status!=='awaiting_payment' || item.payment_started_at)return
+  const yes=await new Promise(resolve=>wx.showModal({
+   title:'取消这笔订单？',
+   content:'未付款订单取消后仍会保留原作品，可以重新创建订单。',
+   success:res=>resolve(!!res.confirm),fail:()=>resolve(false)
+  }))
+  if(!yes)return
+  try{
+   await request('POST','/api/orders/'+this.data.id+'/cancel',{reason:'用户主动取消未付款订单'})
+   wx.showToast({title:'订单已取消',icon:'success'})
+   this.refresh()
+  }catch(e){tip(e)}
+ },
  async pay(){
   if(this.data.paying || this.data.editingShipping || this.data.savingShipping)return
   this.setData({paying:true})

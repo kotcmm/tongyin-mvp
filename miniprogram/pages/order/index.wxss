@@ -28,3 +28,6 @@
 .tracking-empty{font-size:24rpx;line-height:1.8;color:#829385;padding:22rpx 0}
 .tracking-footer{font-size:21rpx;color:#A4AFA5}
 .refund-notice{color:#B97B57;font-size:24rpx}
+
+.cancel-order-link{padding:24rpx 16rpx;text-align:center;color:#B77F6A;font-size:24rpx;text-decoration:underline}
+.payment-status-hint{font-size:21rpx;color:#B48B65;text-align:center;line-height:1.7;padding:18rpx 10rpx}

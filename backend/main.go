@@ -100,6 +100,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /api/orders/{id}", a.getOrder)
     mux.HandleFunc("PUT /api/orders/{id}/shipping-address", a.updateOrderShipping)
 	mux.HandleFunc("POST /api/orders/{id}/pay", a.startPay)
+ mux.HandleFunc("POST /api/orders/{id}/cancel",a.cancelOrder)
  mux.HandleFunc("GET /api/orders/{id}/tracking",a.orderTracking)
  mux.HandleFunc("POST /api/admin/orders/{id}/shipment",a.adminShipment)
  mux.HandleFunc("POST /api/admin/orders/{id}/tracking",a.adminTrackingEntry)

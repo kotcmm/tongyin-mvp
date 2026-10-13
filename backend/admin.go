@@ -154,7 +154,13 @@ func (a *App) adminOrderStatus(w http.ResponseWriter, r *http.Request) {
 		if o.Status == "canceled" || o.Status == "completed" {
 			return errors.New("订单已结束")
 		}
-		if q.Status == "canceled" && o.Status != "awaiting_payment" {
+		if q.Status=="canceled" && o.PaymentStartedAt!=""{
+            return errors.New("订单已经发起支付，请核实微信支付状态后处理")
+        }
+        if q.Status=="printing" && o.RefundStatus!=""{
+            return errors.New("订单存在退款申请，不能进入生产")
+        }
+        if q.Status == "canceled" && o.Status != "awaiting_payment" {
 			return errors.New("已支付订单不能直接取消，请先执行退款流程")
 		}
 		next := map[string]string{"paid": "printing", "printing": "shipped", "shipped": "completed"}
