@@ -27,3 +27,13 @@ jobs:
           node scripts/check-miniapp-3d.cjs
           node --check miniprogram/pages/order/index.js
           node scripts/check-order-flow.cjs
+      - name: Verify LAN/phone config generation
+        run: node scripts/check-dev-phone.cjs
+      - name: Parse phone dev script (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'scripts/dev.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { throw ($errors | Out-String) }

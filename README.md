@@ -37,6 +37,41 @@ go run .
 
 小程序：使用微信开发者工具导入 `miniprogram/`，将 `miniprogram/config.js` 的 `API_BASE` 改为本地地址或 HTTPS API 域名。在开发者工具的本地调试中可关闭域名校验（**仅用于本地调试**）；开发模式使用 `DEV_LOGIN: true` 并确保后端 `DEV_MODE=true`。正式环境必须双端禁用 DEV 模式。
 
+## 微信真机调试（Windows 局域网模式）
+
+**新版本不用手动修改 config.js。** 当前开发模式是 `DEV_MODE=true` + `DEV_LOGIN=true`，使用开发者工具真机调试，不是已发布/体验版部署方案。
+
+1. 电脑和手机连接**同一可信 Wi-Fi/局域网**。手机应关闭 VPN，避免使用开启客户端隔离的访客 Wi-Fi。
+2. 在 PowerShell **先停止**之前运行的童印 Go 服务，然后从项目根目录运行：
+
+   ```powershell
+   .\scripts\dev.ps1 -Phone
+   ```
+
+   启动脚本读取电脑默认网关对应的物理网卡 IP，例如 `192.168.1.23`，将本次运行的 `LISTEN_ADDR` 设置为 `:18080`，`PUBLIC_URL` 设置为 `http://192.168.1.23:18080`，并将小程序 `config.js` 中的 `API_BASE` 暂时改为相同地址。后台、图片与 GLB 模型链接因此全部使用手机可访问的地址。**终止脚本后会自动恢复原来的 config.js，不会修改 .env 或数据库。**
+
+3. 运行期间，在**手机浏览器**打开终端打印的 `http://<电脑IP>:18080/health`。应看到 `{"status":"ok"}`；若打不开，小程序也无法访问。先检查 Wi-Fi 网络、电脑端 Windows 防火墙和 18080 端口。
+4. 在微信开发者工具「详情 → 本地设置」勾选 **不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书**，然后**重新编译**，点击「真机调试」，在微信调试会话中开启调试模式。部分真机/体验版场景仍会校验合法域名：如果手机浏览器能通但微信提示 `request 合法域名`，应改用有证书的 HTTPS 合法开发域名，不能把本地 HTTP 当成生产方案。<https://developers.weixin.qq.com/miniprogram/dev/framework/ability/network.html>
+5. 从小程序打开已有作品，重点验证原图、候选形象、GLB 白模、订单、地址、支付前订单跳转。没有接通微信支付商户前，实际付款仍不可用。
+
+如果电脑同时有多个虚拟网卡或同时插着有线/Wi-Fi，脚本会提示选择正确 IP；根据 `ipconfig` 查本机局域网地址后显式指定：
+
+```powershell
+.\scripts\dev.ps1 -Phone -LanIP 192.168.1.23
+```
+
+如果端口冲突也可增加 `-Port 18081`。退出真机模式回到电脑模拟器，正常运行 `.\scripts\dev.ps1` 即可。
+
+**Windows 防火墙诊断：** 手机浏览器打不开 `/health`，先确认服务正在运行、路由器未启用客户端隔离；Windows 可能要求允许 Go/编译后的程序通过**专用网络**。若必须手动添加端口规则，仅在可信网络、以管理员身份运行 PowerShell：
+
+```powershell
+New-NetFirewallRule -DisplayName "童印真机开发18080" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 18080 -Profile Private
+```
+
+调试完成后可用 `Remove-NetFirewallRule -DisplayName "童印真机开发18080"` 删除该规则。不要对公网开放开发环境：`DEV_LOGIN` 使用共享测试账号，不提供真实用户身份隔离。
+
+**重要区分：** 此方案专用于「真机调试」且手机与电脑同一 LAN；不代表真机「体验版」或正式上线已经满足微信的 HTTPS/域名白名单要求。跨网测试或生产发布需要独立的 HTTPS 地址和服务器域名设置。
+
 ## 待付款订单恢复与修改收货地址
 
 - 作品详情页通过 `GET /api/works/{id}/order`（需要当前用户登录）检查当前作品是否已经存在未取消订单。若状态是 `awaiting_payment`，底部显示「继续付款」并跳转到原订单详情，绝不重复创建订单；其他已存在订单显示「查看订单」。
@@ -74,7 +109,7 @@ go run .
 - 使用微信官方仓库 `wechat-miniprogram/threejs-miniprogram` 的 Three.js 小程序 WebGL 适配包和官方示例 GLTFLoader，源码已固定放在 `miniprogram/vendor/threejs-miniprogram/` 并包含 MIT 许可证，**不需要单独安装 npm**。该版本基于 Three.js r108，主要支持普通 GLB；带 Draco/Meshopt 压缩或特殊扩展的模型可能无法加载。
 - 画布在作品进入 `model_ready` 后创建；按实际网格边界盒归一化尺寸和居中，使用白色哑光材质渲染；下载模型沿用 API 生成的签名 URL。图片截图仍可以作为历史数据保存，但**不参与预览页显示**，新上传模型也不必生成截图。
 - 此实现避开此前导致微信开发者工具编译失败的 `xr-frame`，也避开无法作为普通卡片嵌入的 `web-view`。
-- 开发者工具本地调试：后端默认 `http://localhost:18080`，需在微信开发者工具中关闭域名校验。手机真机必须使用可访问的 HTTPS 服务地址，不能使用手机自己的 `localhost`。
+- 开发者工具本地调试：后端默认 `http://localhost:18080`，需在微信开发者工具中关闭域名校验。微信【真机调试】可用 `.\\scripts\\dev.ps1 -Phone` 切换到同网段局域网地址（需开启调试域名豁免）；体验版与正式发布需可访问的 HTTPS 合法域名，不能使用手机自己的 `localhost`。
 - 请验收：已有 GLB 的作品在同一预览页显示模型、单指旋转、双指缩放、点击「全屏查看」、全屏后放大缩小/重置视角/退出全屏、回到表单输入收件信息和下单，以及离开后重进。Three.js 小程序适配库较旧，**代码检查通过不代表在微信开发者工具或真机已验收**。异常时画布区域显示重试按钮和错误信息。
 - 3D 预览只展示模型外观，不证明 3D 打印拓扑可制造性、尺寸精度或强度。
 
