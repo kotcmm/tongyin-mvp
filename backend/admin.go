@@ -13,7 +13,9 @@ func (a *App) adminWorks(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []*Work{}
 	for _, wk := range a.db.works("", true) {
-		out = append(out, a.exposeWork(wk))
+		item:=a.exposeWork(wk)
+        if u,ok:=a.db.user(wk.Owner);ok{item.UserID=u.ID}
+        out=append(out,item)
 	}
 	reply(w, 200, out)
 }
@@ -22,7 +24,11 @@ func (a *App) adminOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := a.db.orders("", true)
-	reply(w, 200, out)
+    for _,o:=range out{
+      if u,ok:=a.db.user(o.Owner);ok{o.UserID=u.ID}
+      o.Owner=""
+    }
+    reply(w,200,out)
 }
 func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 	if !a.admin(w, r) {
@@ -68,7 +74,7 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 			wk.Preview = append(wk.Preview, name)
 			if wk.Model != "" { wk.Status = "model_ready" }
 		case "model":
-			if wk.Status != "model_pending" && wk.Status != "model_ready" {
+            if wk.Status != "model_pending" && wk.Status != "model_ready" {
 				return errors.New("请等待用户确认形象后，再上传3D模型")
 			}
 			// A replacement model invalidates all old previews. Otherwise buyers
@@ -77,10 +83,11 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 			wk.Preview = []string{}
 			wk.Status = "model_ready" // GLB itself is sufficient for interactive 3D preview
 		}
-		return nil
-	})
-	if err != nil {
-		fail(w, 409, err.Error())
+		recordAudit(d,"legacy-admin","work.asset",id,kind)
+        return nil
+    })
+    if err != nil {
+        fail(w, 409, err.Error())
 		return
 	}
 	wk, _ := a.db.work(id)
@@ -109,7 +116,8 @@ func (a *App) adminWorkStatus(w http.ResponseWriter, r *http.Request) {
 			return fmt.Errorf("缺少GLB模型")
 		}
 		wk.Status = q.Status
-		wk.Note = strings.TrimSpace(q.Note)
+        wk.Note = strings.TrimSpace(q.Note)
+        recordAudit(d,"legacy-admin","work.status",wk.ID,q.Status)
 		return nil
 	})
 	if err != nil {
@@ -154,8 +162,10 @@ func (a *App) adminOrderStatus(w http.ResponseWriter, r *http.Request) {
 		if q.Status == "shipped" && strings.TrimSpace(q.Tracking) == "" {
 			return errors.New("请填写快递单号")
 		}
-		o.Status = q.Status
-		if q.Tracking != "" {
+		o.History=append(o.History,OrderHistory{At:now(),Actor:"legacy-admin",Action:"status."+q.Status})
+        recordAudit(d,"legacy-admin","order.status",o.ID,q.Status)
+        o.Status = q.Status
+        if q.Tracking != "" {
 			o.Tracking = strings.TrimSpace(q.Tracking)
 		}
 		return nil

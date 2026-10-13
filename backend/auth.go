@@ -67,7 +67,8 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Code == "DEV_LOGIN" && a.cfg.Dev {
-		reply(w, 200, map[string]string{"token": a.token("dev-user")})
+        if err:=a.ensureUser("dev-user");err!=nil{fail(w,403,err.Error());return}
+        reply(w, 200, map[string]string{"token": a.token("dev-user")})
 		return
 	}
 	if a.cfg.AppID == "" || a.cfg.AppSecret == "" {
@@ -87,9 +88,10 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		ErrCode int    `json:"errcode"`
 		ErrMsg  string `json:"errmsg"`
 	}
-	if json.NewDecoder(res.Body).Decode(&v) != nil || v.OpenID == "" {
+	if res.StatusCode!=200 || json.NewDecoder(res.Body).Decode(&v) != nil || v.OpenID == "" || v.ErrCode!=0 {
 		fail(w, 401, "微信登录失败，请重试")
 		return
 	}
-	reply(w, 200, map[string]string{"token": a.token(v.OpenID)})
+	if err:=a.ensureUser(v.OpenID);err!=nil{fail(w,403,err.Error());return}
+    reply(w, 200, map[string]string{"token": a.token(v.OpenID)})
 }

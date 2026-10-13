@@ -39,7 +39,9 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	if err := activateLegacyGLBWorks(db); err != nil { log.Fatal(err) }
+ if err:=bootstrapAdmin(db,c);err!=nil{log.Fatal(err)}
+ if err:=backfillLegacyUsers(db);err!=nil{log.Fatal(err)}
+ if err := activateLegacyGLBWorks(db); err != nil { log.Fatal(err) }
 	app := &App{cfg: c, db: db, client: &http.Client{Timeout: 90 * time.Second}}
 	s := &http.Server{Addr: c.Addr, Handler: app.routes(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 1 << 20}
 	if c.AIWorkerURL == "" {
@@ -69,6 +71,16 @@ func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) { reply(w, 200, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("POST /api/auth/wechat", a.login)
+ mux.HandleFunc("GET /api/me",a.customerMe)
+ mux.HandleFunc("POST /api/admin/auth/login",a.adminLogin)
+ mux.HandleFunc("GET /api/admin/me",a.adminMe)
+ mux.HandleFunc("GET /api/admin/dashboard",a.adminDashboard)
+ mux.HandleFunc("GET /api/admin/users",a.adminUsers)
+ mux.HandleFunc("POST /api/admin/users/{id}/status",a.adminUserStatus)
+ mux.HandleFunc("GET /api/admin/audit",a.adminAudit)
+ mux.HandleFunc("GET /api/admin/accounts",a.adminAccounts)
+ mux.HandleFunc("POST /api/admin/accounts",a.adminAccounts)
+ mux.HandleFunc("PUT /api/admin/accounts/{id}",a.adminAccountUpdate)
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, map[string]any{"price_fen": a.cfg.PriceFen, "dev": a.cfg.Dev, "ai_auto_enabled": a.cfg.AIWorkerURL != "", "free_image_attempts": a.imageLimit()})
 	})
@@ -86,6 +98,11 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /api/orders/{id}", a.getOrder)
     mux.HandleFunc("PUT /api/orders/{id}/shipping-address", a.updateOrderShipping)
 	mux.HandleFunc("POST /api/orders/{id}/pay", a.startPay)
+ mux.HandleFunc("GET /api/orders/{id}/tracking",a.orderTracking)
+ mux.HandleFunc("POST /api/admin/orders/{id}/shipment",a.adminShipment)
+ mux.HandleFunc("POST /api/admin/orders/{id}/tracking",a.adminTrackingEntry)
+ mux.HandleFunc("POST /api/admin/orders/{id}/tracking/refresh",a.adminTrackingRefresh)
+ mux.HandleFunc("POST /api/admin/orders/{id}/refund",a.adminRefundRequest)
 	mux.HandleFunc("POST /api/pay/notify", a.payNotify)
 	mux.HandleFunc("GET /api/admin/works", a.adminWorks)
 	mux.HandleFunc("POST /api/admin/works/{id}/asset", a.adminAsset)
@@ -129,13 +146,13 @@ func (a *App) uid(w http.ResponseWriter, r *http.Request) string {
 		fail(w, 401, err.Error())
 		return ""
 	}
-	return v
+	if err:=a.ensureUser(v);err!=nil{fail(w,403,err.Error());return ""}
+ return v
 }
 func (a *App) admin(w http.ResponseWriter, r *http.Request) bool {
-	if !a.isAdmin(r) {
-		fail(w, 401, "管理员鉴权失败")
-		return false
-	}
+	_,role,ok:=a.adminIdentity(r)
+ if !ok{fail(w,401,"管理员未登录或会话已失效");return false}
+ if !adminAllowed(role,r){fail(w,403,"当前角色无权进行此操作");return false}
 	return true
 }
 func (a *App) signedMedia(name string) string {
