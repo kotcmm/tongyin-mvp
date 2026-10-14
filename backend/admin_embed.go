@@ -3,6 +3,7 @@ package main
 import _ "embed"
 
 // 管理后台 HTML、CSS、JS 全部嵌入 Go 二进制文件。
+//
 //go:embed webadmin/index.html
 var embeddedAdminHTML []byte
 

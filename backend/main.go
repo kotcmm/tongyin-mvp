@@ -136,21 +136,21 @@ func (a *App) routes() http.Handler {
 	})
 	// 管理端静态文件直接内嵌在 Go 二进制中，不需要第二个部署进程。
 	// 管理后台只有静态资源，复用同一个 Go 监听端口。
-    mux.HandleFunc("GET /admin/core.js", func(w http.ResponseWriter, r *http.Request) {
-      w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-      w.Header().Set("Cache-Control", "no-store")
-      _, _ = w.Write(embeddedAdminCore)
-    })
-    mux.HandleFunc("GET /admin/views.js", func(w http.ResponseWriter, r *http.Request) {
-      w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-      w.Header().Set("Cache-Control", "no-store")
-      _, _ = w.Write(embeddedAdminViews)
-    })
-    mux.HandleFunc("GET /admin/actions.js", func(w http.ResponseWriter, r *http.Request) {
-      w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-      w.Header().Set("Cache-Control", "no-store")
-      _, _ = w.Write(embeddedAdminActions)
-    })
+	mux.HandleFunc("GET /admin/core.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(embeddedAdminCore)
+	})
+	mux.HandleFunc("GET /admin/views.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(embeddedAdminViews)
+	})
+	mux.HandleFunc("GET /admin/actions.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(embeddedAdminActions)
+	})
 	mux.HandleFunc("GET /admin/app.css", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
