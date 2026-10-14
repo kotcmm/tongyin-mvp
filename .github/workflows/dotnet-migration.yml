@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Verify C# conventions
+        run: node scripts/check-dotnet-conventions.cjs
       - name: Verify Clean Architecture dependency boundaries
         run: node scripts/check-clean-architecture.cjs
       - name: Verify method/path parity
