@@ -28,3 +28,34 @@ jobs:
         run: dotnet run --project backend-dotnet/tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj --configuration Release
       - name: Run compatibility checks
         run: dotnet run --project backend-dotnet/tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj --configuration Release
+  database-compat:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tongyin
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: tongyin
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tongyin -d tongyin"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: local_root_only
+          MYSQL_DATABASE: tongyin
+          MYSQL_USER: tongyin
+          MYSQL_PASSWORD: test_password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -u root -plocal_root_only"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Database compatibility checks
+        run: dotnet run --project backend-dotnet/tests/Tongyin.SqlChecks/Tongyin.SqlChecks.csproj --configuration Release
