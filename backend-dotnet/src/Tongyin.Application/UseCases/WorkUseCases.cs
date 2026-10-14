@@ -18,6 +18,15 @@ public sealed class WorkUseCases(IStore store)
         return work;
     }
 
+    public Task<JsonObject[]> List(string owner) => store.Read(s=>
+        s.Works.Values.Where(w=>Doc.Str(w,"owner")==owner)
+            .OrderByDescending(w=>Doc.Str(w,"created_at"))
+            .Select(Doc.Copy).ToArray());
+
+    public Task<JsonObject?> Find(string owner,string id) => store.Read(s=>
+        s.Works.TryGetValue(id,out var w) && Doc.Str(w,"owner")==owner
+            ? Doc.Copy(w) : null);
+
     public Task<JsonObject> QueueImage(string owner,string id,int freeAttempts) => store.Update(s=>
     {
         if(!s.Works.TryGetValue(id,out var w) || Doc.Str(w,"owner")!=owner)throw new KeyNotFoundException();

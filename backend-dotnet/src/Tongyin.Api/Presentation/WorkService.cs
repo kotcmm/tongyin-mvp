@@ -7,7 +7,7 @@ namespace Tongyin.Api.Presentation;
 
 // Migration phase 1: original art upload, signed media and ownership-safe reads.
 // Generation will be wired to a dedicated AI service in the next phase.
-public sealed class WorkService(CompatAuth auth, IStore store, MediaService media, AiService ai, Settings cfg, WorkUseCases useCases)
+public sealed class WorkService(CompatAuth auth, MediaService media, AiService ai, Settings cfg, WorkUseCases useCases)
 {
 
     // POST /api/works
@@ -33,9 +33,8 @@ public sealed class WorkService(CompatAuth auth, IStore store, MediaService medi
     {
             var owner=await auth.Customer(ctx);
             if (owner is null) return Fail(401,"请登录");
-            var works=await store.Read(s=>s.Works.Values.Where(w=>Doc.Str(w,"owner")==owner)
-                .OrderByDescending(w=>Doc.Str(w,"created_at")).Select(w=>ExposeWork(w,media)).ToArray());
-            return Ok(works);
+            var works=await useCases.List(owner);
+            return Ok(works.Select(w=>ExposeWork(w,media)).ToArray());
     }
 
     // GET /api/works/{id}
@@ -43,8 +42,8 @@ public sealed class WorkService(CompatAuth auth, IStore store, MediaService medi
     {
             var owner=await auth.Customer(ctx);
             if (owner is null) return Fail(401,"请登录");
-            var work=await store.Read(s => s.Works.TryGetValue(id,out var w) && Doc.Str(w,"owner")==owner ? ExposeWork(w,media) : null);
-            return work == null ? Fail(404,"作品不存在") : Ok(work);
+            var work=await useCases.Find(owner,id);
+            return work == null ? Fail(404,"作品不存在") : Ok(ExposeWork(work,media));
     }
 
     // POST /api/works/{id}/generate
