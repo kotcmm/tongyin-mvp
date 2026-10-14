@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using System.Text.Json;
 
 namespace Tongyin.Api.Core;
 
@@ -11,40 +10,40 @@ namespace Tongyin.Api.Core;
 public sealed class Snapshot
 {
     /// <summary>
-    /// 执行new业务操作。
+    /// 已保存的儿童画作品集合。
     /// </summary>
     public Dictionary<string, JsonObject> Works { get; set; } = new(StringComparer.Ordinal);
     /// <summary>
-    /// 执行new业务操作。
+    /// 客户订单集合。
     /// </summary>
     public Dictionary<string, JsonObject> Orders { get; set; } = new(StringComparer.Ordinal);
     /// <summary>
-    /// 执行new业务操作。
+    /// 客户收货地址集合。
     /// </summary>
     public Dictionary<string, JsonObject> Addresses { get; set; } = new(StringComparer.Ordinal);
     /// <summary>
-    /// 执行new业务操作。
+    /// 客户端用户集合。
     /// </summary>
     public Dictionary<string, JsonObject> Users { get; set; } = new(StringComparer.Ordinal);
     /// <summary>
-    /// 执行new业务操作。
+    /// 后台管理员集合。
     /// </summary>
     public Dictionary<string, JsonObject> Admins { get; set; } = new(StringComparer.Ordinal);
     /// <summary>
-    /// 执行new业务操作。
+    /// 操作审计记录集合。
     /// </summary>
     public Dictionary<string, JsonObject> Audit { get; set; } = new(StringComparer.Ordinal);
     /// <summary>
-    /// 执行new业务操作。
+    /// AI（人工智能）服务商配置集合。
     /// </summary>
     public Dictionary<string, JsonObject> AIProviders { get; set; } = new(StringComparer.Ordinal);
     /// <summary>
-    /// 执行new业务操作。
+    /// AI 图像和模型生成提示词集合。
     /// </summary>
     public Dictionary<string, JsonObject> AIPrompts { get; set; } = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// 执行undefined业务操作。
+    /// 按照原有数据库表结构列举快照中的数据集合。
     /// </summary>
     public IEnumerable<(string Table, Dictionary<string, JsonObject> Values)> Sections() =>
         new (string, Dictionary<string, JsonObject>)[]

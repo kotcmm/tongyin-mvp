@@ -43,7 +43,7 @@ for(const file of walk(root)){
       const names=[...trim.matchAll(/([A-Za-z_]\\w*)(?:<[^()]*>)?\\s*\\(/g)];
       const methodName=names.length ? names[names.length-1][1] : null;
       const propertyName=trim.match(/\\b([A-Za-z_]\\w*)\\s*(?:\\{|=>)/)?.[1];
-      const name=methodName||propertyName;
+      const name=propertyName||methodName;
       if(name && !/^[A-Z][A-Za-z0-9]*$/.test(name))
         errors.push(relative+':'+(i+1)+': public/internal member must be PascalCase: '+name);
       if(/\\b(public|internal)\\b/.test(trim) && /\\w+\\s*\\($/.test(trim))
