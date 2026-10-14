@@ -5,6 +5,9 @@ using Tongyin.Domain.Orders;
 namespace Tongyin.Infrastructure.Persistence;
 
 // Go ty_orders payload translation; unknown fields and existing event attributes survive.
+/// <summary>
+/// 原 Go 订单 JSON 文档与强类型订单聚合之间的映射器。
+/// </summary>
 public static class LegacyOrderDocument
 {
     private static OrderStatus Status(string s)=>s switch

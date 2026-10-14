@@ -5,6 +5,9 @@ using Tongyin.Domain.Works;
 namespace Tongyin.Infrastructure.Persistence;
 
 // Anti-corruption layer: Go's ty_works payload format never leaves Infrastructure.
+/// <summary>
+/// 原 Go 作品 JSON 文档与强类型作品聚合之间的映射器。
+/// </summary>
 public static class LegacyWorkDocument
 {
     private static WorkStatus ParseStatus(string status) => status switch
