@@ -15,6 +15,7 @@ const cn=/[\u3400-\u9fff]/;
 function hasXml(lines,index){
   let at=index-1;
   while(at>=0 && /^\s*\[(?:ApiController|HttpGet|HttpPost|HttpPut|HttpDelete|Route|Authorize|From\w+)\b/.test(lines[at]))at--;
+  while(at>=0 && /^\s*\/\/\/ <param name=/.test(lines[at]))at--;
   if(!/^\s*\/\/\/ <\/summary>/.test(lines[at]||''))return false;
   const preceding=lines.slice(Math.max(0,at-5),at).join('\n');
   return preceding.includes('/// <summary>') && cn.test(preceding);

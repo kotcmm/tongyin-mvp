@@ -13,6 +13,9 @@ namespace Tongyin.Api.Presentation;
 /// </summary>
 public sealed class WorkService(CompatAuth auth,MediaService media,Settings cfg,WorkUseCases works)
 {
+    /// <summary>
+    /// 校验上传的儿童画并为当前用户创建作品。
+    /// </summary>
     public async Task<IResult> UploadDrawing(HttpContext ctx)
     {
         var owner=await auth.Customer(ctx);
