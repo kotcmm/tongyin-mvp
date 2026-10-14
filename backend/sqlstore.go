@@ -255,8 +255,22 @@ func (s *SQLStore) readSnapshot(ctx context.Context, tx *sql.Tx) (Data, error) {
 			d.Admins[x.Owner] = &x
 			return nil
 		}},
-		{"ty_ai_providers", func(raw string) error { var p AIProvider; if e := json.Unmarshal([]byte(raw), &p); e != nil { return e }; d.AIProviders[p.ID] = &p; return nil }},
-		{"ty_ai_prompts", func(raw string) error { var p AIPrompt; if e := json.Unmarshal([]byte(raw), &p); e != nil { return e }; d.AIPrompts[p.ID] = &p; return nil }},
+		{"ty_ai_providers", func(raw string) error {
+			var p AIProvider
+			if e := json.Unmarshal([]byte(raw), &p); e != nil {
+				return e
+			}
+			d.AIProviders[p.ID] = &p
+			return nil
+		}},
+		{"ty_ai_prompts", func(raw string) error {
+			var p AIPrompt
+			if e := json.Unmarshal([]byte(raw), &p); e != nil {
+				return e
+			}
+			d.AIPrompts[p.ID] = &p
+			return nil
+		}},
 		{"ty_audit", func(raw string) error {
 			var x AuditRecord
 			if e := json.Unmarshal([]byte(raw), &x); e != nil {
@@ -339,8 +353,12 @@ func (s *SQLStore) update(fn func(*Data) error) error {
 	if err := s.persistDiff(ctx, tx, "ty_audit", before.Audit, after.Audit); err != nil {
 		return err
 	}
-	if err := s.persistDiff(ctx, tx, "ty_ai_providers", before.AIProviders, after.AIProviders); err != nil { return err }
-	if err := s.persistDiff(ctx, tx, "ty_ai_prompts", before.AIPrompts, after.AIPrompts); err != nil { return err }
+	if err := s.persistDiff(ctx, tx, "ty_ai_providers", before.AIProviders, after.AIProviders); err != nil {
+		return err
+	}
+	if err := s.persistDiff(ctx, tx, "ty_ai_prompts", before.AIPrompts, after.AIPrompts); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 

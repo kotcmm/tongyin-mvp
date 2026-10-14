@@ -12,23 +12,23 @@ import (
 )
 
 type Work struct {
-	ID            string   `json:"id"`
-	Owner         string   `json:"owner,omitempty"`
-	UserID        string   `json:"owner_user_id,omitempty"`
-	CreatedAt     string   `json:"created_at"`
-	Original      string   `json:"original"`
-	Candidates    []string `json:"candidates"`
-	Selected      int      `json:"selected"` // -1 until selected
-	Preview       []string `json:"preview"`
-	Model         string   `json:"model"`
-	Status        string   `json:"status"` // image_pending, image_ready, model_pending, model_ready, failed
-	ImageAttempts int      `json:"image_attempts"`
-	GenerationID  string   `json:"generation_id,omitempty"`
-	Note          string   `json:"note,omitempty"`
-	AIProviderID string `json:"ai_provider_id,omitempty"`
-	AIPromptVersion int `json:"ai_prompt_version,omitempty"`
-	AITaskStage string `json:"ai_task_stage,omitempty"`
-	AIStartedAt string `json:"ai_started_at,omitempty"`
+	ID              string   `json:"id"`
+	Owner           string   `json:"owner,omitempty"`
+	UserID          string   `json:"owner_user_id,omitempty"`
+	CreatedAt       string   `json:"created_at"`
+	Original        string   `json:"original"`
+	Candidates      []string `json:"candidates"`
+	Selected        int      `json:"selected"` // -1 until selected
+	Preview         []string `json:"preview"`
+	Model           string   `json:"model"`
+	Status          string   `json:"status"` // image_pending, image_ready, model_pending, model_ready, failed
+	ImageAttempts   int      `json:"image_attempts"`
+	GenerationID    string   `json:"generation_id,omitempty"`
+	Note            string   `json:"note,omitempty"`
+	AIProviderID    string   `json:"ai_provider_id,omitempty"`
+	AIPromptVersion int      `json:"ai_prompt_version,omitempty"`
+	AITaskStage     string   `json:"ai_task_stage,omitempty"`
+	AIStartedAt     string   `json:"ai_started_at,omitempty"`
 }
 
 type Order struct {
@@ -106,14 +106,14 @@ type ShippingAddress struct {
 }
 
 type Data struct {
-	Works     map[string]*Work            `json:"works"`
-	Orders    map[string]*Order           `json:"orders"`
-	Addresses map[string]*ShippingAddress `json:"addresses"`
-	Users     map[string]*User            `json:"users"`
-	Admins    map[string]*AdminUser       `json:"admins"`
-	Audit     map[string]*AuditRecord     `json:"audit"`
-	AIProviders map[string]*AIProvider `json:"ai_providers"`
-	AIPrompts map[string]*AIPrompt `json:"ai_prompts"`
+	Works       map[string]*Work            `json:"works"`
+	Orders      map[string]*Order           `json:"orders"`
+	Addresses   map[string]*ShippingAddress `json:"addresses"`
+	Users       map[string]*User            `json:"users"`
+	Admins      map[string]*AdminUser       `json:"admins"`
+	Audit       map[string]*AuditRecord     `json:"audit"`
+	AIProviders map[string]*AIProvider      `json:"ai_providers"`
+	AIPrompts   map[string]*AIPrompt        `json:"ai_prompts"`
 }
 
 // Repository isolates the persistence backend. Business handlers need not know SQL dialects.
@@ -166,8 +166,12 @@ func newStore(path string) (*Store, error) {
 	if s.d.Audit == nil {
 		s.d.Audit = map[string]*AuditRecord{}
 	}
-	if s.d.AIProviders == nil { s.d.AIProviders = map[string]*AIProvider{} }
-	if s.d.AIPrompts == nil { s.d.AIPrompts = map[string]*AIPrompt{} }
+	if s.d.AIProviders == nil {
+		s.d.AIProviders = map[string]*AIProvider{}
+	}
+	if s.d.AIPrompts == nil {
+		s.d.AIPrompts = map[string]*AIPrompt{}
+	}
 	return s, nil
 }
 func (s *Store) Close() error { return nil }
