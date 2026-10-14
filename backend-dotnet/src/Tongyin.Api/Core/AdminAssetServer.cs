@@ -65,7 +65,7 @@ public sealed class AdminAssetServer
 
         // Any traversal, alternate separator, or platform-specific path is denied.
         if (requested.Contains('\\') || requested.Contains(':') ||
-            requested.Contains('\\0') || requested.StartsWith('/') ||
+            requested.Any(c => c == 0) || requested.StartsWith('/') ||
             requested.Split('/').Any(segment => segment is "" or "." or ".."))
             return Results.NotFound();
 
