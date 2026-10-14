@@ -3,11 +3,11 @@ const html=fs.readFileSync(path.resolve(__dirname,'../backend/webadmin/index.htm
 const script=fs.readFileSync(path.resolve(__dirname,'../backend/webadmin/app.js'),'utf8')
 assert(html.includes('/admin/app.js'),'admin script must be served by Go')
 new Function(script)
-assert(!html.includes('state.works.filter('),'browser still filtering works')
-assert(!html.includes('state.orders.filter('),'browser still filtering orders')
-assert(!html.includes('state.users.filter('),'browser still filtering users')
-assert(html.includes("setTimeout(()=>fetchListPage(),300)"),'search debounce missing')
-assert(html.includes('seq!==state.searchSeq'),'stale response guard missing')
+assert(!script.includes('state.works.filter('),'browser still filtering works')
+assert(!script.includes('state.orders.filter('),'browser still filtering orders')
+assert(!script.includes('state.users.filter('),'browser still filtering users')
+assert(/setTimeout\(\s*\(\)\s*=>\s*fetchListPage\(\),\s*300\s*\)/.test(script),'search debounce missing')
+assert(/seq\s*!==\s*state\.searchSeq/.test(script),'stale response guard missing')
 let bodyWrites=0
 const els={}
 function element(id){
