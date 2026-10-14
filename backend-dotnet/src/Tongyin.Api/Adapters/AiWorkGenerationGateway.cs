@@ -12,6 +12,9 @@ namespace Tongyin.Api.Adapters;
 /// </summary>
 public sealed class AiWorkGenerationGateway(AiService ai) : IWorkGenerationGateway
 {
+    /// <summary>
+    /// 派发形象或模型生成任务。
+    /// </summary>
     public void Dispatch(WorkState work,string stage) =>
         ai.Dispatch(LegacyWorkDocument.ToDocument(work),stage);
 

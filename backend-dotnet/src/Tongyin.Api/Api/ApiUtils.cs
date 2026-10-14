@@ -8,8 +8,17 @@ namespace Tongyin.Api.Api;
 /// </summary>
 public static class ApiUtils
 {
+    /// <summary>
+    /// 构造带有状态码的 JSON 错误响应。
+    /// </summary>
     public static IResult Fail(int code,string message) => Results.Json(new { error = message }, statusCode: code);
+    /// <summary>
+    /// 构造符合既有协议的 JSON 响应。
+    /// </summary>
     public static IResult Ok(JsonObject doc,int status=200) => Results.Json(doc,statusCode:status);
+    /// <summary>
+    /// 构造符合既有协议的 JSON 响应。
+    /// </summary>
     public static IResult Ok(object doc,int status=200) => Results.Json(doc,statusCode:status);
     /// <summary>
     /// 从 HTTP 请求体解析 JSON 对象。
@@ -55,6 +64,9 @@ public static class ApiUtils
     /// </summary>
     public static JsonObject Audit(string who,string action,string id,string detail="")
         => new() { ["id"]=Doc.NewId(), ["owner"]=who,["created_at"]=Doc.Now(), ["action"]=action,["target"]=id,["detail"]=detail };
+    /// <summary>
+    /// 向存储快照写入审计事件。
+    /// </summary>
     public static void Record(Snapshot snap,string who,string action,string id,string detail="")
     {
         var audit=Audit(who,action,id,detail);

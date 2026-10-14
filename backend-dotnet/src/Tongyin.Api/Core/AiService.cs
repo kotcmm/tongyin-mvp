@@ -12,6 +12,9 @@ namespace Tongyin.Api.Core;
 /// </summary>
 public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttpClientFactory factory,ILogger<AiService> logger)
 {
+    /// <summary>
+    /// 返回指定生成阶段的默认提示词。
+    /// </summary>
     public static string DefaultPrompt(string stage) => stage=="model"
         ? "将参考卡通形象转换为单个可3D打印的完整角色模型，保留脸部和服饰的核心辨识特征，结构完整稳定，避免悬浮部件、过薄的四肢和无法打印的细节；输出可预览的 GLB 模型。"
         : "严格参考上传的儿童画，保留原画主体的轮廓、颜色、标志性装饰和稚拙特色，转换成单个全身、正面、立体感清晰的可爱卡通角色；纯净背景，造型简单完整，避免细小悬空零件，适合进一步生成3D打印白模。只输出一张图片，不添加文字、水印或额外角色。";
@@ -21,6 +24,9 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
     public static JsonObject PromptOf(Snapshot s,string stage) =>
         s.AIPrompts.TryGetValue(stage,out var p)?Doc.Copy(p):
             new JsonObject{["id"]=stage,["version"]=1,["template"]=DefaultPrompt(stage)};
+    /// <summary>
+    /// 读取启用的生成模型配置。
+    /// </summary>
     public static JsonObject? ProviderOf(Snapshot s,string stage) =>
         s.AIProviders.Values.FirstOrDefault(p=>Doc.Str(p,"stage")==stage && Doc.Bool(p,"enabled") && Doc.Bool(p,"default")) is { } p
             ? Doc.Copy(p) : null;
@@ -58,6 +64,9 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
     /// </summary>
     public async Task<bool> Enabled(string stage) =>
         await store.Read(s=>ProviderOf(s,stage)!=null) || cfg.AiWorkerUrl.Length>0;
+    /// <summary>
+    /// 派发形象或模型生成任务。
+    /// </summary>
     public void Dispatch(JsonObject work,string stage)
     {
         // Keep all persistent job state in the database before spawning any work.
@@ -211,6 +220,9 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
     /// 执行ResultPath操作。
     /// </summary>
     public string ResultPath(string file) => media.Absolute(file);
+    /// <summary>
+    /// 提供Download所需的数据或操作。
+    /// </summary>
     public async Task<string> Download(string url,bool image)
     {
         if(!Uri.TryCreate(url,UriKind.Absolute,out var uri) ||

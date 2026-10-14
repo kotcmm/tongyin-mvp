@@ -23,6 +23,9 @@ public sealed class CompatAuth(Settings cfg, IStore db)
     /// </summary>
     public static string PasswordHash(string password, string saltHex) =>
         Convert.ToHexString(Rfc2898DeriveBytes.Pbkdf2(password, Encoding.UTF8.GetBytes(saltHex), 120000, HashAlgorithmName.SHA256, 32)).ToLowerInvariant();
+    /// <summary>
+    /// 签发客户访问令牌。
+    /// </summary>
     public string CustomerToken(string owner)
     {
         var encoded = B64(Encoding.UTF8.GetBytes(owner + "|" + DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeSeconds()));
@@ -136,6 +139,9 @@ public sealed class CompatAuth(Settings cfg, IStore db)
     /// </summary>
     public async Task<IResult?> ProtectCustomer(HttpContext ctx) =>
         await Customer(ctx) is null ? Results.Json(new { error="请登录或账号已停用" },statusCode:401) : null;
+    /// <summary>
+    /// 创建带安全密码摘要的后台账号。
+    /// </summary>
     public static JsonObject NewAdmin(string username, string password, string role)
     {
         if (password.Length < 12) throw new ArgumentException("后台密码至少12位");

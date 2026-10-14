@@ -5,46 +5,109 @@ namespace Tongyin.Api.Core;
 /// </summary>
 public sealed record Settings
 {
+    /// <summary>
+    /// 服务绑定地址。
+    /// </summary>
     public string ListenAddr { get; init; } = ":18080";
+    /// <summary>
+    /// 服务公开访问地址。
+    /// </summary>
     public string PublicUrl { get; init; } = "http://localhost:18080";
+    /// <summary>
+    /// 服务数据保存路径。
+    /// </summary>
     public string DataDir { get; init; } = "./data";
     /// <summary>
     /// 数据库驱动类型。
     /// </summary>
     public string DBDriver { get; init; } = "file";
+    /// <summary>
+    /// 数据库连接字符串。
+    /// </summary>
     public string DatabaseUrl { get; init; } = "";
+    /// <summary>
+    /// 用于会话签名的密钥。
+    /// </summary>
     public string SessionSecret { get; init; } = "";
+    /// <summary>
+    /// 兼容旧管理系统的管理员令牌。
+    /// </summary>
     public string AdminToken { get; init; } = "";
+    /// <summary>
+    /// 默认管理员用户名。
+    /// </summary>
     public string AdminUsername { get; init; } = "admin";
     /// <summary>
     /// 首次启动的管理员密码。
     /// </summary>
     public string AdminPassword { get; init; } = "";
+    /// <summary>
+    /// 微信小程序应用标识。
+    /// </summary>
     public string WxAppId { get; init; } = "";
+    /// <summary>
+    /// 微信小程序应用密钥。
+    /// </summary>
     public string WxAppSecret { get; init; } = "";
+    /// <summary>
+    /// AI（人工智能）任务服务地址。
+    /// </summary>
     public string AiWorkerUrl { get; init; } = "";
+    /// <summary>
+    /// AI 任务访问令牌。
+    /// </summary>
     public string AiWorkerToken { get; init; } = "";
     /// <summary>
     /// AI 回调鉴权令牌。
     /// </summary>
     public string AiWebhookToken { get; init; } = "";
+    /// <summary>
+    /// 微信支付商户标识。
+    /// </summary>
     public string WxMchId { get; init; } = "";
+    /// <summary>
+    /// 微信支付商户证书序列号。
+    /// </summary>
     public string WxMchSerial { get; init; } = "";
+    /// <summary>
+    /// 微信支付商户私钥路径。
+    /// </summary>
     public string WxMchPrivateKeyPath { get; init; } = "";
+    /// <summary>
+    /// 微信支付平台公钥路径。
+    /// </summary>
     public string WxPlatformPublicKeyPath { get; init; } = "";
     /// <summary>
     /// 微信支付平台证书序列号。
     /// </summary>
     public string WxPlatformSerial { get; init; } = "";
+    /// <summary>
+    /// 微信支付接口密钥。
+    /// </summary>
     public string WxPayApiKey { get; init; } = "";
+    /// <summary>
+    /// 微信支付通知回调地址。
+    /// </summary>
     public string WxPayNotifyUrl { get; init; } = "";
+    /// <summary>
+    /// 快递服务 API（应用接口）密钥。
+    /// </summary>
     public string Kuaidi100Key { get; init; } = "";
+    /// <summary>
+    /// 快递服务客户标识。
+    /// </summary>
     public string Kuaidi100Customer { get; init; } = "";
     /// <summary>
     /// 商品价格，以人民币分为单位。
     /// </summary>
     public int PriceFen { get; init; } = 12900;
+    /// <summary>
+    /// 允许的免费生成次数。
+    /// </summary>
     public int FreeImageAttempts { get; init; } = 2;
+    /// <summary>
+    /// 是否开启开发模式。
+    /// </summary>
     public bool DevMode { get; init; } = false;
 
     private static string Env(string key, string fallback = "") =>
@@ -100,6 +163,9 @@ public sealed record Settings
     /// 构造当前服务监听地址。
     /// </summary>
     public string ListenUrl() => "http://0.0.0.0:" + ListenAddr[(ListenAddr.LastIndexOf(':') + 1)..];
+    /// <summary>
+    /// 提供IsNullOrEmpty所需的数据或操作。
+    /// </summary>
     public bool PayReady => !string.IsNullOrEmpty(WxAppId) && !string.IsNullOrEmpty(WxMchId) &&
                             !string.IsNullOrEmpty(WxMchSerial) && !string.IsNullOrEmpty(WxMchPrivateKeyPath) &&
                             !string.IsNullOrEmpty(WxPlatformPublicKeyPath) && !string.IsNullOrEmpty(WxPayApiKey) &&

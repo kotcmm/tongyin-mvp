@@ -60,6 +60,9 @@ public sealed class MediaService(Settings cfg)
     /// 获取已保存媒体文件的绝对路径。
     /// </summary>
     public string Absolute(string name) => Path.Combine(Root,name);
+    /// <summary>
+    /// 根据文件头判定文件媒体格式。
+    /// </summary>
     public static string MediaMime(ReadOnlySpan<byte> head,bool imageOnly)
     {
         if (!imageOnly && head.Length >= 4 && head[..4].SequenceEqual("glTF"u8)) return "model/gltf-binary";
