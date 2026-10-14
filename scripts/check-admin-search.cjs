@@ -55,6 +55,7 @@ const sandbox={
  }
 }
 const context=vm.createContext(sandbox)
+vm.runInContext(script,context)
 ;(async()=>{
  vm.runInContext("state.tab='works';setupListPage()",context)
  const initialField=els.keyword
