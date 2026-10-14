@@ -4,7 +4,7 @@ using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Persistence;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Application;
+namespace Tongyin.Api.Presentation;
 
 // Thin HTTP adapter kept for the unchanged controller signatures.
 // Authentication, multipart parsing and response projection belong to the API.
