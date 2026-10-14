@@ -2,7 +2,11 @@ const fs=require('fs'),path=require('path'),assert=require('assert');
 const root=path.join(__dirname,'..')
 const read=name=>fs.readFileSync(path.join(root,name),'utf8')
 const html=read('backend/webadmin/index.html')
-const js=read('backend/webadmin/app.js')
+const js=[
+  read('backend/webadmin/core.js'),
+  read('backend/webadmin/views.js'),
+  read('backend/webadmin/actions.js')
+].join('\n')
 const css=read('backend/webadmin/app.css')
 const embedded=html
 assert.strictEqual(html,embedded,'Go embedded console and working admin source are out of sync')
@@ -14,7 +18,7 @@ for(const term of [
  '/api/admin/works','/api/admin/orders','/api/admin/users','/api/admin/audit',
  '/shipment','/tracking/refresh','refund','role'
 ])assert(js.includes(term) || html.includes(term),'missing admin feature '+term)
-assert(html.includes('/admin/app.js') && html.includes('/admin/app.css'),'admin assets must be embedded in the Go service')
+assert(['core.js','views.js','actions.js'].every(name=>html.includes('/admin/'+name)) && html.includes('/admin/app.css'),'admin assets must be embedded in the Go service')
 assert(css.includes('.nav-item'),'style bundle missing')
 const minJS=read('miniprogram/pages/order/index.js'),minWXML=read('miniprogram/pages/order/index.wxml')
 new Function(minJS)

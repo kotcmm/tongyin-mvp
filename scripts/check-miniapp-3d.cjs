@@ -9,7 +9,7 @@ const wxml=read('miniprogram/pages/preview/index.wxml')
 const app=JSON.parse(read('miniprogram/app.json'))
 const config=JSON.parse(read('miniprogram/pages/preview/index.json'))
 const pageSource=read('miniprogram/pages/preview/index.js')
-const admin=read('backend/webadmin/app.js')
+const admin=['core.js','views.js','actions.js'].map(name=>read('backend/webadmin/'+name)).join('\n')
 for(const s of ['type="webgl"','id="modelCanvas"','canvasTouchStart','canvasTouchMove','viewerLoading','viewerError','toggleFullscreen','fullscreen-gallery','model-toolbar','zoomIn','zoomOut','resetView']){
  assert(wxml.includes(s),'missing viewer UI: '+s)
 }

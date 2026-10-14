@@ -1,7 +1,9 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert')
 const html=fs.readFileSync(path.resolve(__dirname,'../backend/webadmin/index.html'),'utf8')
-const script=fs.readFileSync(path.resolve(__dirname,'../backend/webadmin/app.js'),'utf8')
-assert(html.includes('/admin/app.js'),'admin script must be served by Go')
+const script=['core.js','views.js','actions.js'].map(name=>
+ fs.readFileSync(path.resolve(__dirname,'../backend/webadmin/'+name),'utf8')
+).join('\n')
+assert(html.includes('/admin/core.js') && html.includes('/admin/views.js') && html.includes('/admin/actions.js'),'admin script must be served by Go')
 new Function(script)
 assert(!script.includes('state.works.filter('),'browser still filtering works')
 assert(!script.includes('state.orders.filter('),'browser still filtering orders')

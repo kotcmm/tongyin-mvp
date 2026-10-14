@@ -34,9 +34,21 @@ func TestSingleServiceConsoleAndAdminRoles(t *testing.T) {
 		return rec
 	}
 	root := get("GET", "/admin/", "", "")
-	if root.Code != 200 || !strings.Contains(root.Body.String(), "运营管理中心") || !strings.Contains(string(embeddedAdminJS), "物流管理") {
+	if root.Code != 200 || !strings.Contains(root.Body.String(), "运营管理中心") || !strings.Contains(string(embeddedAdminCore), "物流管理") {
 		t.Fatalf("embedded single-binary admin console missing: %d", root.Code)
 	}
+  // Go 服务自身负责提供运营页面和所有静态资源，无需另开 Web 服务器。
+  for _,asset:=range []struct{Path,Type,Marker string}{
+   {"/admin/core.js","text/javascript","setSearch"},
+   {"/admin/views.js","text/javascript","renderOrders"},
+   {"/admin/actions.js","text/javascript","submitShipment"},
+   {"/admin/app.css","text/css",".nav-item"},
+  }{
+   response:=get("GET",asset.Path,"","")
+   if response.Code!=200||!strings.Contains(response.Header().Get("Content-Type"),asset.Type)||!strings.Contains(response.Body.String(),asset.Marker){
+     t.Fatalf("后台静态资源不可用：%s，状态=%d",asset.Path,response.Code)
+   }
+  }
 	var logged struct {
 		Token string `json:"token"`
 		Role  string `json:"role"`
