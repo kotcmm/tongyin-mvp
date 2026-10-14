@@ -110,11 +110,18 @@ public static class PayEndpoints
                 var delta=(DateTimeOffset.UtcNow-DateTimeOffset.FromUnixTimeSeconds(unix)).Duration();
                 if(delta>TimeSpan.FromMinutes(5))return Fail(401,"回调时间戳无效");
                 if(ctx.Request.ContentLength > 1<<20)return Fail(400,"回调过大");
+                // Content-Length may be absent with chunked transfer. Never buffer an
+                // unbounded notification before validating its signature.
                 using var buffer=new MemoryStream();
                 try
                 {
-                    await ctx.Request.Body.CopyToAsync(buffer);
-                    if(buffer.Length>1<<20)return Fail(400,"回调过大");
+                    var chunk=new byte[8192];
+                    int read;
+                    while((read=await ctx.Request.Body.ReadAsync(chunk.AsMemory()))>0)
+                    {
+                        if(buffer.Length+read>1<<20)return Fail(400,"回调过大");
+                        await buffer.WriteAsync(chunk.AsMemory(0,read));
+                    }
                 }
                 catch{return Fail(400,"回调读取失败");}
                 var raw=Encoding.UTF8.GetString(buffer.ToArray());
