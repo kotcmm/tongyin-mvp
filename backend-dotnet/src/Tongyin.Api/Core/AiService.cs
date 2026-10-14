@@ -150,8 +150,8 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
             if(!response.IsSuccessStatusCode)
             {
                 var text=await response.Content.ReadAsStringAsync();
-                var parsed=SafeParse(text);
-                var code=Doc.Str(parsed?["error"],"code","UnknownError");
+                var errorPayload=SafeParse(text);
+                var code=Doc.Str(errorPayload?["error"],"code","UnknownError");
                 // Do not persist untrusted upstream messages that may contain secret-bearing URLs.
                 throw new InvalidOperationException("Seedream HTTP "+(int)response.StatusCode+" ("+new string(code.Where(c=>char.IsLetterOrDigit(c)||c=='.'||c=='_').Take(80).ToArray())+")");
             }

@@ -37,7 +37,7 @@ public static class AdminOperations
                 {
                     if(s.Admins.ContainsKey(username))throw new InvalidOperationException("账号已存在");
                     s.Admins[username]=newAccount;
-                    Record(s,(awaitedActor: "system").awaitedActor,"admin.created",username,Doc.Str(body,"role"));
+                    Record(s,"system","admin.created",username,Doc.Str(body,"role"));
                     return true;
                 });
                 return Ok(new {username,role=Doc.Str(body,"role")},201);

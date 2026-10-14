@@ -61,6 +61,7 @@ app.MapWorks();
 app.MapOrders();
 app.MapAdminFoundation();
 app.MapAi();
+app.MapAdminOperations();
 
 // Still missing modules are deliberately NOT routed to Go or marked complete.
 // Migration acceptance must pass before this application may replace Go.
