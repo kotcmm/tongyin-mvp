@@ -18,7 +18,7 @@
 - `Domain`：强类型聚合 `Work`、`Order`，值对象 `ShippingAddress`，与业务规则一起封装的状态转换。
 - `Application`：显式 Use Case、`IWorkRepository`、`IOrderRepository`、`IWorkGenerationGateway`。
 - `Infrastructure`：`LegacyWorkRepository`、`LegacyOrderRepository` 实现持久化端口；`LegacyWorkDocument` 和 `LegacyOrderDocument` 负责 Go JSON 的双向映射，写入时保留未知字段。
-- `Api`：已有 Controller 与 HTTP 适配器。现有 `AiService` 的过渡生成网关目前在 Api/Adapters；后续应将 AI 客户端移至 Infrastructure。
+- `Api`：已有 Controller 与 `Presentation/` HTTP 适配器。现有 `AiService` 的过渡生成网关目前在 Api/Adapters；后续应将 AI 客户端移至 Infrastructure。
 
 项目间引用：Application → Domain；Infrastructure → Application + Domain；Api → 所有模块。
 
@@ -45,7 +45,7 @@
 
 - 订单查询/地址读写/物流轨迹仍使用旧业务层。
 - 后台管理、权限控制、AI 配置/回调、微信支付、物流调用仍需迁入用例与网关。
-- ASP.NET Core `HttpContext` 和 `IResult` 仍存在于未迁移的 Api/Application 目录中：这些是迁移期间的遗留 Web 适配器，**不是新的 Application 程序集**。
+- ASP.NET Core `HttpContext` 和 `IResult` 仍存在于未迁移的 `Tongyin.Api/Presentation` 目录中：这是迁移期间的旧 HTTP 适配器，**不是 `Tongyin.Application` 项目**。
 - 真实 Seedream、3D、微信支付和物流联调尚未验收；旧库副本对比仍待执行。
 
 ## 本地验收

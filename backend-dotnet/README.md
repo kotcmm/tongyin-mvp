@@ -21,7 +21,7 @@ src/
   Tongyin.Domain/           强类型 Work、Order 聚合和 ShippingAddress 值对象
   Tongyin.Application/      不依赖 Web/SQL/JSON 的用例及 IWorkRepository/IOrderRepository 端口
   Tongyin.Infrastructure/   Go JSON/数据库兼容、Repository 适配器
-  Tongyin.Api/              Controller、HTTP 输入输出、现有未迁移业务
+  Tongyin.Api/              Controller、Presentation/ 旧 HTTP 适配器、现有未迁移业务
 ```
 
 **实际已接入**：作品的上传/查询/生成/选图，以及订单创建/取消已通过 Application 用例连接。
