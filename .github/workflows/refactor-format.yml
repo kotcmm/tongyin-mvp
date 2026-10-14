@@ -1,3 +1,4 @@
+# 第二次统一格式化：覆盖新的 core/views/actions 模块，随后删除一次性工作流。
 name: One-time refactor formatting
 on:
   push:
