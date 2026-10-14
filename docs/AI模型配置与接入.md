@@ -40,3 +40,13 @@ Content-Type: application/json
 - 生成调用在进程内部 goroutine 中运行，**重启时未完成任务不会自动恢复**，需要运维排查并手工处理；后续接任务队列可增强可靠性。
 - 回调结果下载要求 HTTPS、有效文件类型及体积限制；接入任意第三方结果地址时需特别注意内网请求风险。
 - `DB_DRIVER=postgres` 与 `mysql` 会自动创建 `ty_ai_providers` 和 `ty_ai_prompts` 两张表，既有旧表不清理。
+
+
+## Seedream 网络排障（unexpected EOF）
+
+- 启动后端，发起一条生成请求。后端将输出 `Seedream request started`、`Seedream response received`、`Seedream image saved`；网络失败输出 `Seedream transport failed`。
+- `trace` 是本次生成调用的诊断编号，用于匹配同一请求的日志；`work` 为作品 ID；`body_bytes` / `image_data_bytes` 只包含字节数，不记录图片正文。
+- `phase` 表示最后观测到的网络阶段，例如 `dns_lookup`、`tcp_connecting`、`tls_handshaking`、`request_written`、`response_started`；`proxy=true` 表示 Go 根据环境检测到代理。
+- 发生 `unexpected_eof` 时，可能是网络/代理中断，也可能是服务器已经收到请求但关闭了连接。**无法仅凭该异常判断服务端是否已计费；不会自动重试。**
+- 本地排查可先执行 `Test-NetConnection ark.cn-beijing.volces.com -Port 443` 检查 TCP 443 是否可达。注意这不能验证 API Key、TLS 完整握手或生成能力。
+- 后端日志不包含 API Key、原画 Base64、请求头或代理地址。请不要将完整密钥、图片数据或数据库凭证粘贴到工单中。
