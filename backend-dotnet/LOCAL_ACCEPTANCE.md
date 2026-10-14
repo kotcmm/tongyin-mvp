@@ -7,13 +7,13 @@
 - [ ] 安装 .NET SDK 10，执行 `dotnet --version`，显示 `10.x`
 - [ ] 在当前仓库切到 `feat/dotnet-backend-migration`
 - [ ] 从 `backend-dotnet` 目录运行 `verify-local.ps1`（或 README 中相同命令），保存 **全部输出**
-- [ ] 执行 `run-local.cmd`，看到监听 `http://localhost:18081`
+- [ ] 执行 `run-local.cmd`，看到监听 `http://localhost:18080`
 - [ ] 记录首次启动终端显示的随机管理员密码（不要提交到 GitHub）
-- [ ] 用浏览器打开 `http://localhost:18081/admin/`，检查登录与首页、AI 模型配置页面
-- [ ] 检查 `http://localhost:18081/admin/3d/` 可加载 3D 预览页面的静态 JS 资源（预览需要模型时以页面提示为准）
+- [ ] 用浏览器打开 `http://localhost:18080/admin/`，检查登录与首页、AI 模型配置页面
+- [ ] 检查 `http://localhost:18080/admin/3d/` 可加载 3D 预览页面的静态 JS 资源（预览需要模型时以页面提示为准）
 - [ ] 浏览器开发者工具检查 /admin/ 下 JS、CSS、.mjs 无 404 和模块 MIME 错误
 
-> `run-local.cmd` **只使用** `backend-dotnet/data/` 下的独立 file 数据存储，避免污染 Go 的 PostgreSQL 或 media 目录。当前分支 `miniprogram/config.js` 的 `API_BASE` 已临时设为 18081，仅用于本地测试，发布前必须使用合法 HTTPS 域名。
+> `run-local.cmd` **只使用** `backend-dotnet/data/` 下的独立 file 数据存储，避免污染 Go 的 PostgreSQL 或 media 目录。当前分支 `miniprogram/config.js` 仍使用原来的 18080，**启动 C# 前必须先停止 Go 以释放端口**。发布前须使用合法 HTTPS 域名。
 
 ## 2. 微信小程序业务流程（开发者工具）
 

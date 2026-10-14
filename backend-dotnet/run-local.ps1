@@ -37,12 +37,23 @@ if (-not (Test-Path $dbFile) -and -not $env:ADMIN_BOOTSTRAP_PASSWORD) {
 $env:DEV_MODE = "true"
 $env:DB_DRIVER = "file"
 $env:DATA_DIR = $dataDir
-$env:LISTEN_ADDR = ":18081"
-$env:PUBLIC_URL = "http://localhost:18081"
+$env:LISTEN_ADDR = ":18080"
+$env:PUBLIC_URL = "http://localhost:18080"
 $env:ADMIN_BOOTSTRAP_USER = "admin"
 $env:ADMIN_TOKEN = ""
 
-Write-Host ("Starting local .NET API at http://localhost:18081/admin/")
+# Give an actionable error before dotnet tries binding an occupied port.
+$portCheck = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, 18080)
+try {
+    $portCheck.Start()
+} catch {
+    Write-Error "Port 18080 is already in use. Stop the Go or other .NET backend before launching C#."
+    exit 1
+} finally {
+    $portCheck.Stop()
+}
+
+Write-Host ("Starting local .NET API at http://localhost:18080/admin/")
 Write-Host ("Isolated test data: " + $dataDir)
 Write-Host "The Go server and production database are not changed. Ctrl+C to stop."
 dotnet run --project $project

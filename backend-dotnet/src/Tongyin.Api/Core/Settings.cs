@@ -2,8 +2,8 @@ namespace Tongyin.Api.Core;
 
 public sealed record Settings
 {
-    public string ListenAddr { get; init; } = ":18081";
-    public string PublicUrl { get; init; } = "http://localhost:18081";
+    public string ListenAddr { get; init; } = ":18080";
+    public string PublicUrl { get; init; } = "http://localhost:18080";
     public string DataDir { get; init; } = "./data";
     public string DBDriver { get; init; } = "file";
     public string DatabaseUrl { get; init; } = "";
@@ -35,8 +35,8 @@ public sealed record Settings
 
     public static Settings Load() => new()
     {
-        ListenAddr = Env("LISTEN_ADDR", ":18081"),
-        PublicUrl = Env("PUBLIC_URL", "http://localhost:18081").TrimEnd('/'),
+        ListenAddr = Env("LISTEN_ADDR", ":18080"),
+        PublicUrl = Env("PUBLIC_URL", "http://localhost:18080").TrimEnd('/'),
         DataDir = Env("DATA_DIR", "./data"),
         DBDriver = Env("DB_DRIVER", "file").ToLowerInvariant(),
         DatabaseUrl = Env("DATABASE_URL"),

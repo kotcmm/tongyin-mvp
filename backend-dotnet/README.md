@@ -50,9 +50,9 @@ dotnet build backend-dotnet/Tongyin.slnx --configuration Release
 run-local.cmd
 ```
 
-该脚本使用 `http://localhost:18081` 和独立目录 `backend-dotnet/data/`。
+该脚本使用 `http://localhost:18080` 和独立目录 `backend-dotnet/data/`。
 
-**本迁移分支的 `miniprogram/config.js` 已改为 `http://localhost:18081`**，可直接用于微信开发者工具本地联调；Go 的 main 分支仍使用 18080。逐项验收参阅 [LOCAL_ACCEPTANCE.md](LOCAL_ACCEPTANCE.md)。**不会读取或覆盖你当前 Go 后端的数据目录和 PostgreSQL 数据库**。首次启动生成随机开发管理员密码并在终端显示一次，请保存。后台网址：`http://localhost:18081/admin/`。停止按 Ctrl+C。
+**C# 与现有 Go 使用相同的本地 API 地址 `http://localhost:18080`。迁移分支的小程序配置已恢复为原来的 18080，不必修改小程序。启动 C# 前必须先停止 Go 服务，否则会发生端口冲突。**逐项验收参阅 [LOCAL_ACCEPTANCE.md](LOCAL_ACCEPTANCE.md)。**不会读取或覆盖你当前 Go 后端的数据目录和 PostgreSQL 数据库**。首次启动生成随机开发管理员密码并在终端显示一次，请保存。后台网址：`http://localhost:18080/admin/`。停止按 Ctrl+C。
 
 先运行自动化检查（从 `backend-dotnet` 目录）：
 
@@ -62,7 +62,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\\verify-local.ps1
 
 检查完成后逐步人工验证：登录后台 → 新建儿童画作品 → 人工上传一张形象图 → 用户确认 → 上传 GLB → 订单提交/取消 → 管理后台查询/角色权限。AI、微信支付、物流真实服务待配置单独测试，**不要在未确认回调和收费风险前使用正式商户下单或反复生图**。
 
-测试现有数据库时须复制一份 PostgreSQL 数据库和媒体目录，填写与 Go **同一个** `SESSION_SECRET`，配置 `DB_DRIVER=postgres`、克隆库 `DATABASE_URL`、`DATA_DIR`、`LISTEN_ADDR=:18081` 后**单独手动运行** `dotnet run --project src/Tongyin.Api`。不要用以上 `run-local.cmd` 去连接正式数据库，该脚本始终使用隔离的 file 模式。
+测试现有数据库时须复制一份 PostgreSQL 数据库和媒体目录，填写与 Go **同一个** `SESSION_SECRET`，配置 `DB_DRIVER=postgres`、克隆库 `DATABASE_URL`、`DATA_DIR`、`LISTEN_ADDR=:18080` 后**单独手动运行** `dotnet run --project src/Tongyin.Api`。不要用以上 `run-local.cmd` 去连接正式数据库，该脚本始终使用隔离的 file 模式。
 
 **停止 Go 后台服务并删除 Go 代码的前提**：迁移分支最新 CI 全绿、现实数据克隆回归、Seedream/3D/支付/物流联调和你的本地验收全部通过。此分支只新增 C#，不会删除 Go。
 
@@ -74,14 +74,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\\verify-local.ps1
 $env:DEV_MODE="true"
 $env:DB_DRIVER="file"
 $env:DATA_DIR="./data"
-$env:LISTEN_ADDR=":18081"
-$env:PUBLIC_URL="http://localhost:18081"
+$env:LISTEN_ADDR=":18080"
+$env:PUBLIC_URL="http://localhost:18080"
 $env:SESSION_SECRET="CHANGE_TO_AT_LEAST_24_CHAR_RANDOM_SECRET"
 $env:ADMIN_BOOTSTRAP_PASSWORD="CHANGE_TO_STRONG_PASSWORD"
 dotnet run --project src/Tongyin.Api
 ```
 
-初版监听 **18081**，默认不占用 Go 服务的 18080。避免指向现有 Go 数据目录。正式跨数据库验证应使用克隆的数据与单独端口，并保管好 SESSION_SECRET（更改会使原有 AI Key 无法解密）。
+本地监听 **18080**，与 Go 服务共用端口，因此只能启动其中一个后端；仍使用独立数据目录，避免指向现有 Go 数据目录。正式跨数据库验证应使用克隆的数据与单独端口，并保管好 SESSION_SECRET（更改会使原有 AI Key 无法解密）。
 
 **不要将真实密钥写入 appsettings、源码、工作流或测试文件。** 后续迁移通过后会补齐发布部署文件并替换 Go 启动入口。
 
