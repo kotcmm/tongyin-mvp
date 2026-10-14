@@ -29,7 +29,7 @@ try
     Assert(Doc.Str(persisted,"unknown_go_field")=="keep-it","unknown Go JSON fields must survive");
     Assert(Doc.Str(persisted,"status")=="model_pending","document update persisted");
 
-    var cfg=new Settings{SessionSecret="test-secret-compatible-123456",DataDir=dir,PublicUrl="http://localhost:18081"};
+    var cfg=new Settings{SessionSecret="dotnet-compat-tests-a-long-secret-123",DataDir=dir,PublicUrl="http://localhost:18081"};
     var media=new MediaService(cfg);
     var signed=media.Signed("old.png");
     var uri=new Uri(signed);
