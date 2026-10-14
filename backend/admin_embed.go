@@ -3,6 +3,7 @@ package main
 import _ "embed"
 
 // 管理后台的页面、脚本和样式都打进 Go 程序，仅需部署一个进程。
+//
 //go:embed webadmin/index.html
 var embeddedAdminHTML []byte
 

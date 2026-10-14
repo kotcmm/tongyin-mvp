@@ -67,9 +67,15 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Code == "DEV_LOGIN" && a.cfg.Dev {
-        if err:=a.ensureUser("dev-user");err!=nil{fail(w,403,err.Error());return}
-        if err:=a.trackLogin("dev-user");err!=nil{fail(w,500,"登录记录失败");return}
-        reply(w, 200, map[string]string{"token": a.token("dev-user")})
+		if err := a.ensureUser("dev-user"); err != nil {
+			fail(w, 403, err.Error())
+			return
+		}
+		if err := a.trackLogin("dev-user"); err != nil {
+			fail(w, 500, "登录记录失败")
+			return
+		}
+		reply(w, 200, map[string]string{"token": a.token("dev-user")})
 		return
 	}
 	if a.cfg.AppID == "" || a.cfg.AppSecret == "" {
@@ -89,11 +95,17 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		ErrCode int    `json:"errcode"`
 		ErrMsg  string `json:"errmsg"`
 	}
-	if res.StatusCode!=200 || json.NewDecoder(res.Body).Decode(&v) != nil || v.OpenID == "" || v.ErrCode!=0 {
+	if res.StatusCode != 200 || json.NewDecoder(res.Body).Decode(&v) != nil || v.OpenID == "" || v.ErrCode != 0 {
 		fail(w, 401, "微信登录失败，请重试")
 		return
 	}
-	if err:=a.ensureUser(v.OpenID);err!=nil{fail(w,403,err.Error());return}
-    if err:=a.trackLogin(v.OpenID);err!=nil{fail(w,500,"登录记录失败");return}
-    reply(w, 200, map[string]string{"token": a.token(v.OpenID)})
+	if err := a.ensureUser(v.OpenID); err != nil {
+		fail(w, 403, err.Error())
+		return
+	}
+	if err := a.trackLogin(v.OpenID); err != nil {
+		fail(w, 500, "登录记录失败")
+		return
+	}
+	reply(w, 200, map[string]string{"token": a.token(v.OpenID)})
 }

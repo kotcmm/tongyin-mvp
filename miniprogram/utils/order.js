@@ -18,4 +18,4 @@ function formatOrder(order) {
   }
 }
 
-module.exports = {ORDER_LABELS, formatOrder}
+module.exports = { ORDER_LABELS, formatOrder }

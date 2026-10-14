@@ -13,9 +13,11 @@ func (a *App) adminWorks(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []*Work{}
 	for _, wk := range a.db.works("", true) {
-		item:=a.exposeWork(wk)
-        if u,ok:=a.db.user(wk.Owner);ok{item.UserID=u.ID}
-        out=append(out,item)
+		item := a.exposeWork(wk)
+		if u, ok := a.db.user(wk.Owner); ok {
+			item.UserID = u.ID
+		}
+		out = append(out, item)
 	}
 	reply(w, 200, out)
 }
@@ -24,11 +26,13 @@ func (a *App) adminOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := a.db.orders("", true)
-    for _,o:=range out{
-      if u,ok:=a.db.user(o.Owner);ok{o.UserID=u.ID}
-      o.Owner=""
-    }
-    reply(w,200,out)
+	for _, o := range out {
+		if u, ok := a.db.user(o.Owner); ok {
+			o.UserID = u.ID
+		}
+		o.Owner = ""
+	}
+	reply(w, 200, out)
 }
 func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 	if !a.admin(w, r) {
@@ -60,9 +64,11 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 				return errors.New("请先完成原画上传，当前阶段不可上传形象图")
 			}
 			wk.Candidates = []string{name} // one output per generation; admin may replace a result
-			wk.Preview = []string{} // discard artifacts from an older / incorrect stage
+			wk.Preview = []string{}        // discard artifacts from an older / incorrect stage
 			wk.Model = ""
-			if wk.ImageAttempts == 0 { wk.ImageAttempts = 1 } // legacy/manual results also count as initial generation
+			if wk.ImageAttempts == 0 {
+				wk.ImageAttempts = 1
+			} // legacy/manual results also count as initial generation
 			wk.Selected = -1
 			wk.Status = "image_ready"
 			wk.Note = ""
@@ -70,11 +76,15 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 			if wk.Status != "model_pending" && wk.Status != "model_ready" {
 				return errors.New("请等待用户确认形象后，再上传白模预览图")
 			}
-			if len(wk.Preview) >= 4 { return errors.New("最多上传4张白模角度图") }
+			if len(wk.Preview) >= 4 {
+				return errors.New("最多上传4张白模角度图")
+			}
 			wk.Preview = append(wk.Preview, name)
-			if wk.Model != "" { wk.Status = "model_ready" }
+			if wk.Model != "" {
+				wk.Status = "model_ready"
+			}
 		case "model":
-            if wk.Status != "model_pending" && wk.Status != "model_ready" {
+			if wk.Status != "model_pending" && wk.Status != "model_ready" {
 				return errors.New("请等待用户确认形象后，再上传3D模型")
 			}
 			// A replacement model invalidates all old previews. Otherwise buyers
@@ -83,12 +93,12 @@ func (a *App) adminAsset(w http.ResponseWriter, r *http.Request) {
 			wk.Preview = []string{}
 			wk.Status = "model_ready" // GLB itself is sufficient for interactive 3D preview
 		}
-		actor,_,_:=a.adminIdentity(r)
-        recordAudit(d,actor,"work.asset",id,kind)
-        return nil
-    })
-    if err != nil {
-        fail(w, 409, err.Error())
+		actor, _, _ := a.adminIdentity(r)
+		recordAudit(d, actor, "work.asset", id, kind)
+		return nil
+	})
+	if err != nil {
+		fail(w, 409, err.Error())
 		return
 	}
 	wk, _ := a.db.work(id)
@@ -117,9 +127,9 @@ func (a *App) adminWorkStatus(w http.ResponseWriter, r *http.Request) {
 			return fmt.Errorf("缺少GLB模型")
 		}
 		wk.Status = q.Status
-        wk.Note = strings.TrimSpace(q.Note)
-        actor,_,_:=a.adminIdentity(r)
-        recordAudit(d,actor,"work.status",wk.ID,q.Status)
+		wk.Note = strings.TrimSpace(q.Note)
+		actor, _, _ := a.adminIdentity(r)
+		recordAudit(d, actor, "work.status", wk.ID, q.Status)
 		return nil
 	})
 	if err != nil {
@@ -154,13 +164,13 @@ func (a *App) adminOrderStatus(w http.ResponseWriter, r *http.Request) {
 		if o.Status == "canceled" || o.Status == "completed" {
 			return errors.New("订单已结束")
 		}
-		if q.Status=="canceled" && o.PaymentStartedAt!=""{
-            return errors.New("订单已经发起支付，请核实微信支付状态后处理")
-        }
-        if q.Status=="printing" && o.RefundStatus!=""{
-            return errors.New("订单存在退款申请，不能进入生产")
-        }
-        if q.Status == "canceled" && o.Status != "awaiting_payment" {
+		if q.Status == "canceled" && o.PaymentStartedAt != "" {
+			return errors.New("订单已经发起支付，请核实微信支付状态后处理")
+		}
+		if q.Status == "printing" && o.RefundStatus != "" {
+			return errors.New("订单存在退款申请，不能进入生产")
+		}
+		if q.Status == "canceled" && o.Status != "awaiting_payment" {
 			return errors.New("已支付订单不能直接取消，请先执行退款流程")
 		}
 		next := map[string]string{"paid": "printing", "printing": "shipped", "shipped": "completed"}
@@ -170,11 +180,11 @@ func (a *App) adminOrderStatus(w http.ResponseWriter, r *http.Request) {
 		if q.Status == "shipped" && strings.TrimSpace(q.Tracking) == "" {
 			return errors.New("请填写快递单号")
 		}
-		o.History=append(o.History,OrderHistory{At:now(),Actor:"admin",Action:"status."+q.Status})
-        actor,_,_:=a.adminIdentity(r)
-        recordAudit(d,actor,"order.status",o.ID,q.Status)
-        o.Status = q.Status
-        if q.Tracking != "" {
+		o.History = append(o.History, OrderHistory{At: now(), Actor: "admin", Action: "status." + q.Status})
+		actor, _, _ := a.adminIdentity(r)
+		recordAudit(d, actor, "order.status", o.ID, q.Status)
+		o.Status = q.Status
+		if q.Tracking != "" {
 			o.Tracking = strings.TrimSpace(q.Tracking)
 		}
 		return nil

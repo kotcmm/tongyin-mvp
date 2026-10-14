@@ -12,100 +12,102 @@ import (
 )
 
 type Work struct {
-	ID         string   `json:"id"`
-	Owner      string   `json:"owner,omitempty"`
- UserID string `json:"owner_user_id,omitempty"`
-	CreatedAt  string   `json:"created_at"`
-	Original   string   `json:"original"`
-	Candidates []string `json:"candidates"`
-	Selected   int      `json:"selected"` // -1 until selected
-	Preview    []string `json:"preview"`
-	Model      string   `json:"model"`
-	Status     string   `json:"status"` // image_pending, image_ready, model_pending, model_ready, failed
-	ImageAttempts int `json:"image_attempts"`
-	GenerationID string `json:"generation_id,omitempty"`
-	Note       string   `json:"note,omitempty"`
+	ID            string   `json:"id"`
+	Owner         string   `json:"owner,omitempty"`
+	UserID        string   `json:"owner_user_id,omitempty"`
+	CreatedAt     string   `json:"created_at"`
+	Original      string   `json:"original"`
+	Candidates    []string `json:"candidates"`
+	Selected      int      `json:"selected"` // -1 until selected
+	Preview       []string `json:"preview"`
+	Model         string   `json:"model"`
+	Status        string   `json:"status"` // image_pending, image_ready, model_pending, model_ready, failed
+	ImageAttempts int      `json:"image_attempts"`
+	GenerationID  string   `json:"generation_id,omitempty"`
+	Note          string   `json:"note,omitempty"`
 }
 
 type Order struct {
+	ID                string          `json:"id"`
+	Owner             string          `json:"owner,omitempty"`
+	UserID            string          `json:"owner_user_id,omitempty"`
+	WorkID            string          `json:"work_id"`
+	CreatedAt         string          `json:"created_at"`
+	Name              string          `json:"name"`
+	Phone             string          `json:"phone"`
+	Address           string          `json:"address"`
+	PriceFen          int             `json:"price_fen"`
+	Status            string          `json:"status"` // awaiting_payment, paid, printing, shipped, completed, canceled
+	Tracking          string          `json:"tracking,omitempty"`
+	PaymentStartedAt  string          `json:"payment_started_at,omitempty"`
+	CancelReason      string          `json:"cancel_reason,omitempty"`
+	Carrier           string          `json:"carrier,omitempty"`
+	CarrierCode       string          `json:"carrier_code,omitempty"`
+	ShippedAt         string          `json:"shipped_at,omitempty"`
+	DeliveredAt       string          `json:"delivered_at,omitempty"`
+	TrackingCheckedAt string          `json:"tracking_checked_at,omitempty"`
+	TrackingState     string          `json:"tracking_state,omitempty"`
+	TrackingEvents    []TrackingEvent `json:"tracking_events,omitempty"`
+	History           []OrderHistory  `json:"history,omitempty"`
+	ProductionNote    string          `json:"production_note,omitempty"`
+	RefundStatus      string          `json:"refund_status,omitempty"`
+}
+
+type TrackingEvent struct {
+	Time    string `json:"time"`
+	Context string `json:"context"`
+	Source  string `json:"source,omitempty"`
+}
+type OrderHistory struct {
+	At     string `json:"at"`
+	Actor  string `json:"actor"`
+	Action string `json:"action"`
+	Note   string `json:"note,omitempty"`
+}
+
+// The existing Owner field remains the original OpenID for backwards compatibility.
+// Internal ID is a separate stable identifier used by the administrative UI.
+type User struct {
+	Owner     string `json:"owner"`
 	ID        string `json:"id"`
-	Owner     string `json:"owner,omitempty"`
- UserID string `json:"owner_user_id,omitempty"`
-	WorkID    string `json:"work_id"`
+	CreatedAt string `json:"created_at"`
+	LastLogin string `json:"last_login"`
+	Disabled  bool   `json:"disabled"`
+}
+type AdminUser struct {
+	Owner        string `json:"owner"`
+	CreatedAt    string `json:"created_at"`
+	Role         string `json:"role"`
+	Salt         string `json:"salt"`
+	PasswordHash string `json:"password_hash"`
+	Version      int    `json:"version"`
+	Disabled     bool   `json:"disabled"`
+}
+type AuditRecord struct {
+	ID        string `json:"id"`
+	Owner     string `json:"owner"`
+	CreatedAt string `json:"created_at"`
+	Action    string `json:"action"`
+	Target    string `json:"target"`
+	Detail    string `json:"detail,omitempty"`
+}
+
+// ShippingAddress is private to the authenticated owner; it is never shared across users.
+type ShippingAddress struct {
+	Owner     string `json:"owner"`
 	CreatedAt string `json:"created_at"`
 	Name      string `json:"name"`
 	Phone     string `json:"phone"`
 	Address   string `json:"address"`
-	PriceFen  int    `json:"price_fen"`
-	Status    string `json:"status"` // awaiting_payment, paid, printing, shipped, completed, canceled
-	Tracking  string `json:"tracking,omitempty"`
- PaymentStartedAt string `json:"payment_started_at,omitempty"`
- CancelReason string `json:"cancel_reason,omitempty"`
- Carrier string `json:"carrier,omitempty"`
- CarrierCode string `json:"carrier_code,omitempty"`
- ShippedAt string `json:"shipped_at,omitempty"`
- DeliveredAt string `json:"delivered_at,omitempty"`
- TrackingCheckedAt string `json:"tracking_checked_at,omitempty"`
- TrackingState string `json:"tracking_state,omitempty"`
- TrackingEvents []TrackingEvent `json:"tracking_events,omitempty"`
- History []OrderHistory `json:"history,omitempty"`
- ProductionNote string `json:"production_note,omitempty"`
- RefundStatus string `json:"refund_status,omitempty"`
-}
-
-type TrackingEvent struct {
- Time string `json:"time"`
- Context string `json:"context"`
- Source string `json:"source,omitempty"`
-}
-type OrderHistory struct {
- At string `json:"at"`
- Actor string `json:"actor"`
- Action string `json:"action"`
- Note string `json:"note,omitempty"`
-}
-// The existing Owner field remains the original OpenID for backwards compatibility.
-// Internal ID is a separate stable identifier used by the administrative UI.
-type User struct {
- Owner string `json:"owner"`
- ID string `json:"id"`
- CreatedAt string `json:"created_at"`
- LastLogin string `json:"last_login"`
- Disabled bool `json:"disabled"`
-}
-type AdminUser struct {
- Owner string `json:"owner"`
- CreatedAt string `json:"created_at"`
- Role string `json:"role"`
- Salt string `json:"salt"`
- PasswordHash string `json:"password_hash"`
- Version int `json:"version"`
- Disabled bool `json:"disabled"`
-}
-type AuditRecord struct {
- ID string `json:"id"`
- Owner string `json:"owner"`
- CreatedAt string `json:"created_at"`
- Action string `json:"action"`
- Target string `json:"target"`
- Detail string `json:"detail,omitempty"`
-}
-// ShippingAddress is private to the authenticated owner; it is never shared across users.
-type ShippingAddress struct {
- Owner     string `json:"owner"`
- CreatedAt string `json:"created_at"`
- Name      string `json:"name"`
- Phone     string `json:"phone"`
- Address   string `json:"address"`
 }
 
 type Data struct {
- Works  map[string]*Work `json:"works"`
- Orders map[string]*Order `json:"orders"`
- Addresses map[string]*ShippingAddress `json:"addresses"`
- Users map[string]*User `json:"users"`
- Admins map[string]*AdminUser `json:"admins"`
- Audit map[string]*AuditRecord `json:"audit"`
+	Works     map[string]*Work            `json:"works"`
+	Orders    map[string]*Order           `json:"orders"`
+	Addresses map[string]*ShippingAddress `json:"addresses"`
+	Users     map[string]*User            `json:"users"`
+	Admins    map[string]*AdminUser       `json:"admins"`
+	Audit     map[string]*AuditRecord     `json:"audit"`
 }
 
 // Repository isolates the persistence backend. Business handlers need not know SQL dialects.
@@ -115,12 +117,12 @@ type Repository interface {
 	order(string) (*Order, bool)
 	works(string, bool) []*Work
 	orders(string, bool) []*Order
- adminWorksPage(AdminPage)([]*Work,int,error)
- adminOrdersPage(AdminPage)([]*Order,int,error)
- adminUsersPage(AdminPage)([]AdminUserRow,int,error)
- address(string) (*ShippingAddress, bool)
- user(string) (*User, bool)
- adminUser(string) (*AdminUser, bool)
+	adminWorksPage(AdminPage) ([]*Work, int, error)
+	adminOrdersPage(AdminPage) ([]*Order, int, error)
+	adminUsersPage(AdminPage) ([]AdminUserRow, int, error)
+	address(string) (*ShippingAddress, bool)
+	user(string) (*User, bool)
+	adminUser(string) (*AdminUser, bool)
 	Close() error
 }
 
@@ -146,10 +148,18 @@ func newStore(path string) (*Store, error) {
 	if s.d.Orders == nil {
 		s.d.Orders = map[string]*Order{}
 	}
-	if s.d.Addresses == nil {s.d.Addresses=map[string]*ShippingAddress{}}
- if s.d.Users==nil{s.d.Users=map[string]*User{}}
- if s.d.Admins==nil{s.d.Admins=map[string]*AdminUser{}}
- if s.d.Audit==nil{s.d.Audit=map[string]*AuditRecord{}}
+	if s.d.Addresses == nil {
+		s.d.Addresses = map[string]*ShippingAddress{}
+	}
+	if s.d.Users == nil {
+		s.d.Users = map[string]*User{}
+	}
+	if s.d.Admins == nil {
+		s.d.Admins = map[string]*AdminUser{}
+	}
+	if s.d.Audit == nil {
+		s.d.Audit = map[string]*AuditRecord{}
+	}
 	return s, nil
 }
 func (s *Store) Close() error { return nil }
@@ -244,21 +254,33 @@ func newID() string { var b [12]byte; _, _ = rand.Read(b[:]); return hex.EncodeT
 func now() string   { return time.Now().Format(time.RFC3339) }
 
 func (s *Store) address(owner string) (*ShippingAddress, bool) {
- s.mu.Lock()
- defer s.mu.Unlock()
- v, ok:=s.d.Addresses[owner]
- if !ok {return nil,false}
- cp:=*v
- return &cp,true
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	v, ok := s.d.Addresses[owner]
+	if !ok {
+		return nil, false
+	}
+	cp := *v
+	return &cp, true
 }
 
-func (s *Store) user(owner string) (*User,bool){
- s.mu.Lock();defer s.mu.Unlock()
- p,ok:=s.d.Users[owner];if !ok{return nil,false}
- cp:=*p;return &cp,true
+func (s *Store) user(owner string) (*User, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.d.Users[owner]
+	if !ok {
+		return nil, false
+	}
+	cp := *p
+	return &cp, true
 }
-func (s *Store) adminUser(name string) (*AdminUser,bool){
- s.mu.Lock();defer s.mu.Unlock()
- p,ok:=s.d.Admins[name];if !ok{return nil,false}
- cp:=*p;return &cp,true
+func (s *Store) adminUser(name string) (*AdminUser, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.d.Admins[name]
+	if !ok {
+		return nil, false
+	}
+	cp := *p
+	return &cp, true
 }

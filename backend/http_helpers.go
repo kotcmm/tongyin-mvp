@@ -27,13 +27,22 @@ func (a *App) uid(w http.ResponseWriter, r *http.Request) string {
 		fail(w, 401, err.Error())
 		return ""
 	}
-	if err:=a.ensureUser(v);err!=nil{fail(w,403,err.Error());return ""}
- return v
+	if err := a.ensureUser(v); err != nil {
+		fail(w, 403, err.Error())
+		return ""
+	}
+	return v
 }
 
 func (a *App) admin(w http.ResponseWriter, r *http.Request) bool {
-	_,role,ok:=a.adminIdentity(r)
- if !ok{fail(w,401,"管理员未登录或会话已失效");return false}
- if !adminAllowed(role,r){fail(w,403,"当前角色无权进行此操作");return false}
+	_, role, ok := a.adminIdentity(r)
+	if !ok {
+		fail(w, 401, "管理员未登录或会话已失效")
+		return false
+	}
+	if !adminAllowed(role, r) {
+		fail(w, 403, "当前角色无权进行此操作")
+		return false
+	}
 	return true
 }

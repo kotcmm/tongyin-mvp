@@ -99,14 +99,24 @@ func (a *App) startPay(w http.ResponseWriter, r *http.Request) {
 		fail(w, 503, "商户私钥配置错误")
 		return
 	}
-// Reserve this payment attempt before contacting WeChat. This prevents
- // canceling a possibly paid order while the asynchronous callback is pending.
- if err:=a.db.update(func(d *Data)error{
-  current,ok:=d.Orders[o.ID];if !ok{return errNotFound}
-  if current.Status!="awaiting_payment"{return fmt.Errorf("订单状态不允许支付")}
-  if current.PaymentStartedAt==""{current.PaymentStartedAt=now()}
-  return nil
- });err!=nil{fail(w,409,"订单状态已经变化，请刷新");return}
+	// Reserve this payment attempt before contacting WeChat. This prevents
+	// canceling a possibly paid order while the asynchronous callback is pending.
+	if err := a.db.update(func(d *Data) error {
+		current, ok := d.Orders[o.ID]
+		if !ok {
+			return errNotFound
+		}
+		if current.Status != "awaiting_payment" {
+			return fmt.Errorf("订单状态不允许支付")
+		}
+		if current.PaymentStartedAt == "" {
+			current.PaymentStartedAt = now()
+		}
+		return nil
+	}); err != nil {
+		fail(w, 409, "订单状态已经变化，请刷新")
+		return
+	}
 	params := map[string]any{"appid": a.cfg.AppID, "mchid": a.cfg.MchID, "description": "童印 · 儿童画定制白模", "out_trade_no": o.ID, "notify_url": a.cfg.PayNotifyURL, "amount": map[string]any{"total": o.PriceFen, "currency": "CNY"}, "payer": map[string]string{"openid": owner}}
 	// WeChat amount only accepts total + currency string.
 	body, _ := json.Marshal(params)
@@ -280,19 +290,19 @@ func (a *App) payNotify(w http.ResponseWriter, r *http.Request) {
 		if o.Owner != verified.Payer.OpenID || o.PriceFen != verified.Amount.Total {
 			return fmt.Errorf("订单身份或金额不符")
 		}
-		if o.Status=="canceled"{
-            // Payment received after an administrative cancellation:
-            // never discard the money movement; queue for human refund review.
-            o.Status="paid"
-            o.RefundStatus="requested"
-            o.History=append(o.History,OrderHistory{At:now(),Actor:"wechatpay",Action:"paid_after_cancel",Note:"需要核实并退款"})
-            recordAudit(d,"wechatpay","order.paid_after_cancel",o.ID,"待退款")
-        }
-        if o.Status == "awaiting_payment" {
-            o.Status="paid"
-            o.History=append(o.History,OrderHistory{At:now(),Actor:"wechatpay",Action:"paid",Note:"微信支付通知已验签"})
-            recordAudit(d,"wechatpay","order.paid",o.ID,"微信支付验签通过")
-        }
+		if o.Status == "canceled" {
+			// Payment received after an administrative cancellation:
+			// never discard the money movement; queue for human refund review.
+			o.Status = "paid"
+			o.RefundStatus = "requested"
+			o.History = append(o.History, OrderHistory{At: now(), Actor: "wechatpay", Action: "paid_after_cancel", Note: "需要核实并退款"})
+			recordAudit(d, "wechatpay", "order.paid_after_cancel", o.ID, "待退款")
+		}
+		if o.Status == "awaiting_payment" {
+			o.Status = "paid"
+			o.History = append(o.History, OrderHistory{At: now(), Actor: "wechatpay", Action: "paid", Note: "微信支付通知已验签"})
+			recordAudit(d, "wechatpay", "order.paid", o.ID, "微信支付验签通过")
+		}
 		return nil
 	})
 	if err != nil {

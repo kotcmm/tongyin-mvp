@@ -13,7 +13,7 @@ function normalizeShipping(name, phone, address) {
 
 function chooseAddress(onSelected) {
   if (typeof wx.chooseAddress !== 'function') {
-    wx.showToast({title: '请手动填写收货地址', icon: 'none'})
+    wx.showToast({ title: '请手动填写收货地址', icon: 'none' })
     return
   }
   wx.chooseAddress({
@@ -31,10 +31,10 @@ function chooseAddress(onSelected) {
     },
     fail(error) {
       // 主动取消不应显示报错。
-      if (/cancel/i.test(error && error.errMsg || '')) return
-      wx.showToast({title: '微信地址暂不可用，请手动填写', icon: 'none'})
+      if (/cancel/i.test((error && error.errMsg) || '')) return
+      wx.showToast({ title: '微信地址暂不可用，请手动填写', icon: 'none' })
     }
   })
 }
 
-module.exports = {normalizeShipping, chooseAddress}
+module.exports = { normalizeShipping, chooseAddress }

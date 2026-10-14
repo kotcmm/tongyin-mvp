@@ -124,188 +124,287 @@ func TestCompleteOrderUntilPay(t *testing.T) {
 }
 
 func TestShippingAddressServerPersistenceAndUserIsolation(t *testing.T) {
- cfg:=Config{DataDir:t.TempDir(),SessionKey:"test-secret-longer-than-24-chars",PriceFen:9900,PublicURL:"http://localhost:18080",Dev:true}
- store,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
- app:=&App{cfg:cfg,db:store}
- mux:=app.routes()
- alice:=app.token("alice-openid")
- bob:=app.token("bob-openid")
- call:=func(method,path,token,body string) *httptest.ResponseRecorder {
-  req:=httptest.NewRequest(method,path,strings.NewReader(body))
-  req.Header.Set("Content-Type","application/json")
-  if token!="" {req.Header.Set("Authorization","Bearer "+token)}
-  rec:=httptest.NewRecorder()
-  mux.ServeHTTP(rec,req)
-  return rec
- }
- mustJSON(t,call("GET","/api/shipping-address","",""),401,nil)
- var empty struct { Address *ShippingAddress `json:"address"` }
- mustJSON(t,call("GET","/api/shipping-address",alice,""),200,&empty)
- if empty.Address!=nil {t.Fatalf("new user should have no saved address: %+v",empty)}
- address1:=`{"name":"张小明","phone":"13800138000","address":"广东省广州市海珠区测试路100号"}`
- mustJSON(t,call("PUT","/api/shipping-address",alice,address1),200,nil)
- var got struct {Address *ShippingAddress `json:"address"`}
- mustJSON(t,call("GET","/api/shipping-address",alice,""),200,&got)
- if got.Address==nil||got.Address.Name!="张小明"||got.Address.Owner!="" {t.Fatalf("saved address incorrect: %+v",got)}
- mustJSON(t,call("GET","/api/shipping-address",bob,""),200,&empty)
- if empty.Address!=nil{t.Fatal("one user read another user's address")}
- mustJSON(t,call("PUT","/api/shipping-address",alice,`{"name":"A","phone":"1","address":"short"}`),400,nil)
- work:=&Work{ID:"order-work",Owner:"alice-openid",Status:"model_ready",Model:"valid.glb"}
- if err:=store.update(func(d *Data)error{d.Works[work.ID]=work;return nil});err!=nil{t.Fatal(err)}
- var order Order
- address2:=`{"work_id":"order-work","name":"李小红","phone":"13900139000","address":"广东省广州市天河区测试新路200号"}`
- mustJSON(t,call("POST","/api/orders",alice,address2),201,&order)
- if order.Name!="李小红"||order.Owner!=""{t.Fatalf("order snapshot invalid: %+v",order)}
- mustJSON(t,call("GET","/api/shipping-address",alice,""),200,&got)
- if got.Address.Name!="李小红" {t.Fatalf("checkout did not update saved default: %+v",got)}
- mustJSON(t,call("PUT","/api/shipping-address",alice,address1),200,nil)
- savedOrder,ok:=store.order(order.ID)
- if !ok||savedOrder.Name!="李小红" {t.Fatal("changing default must not modify existing order")}
- reloaded,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
- persisted,ok:=reloaded.address("alice-openid")
- if !ok||persisted.Name!="张小明"{t.Fatalf("address not persisted on server: %+v",persisted)}
- _,leaked:=reloaded.address("bob-openid");if leaked{t.Fatal("other user has unrelated address")}
+	cfg := Config{DataDir: t.TempDir(), SessionKey: "test-secret-longer-than-24-chars", PriceFen: 9900, PublicURL: "http://localhost:18080", Dev: true}
+	store, err := newStore(filepath.Join(cfg.DataDir, "store.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := &App{cfg: cfg, db: store}
+	mux := app.routes()
+	alice := app.token("alice-openid")
+	bob := app.token("bob-openid")
+	call := func(method, path, token, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		return rec
+	}
+	mustJSON(t, call("GET", "/api/shipping-address", "", ""), 401, nil)
+	var empty struct {
+		Address *ShippingAddress `json:"address"`
+	}
+	mustJSON(t, call("GET", "/api/shipping-address", alice, ""), 200, &empty)
+	if empty.Address != nil {
+		t.Fatalf("new user should have no saved address: %+v", empty)
+	}
+	address1 := `{"name":"张小明","phone":"13800138000","address":"广东省广州市海珠区测试路100号"}`
+	mustJSON(t, call("PUT", "/api/shipping-address", alice, address1), 200, nil)
+	var got struct {
+		Address *ShippingAddress `json:"address"`
+	}
+	mustJSON(t, call("GET", "/api/shipping-address", alice, ""), 200, &got)
+	if got.Address == nil || got.Address.Name != "张小明" || got.Address.Owner != "" {
+		t.Fatalf("saved address incorrect: %+v", got)
+	}
+	mustJSON(t, call("GET", "/api/shipping-address", bob, ""), 200, &empty)
+	if empty.Address != nil {
+		t.Fatal("one user read another user's address")
+	}
+	mustJSON(t, call("PUT", "/api/shipping-address", alice, `{"name":"A","phone":"1","address":"short"}`), 400, nil)
+	work := &Work{ID: "order-work", Owner: "alice-openid", Status: "model_ready", Model: "valid.glb"}
+	if err := store.update(func(d *Data) error { d.Works[work.ID] = work; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	var order Order
+	address2 := `{"work_id":"order-work","name":"李小红","phone":"13900139000","address":"广东省广州市天河区测试新路200号"}`
+	mustJSON(t, call("POST", "/api/orders", alice, address2), 201, &order)
+	if order.Name != "李小红" || order.Owner != "" {
+		t.Fatalf("order snapshot invalid: %+v", order)
+	}
+	mustJSON(t, call("GET", "/api/shipping-address", alice, ""), 200, &got)
+	if got.Address.Name != "李小红" {
+		t.Fatalf("checkout did not update saved default: %+v", got)
+	}
+	mustJSON(t, call("PUT", "/api/shipping-address", alice, address1), 200, nil)
+	savedOrder, ok := store.order(order.ID)
+	if !ok || savedOrder.Name != "李小红" {
+		t.Fatal("changing default must not modify existing order")
+	}
+	reloaded, err := newStore(filepath.Join(cfg.DataDir, "store.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	persisted, ok := reloaded.address("alice-openid")
+	if !ok || persisted.Name != "张小明" {
+		t.Fatalf("address not persisted on server: %+v", persisted)
+	}
+	_, leaked := reloaded.address("bob-openid")
+	if leaked {
+		t.Fatal("other user has unrelated address")
+	}
 }
 
 func TestLegacyOrdersRestoreLastAddress(t *testing.T) {
- cfg:=Config{DataDir:t.TempDir(),SessionKey:"test-secret-longer-than-24-chars"}
- store,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
- app:=&App{db:store,cfg:cfg}
- if err:=store.update(func(d *Data)error {
-  d.Orders["old"]=&Order{ID:"old",Owner:"alice",Name:"张三",Phone:"13800138000",Address:"广州市天河区测试路10号",CreatedAt:"2026-01-01T00:00:00+08:00"}
-  d.Orders["new"]=&Order{ID:"new",Owner:"alice",Name:"李四",Phone:"13900139000",Address:"广州市海珠区测试路20号",CreatedAt:"2026-02-01T00:00:00+08:00"}
-  d.Orders["foreign"]=&Order{ID:"foreign",Owner:"bob",Name:"其他",Phone:"13600136000",Address:"上海市徐汇区测试路30号",CreatedAt:"2026-03-01T00:00:00+08:00"}
-  return nil
- });err!=nil{t.Fatal(err)}
- a:=app.lastShippingAddress("alice")
- if a==nil||a.Name!="李四"{t.Fatalf("legacy address recovery failed: %+v",a)}
- if app.lastShippingAddress("unknown")!=nil {t.Fatal("other user legacy address leaked")}
+	cfg := Config{DataDir: t.TempDir(), SessionKey: "test-secret-longer-than-24-chars"}
+	store, err := newStore(filepath.Join(cfg.DataDir, "store.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := &App{db: store, cfg: cfg}
+	if err := store.update(func(d *Data) error {
+		d.Orders["old"] = &Order{ID: "old", Owner: "alice", Name: "张三", Phone: "13800138000", Address: "广州市天河区测试路10号", CreatedAt: "2026-01-01T00:00:00+08:00"}
+		d.Orders["new"] = &Order{ID: "new", Owner: "alice", Name: "李四", Phone: "13900139000", Address: "广州市海珠区测试路20号", CreatedAt: "2026-02-01T00:00:00+08:00"}
+		d.Orders["foreign"] = &Order{ID: "foreign", Owner: "bob", Name: "其他", Phone: "13600136000", Address: "上海市徐汇区测试路30号", CreatedAt: "2026-03-01T00:00:00+08:00"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	a := app.lastShippingAddress("alice")
+	if a == nil || a.Name != "李四" {
+		t.Fatalf("legacy address recovery failed: %+v", a)
+	}
+	if app.lastShippingAddress("unknown") != nil {
+		t.Fatal("other user legacy address leaked")
+	}
 }
 
 func TestOneImageAndFreeRetryLimit(t *testing.T) {
- cfg := Config{DataDir:t.TempDir(),PublicURL:"http://localhost:8080",AdminToken:"admin-secret",SessionKey:"test-secret-longer-than-24-chars",Dev:true,FreeImageAttempts:2}
- _ = os.MkdirAll(filepath.Join(cfg.DataDir,"media"),0700)
- db,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
- a:=&App{cfg:cfg,db:db};mux:=a.routes();token:=a.token("test-owner")
- pic:=new(bytes.Buffer);_ = png.Encode(pic,image.NewRGBA(image.Rect(0,0,4,4)))
- uploaded:=postFile(t,mux,"/api/works",token,false,pic.Bytes(),"drawing.png")
- var work Work;mustJSON(t,uploaded,201,&work)
- req:=func(method,path string)*httptest.ResponseRecorder{
-  r:=httptest.NewRequest(method,path,strings.NewReader("{}"));r.Header.Set("Authorization","Bearer "+token)
-  w:=httptest.NewRecorder();mux.ServeHTTP(w,r);return w
- }
- // No model may be uploaded before selecting the sole image.
- mustJSON(t,postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=model","",true,append([]byte("glTF"),make([]byte,12)...),"x.glb"),409,nil)
- mustJSON(t,req("POST","/api/works/"+work.ID+"/generate"),202,nil)
- mustJSON(t,req("POST","/api/works/"+work.ID+"/generate"),409,nil) // pending task is not duplicated
- mustJSON(t,postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=candidate","",true,pic.Bytes(),"image.png"),200,nil)
- v,ok:=a.db.work(work.ID)
- if !ok||v.Status!="image_ready"||len(v.Candidates)!=1||v.ImageAttempts!=1 {t.Fatalf("first image: %+v",v)}
- mustJSON(t,req("POST","/api/works/"+work.ID+"/generate"),202,nil)
- v,_=a.db.work(work.ID)
- if v.Status!="image_pending"||len(v.Candidates)!=0||v.ImageAttempts!=2 {t.Fatalf("retry state: %+v",v)}
- mustJSON(t,postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=candidate","",true,pic.Bytes(),"image.png"),200,nil)
- mustJSON(t,req("POST","/api/works/"+work.ID+"/generate"),409,nil) // quota exhausted
- r:=httptest.NewRequest("POST","/api/works/"+work.ID+"/select",strings.NewReader(`{"index":0}`))
- r.Header.Set("Authorization","Bearer "+token)
- w:=httptest.NewRecorder();mux.ServeHTTP(w,r);mustJSON(t,w,202,nil)
- v,_=a.db.work(work.ID)
- if v.Status!="model_pending"||v.Selected!=0 {t.Fatalf("select single image: %+v",v)}
+	cfg := Config{DataDir: t.TempDir(), PublicURL: "http://localhost:8080", AdminToken: "admin-secret", SessionKey: "test-secret-longer-than-24-chars", Dev: true, FreeImageAttempts: 2}
+	_ = os.MkdirAll(filepath.Join(cfg.DataDir, "media"), 0700)
+	db, err := newStore(filepath.Join(cfg.DataDir, "store.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &App{cfg: cfg, db: db}
+	mux := a.routes()
+	token := a.token("test-owner")
+	pic := new(bytes.Buffer)
+	_ = png.Encode(pic, image.NewRGBA(image.Rect(0, 0, 4, 4)))
+	uploaded := postFile(t, mux, "/api/works", token, false, pic.Bytes(), "drawing.png")
+	var work Work
+	mustJSON(t, uploaded, 201, &work)
+	req := func(method, path string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, strings.NewReader("{}"))
+		r.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r)
+		return w
+	}
+	// No model may be uploaded before selecting the sole image.
+	mustJSON(t, postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=model", "", true, append([]byte("glTF"), make([]byte, 12)...), "x.glb"), 409, nil)
+	mustJSON(t, req("POST", "/api/works/"+work.ID+"/generate"), 202, nil)
+	mustJSON(t, req("POST", "/api/works/"+work.ID+"/generate"), 409, nil) // pending task is not duplicated
+	mustJSON(t, postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=candidate", "", true, pic.Bytes(), "image.png"), 200, nil)
+	v, ok := a.db.work(work.ID)
+	if !ok || v.Status != "image_ready" || len(v.Candidates) != 1 || v.ImageAttempts != 1 {
+		t.Fatalf("first image: %+v", v)
+	}
+	mustJSON(t, req("POST", "/api/works/"+work.ID+"/generate"), 202, nil)
+	v, _ = a.db.work(work.ID)
+	if v.Status != "image_pending" || len(v.Candidates) != 0 || v.ImageAttempts != 2 {
+		t.Fatalf("retry state: %+v", v)
+	}
+	mustJSON(t, postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=candidate", "", true, pic.Bytes(), "image.png"), 200, nil)
+	mustJSON(t, req("POST", "/api/works/"+work.ID+"/generate"), 409, nil) // quota exhausted
+	r := httptest.NewRequest("POST", "/api/works/"+work.ID+"/select", strings.NewReader(`{"index":0}`))
+	r.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, r)
+	mustJSON(t, w, 202, nil)
+	v, _ = a.db.work(work.ID)
+	if v.Status != "model_pending" || v.Selected != 0 {
+		t.Fatalf("select single image: %+v", v)
+	}
 }
-
 
 // Test model uploads larger than the former 12 MiB request limit.
 // Verify every byte survives and oversize uploads return HTTP 413.
 func TestModelUploadOver12MiBAndLimits(t *testing.T) {
- cfg := Config{DataDir:t.TempDir(),PublicURL:"http://localhost:8080",AdminToken:"admin-secret",SessionKey:"test-secret-longer-than-24-chars",Dev:true}
- if err:=os.MkdirAll(filepath.Join(cfg.DataDir,"media"),0700);err!=nil{t.Fatal(err)}
- db,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
- a:=&App{cfg:cfg,db:db};mux:=a.routes()
- work:=&Work{ID:newID(),Owner:"test-owner",Original:"orig.jpg",Candidates:[]string{"candidate.png"},Selected:0,Status:"model_pending",Preview:[]string{}}
- if err:=db.update(func(d *Data) error {d.Works[work.ID]=work;return nil});err!=nil{t.Fatal(err)}
- glb:=make([]byte,13<<20)
- copy(glb[:4],[]byte("glTF"))
- glb[len(glb)-1]=0xAB
- got:=postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=model","",true,glb,"model.glb")
- mustJSON(t,got,200,nil)
- stored,_:=db.work(work.ID)
- if stored.Model==""{t.Fatal("model not saved")}
- saved,err:=os.ReadFile(filepath.Join(cfg.DataDir,"media",stored.Model))
- if err!=nil{t.Fatal(err)}
- if !bytes.Equal(glb,saved) {t.Fatalf("GLB changed or truncated: saved=%d original=%d",len(saved),len(glb))}
- // Images are still capped at 10 MiB.
- hugeImage:=make([]byte,11<<20)
- copy(hugeImage[:8],[]byte{137,80,78,71,13,10,26,10})
- imageResp:=postFile(t,mux,"/api/admin/works/"+work.ID+"/asset?kind=preview","",true,hugeImage,"large.png")
- mustJSON(t,imageResp,413,nil)
- // Content-length preflight rejects a model over 100 MiB without reading its body.
- req:=httptest.NewRequest("POST","/api/admin/works/"+work.ID+"/asset?kind=model",strings.NewReader(""))
- req.ContentLength=102<<20
- req.Header.Set("X-Admin-Token","admin-secret")
- record:=httptest.NewRecorder()
- mux.ServeHTTP(record,req)
- mustJSON(t,record,413,nil)
+	cfg := Config{DataDir: t.TempDir(), PublicURL: "http://localhost:8080", AdminToken: "admin-secret", SessionKey: "test-secret-longer-than-24-chars", Dev: true}
+	if err := os.MkdirAll(filepath.Join(cfg.DataDir, "media"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	db, err := newStore(filepath.Join(cfg.DataDir, "store.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &App{cfg: cfg, db: db}
+	mux := a.routes()
+	work := &Work{ID: newID(), Owner: "test-owner", Original: "orig.jpg", Candidates: []string{"candidate.png"}, Selected: 0, Status: "model_pending", Preview: []string{}}
+	if err := db.update(func(d *Data) error { d.Works[work.ID] = work; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	glb := make([]byte, 13<<20)
+	copy(glb[:4], []byte("glTF"))
+	glb[len(glb)-1] = 0xAB
+	got := postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=model", "", true, glb, "model.glb")
+	mustJSON(t, got, 200, nil)
+	stored, _ := db.work(work.ID)
+	if stored.Model == "" {
+		t.Fatal("model not saved")
+	}
+	saved, err := os.ReadFile(filepath.Join(cfg.DataDir, "media", stored.Model))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(glb, saved) {
+		t.Fatalf("GLB changed or truncated: saved=%d original=%d", len(saved), len(glb))
+	}
+	// Images are still capped at 10 MiB.
+	hugeImage := make([]byte, 11<<20)
+	copy(hugeImage[:8], []byte{137, 80, 78, 71, 13, 10, 26, 10})
+	imageResp := postFile(t, mux, "/api/admin/works/"+work.ID+"/asset?kind=preview", "", true, hugeImage, "large.png")
+	mustJSON(t, imageResp, 413, nil)
+	// Content-length preflight rejects a model over 100 MiB without reading its body.
+	req := httptest.NewRequest("POST", "/api/admin/works/"+work.ID+"/asset?kind=model", strings.NewReader(""))
+	req.ContentLength = 102 << 20
+	req.Header.Set("X-Admin-Token", "admin-secret")
+	record := httptest.NewRecorder()
+	mux.ServeHTTP(record, req)
+	mustJSON(t, record, 413, nil)
 }
 
-
 func TestReplacingGLBInvalidatesOldPreviews(t *testing.T) {
- cfg:=Config{DataDir:t.TempDir(), PublicURL:"http://localhost:8080", AdminToken:"admin-secret", SessionKey:"test-secret-longer-than-24-chars", Dev:true}
- if err:=os.MkdirAll(filepath.Join(cfg.DataDir,"media"),0700);err!=nil{t.Fatal(err)}
- db,err:=newStore(filepath.Join(cfg.DataDir,"store.json"));if err!=nil{t.Fatal(err)}
- work:=&Work{ID:newID(),Owner:"parent",Status:"model_ready",Original:"original.png",Candidates:[]string{"image.png"},Selected:0,Model:"old.glb",Preview:[]string{"old.png"}}
- if err:=db.update(func(d *Data) error{d.Works[work.ID]=work;return nil});err!=nil{t.Fatal(err)}
- a:=&App{cfg:cfg,db:db}
- glb:=append([]byte("glTF"),make([]byte,24)...)
- w:=postFile(t,a.routes(),"/api/admin/works/"+work.ID+"/asset?kind=model","",true,glb,"new.glb")
- mustJSON(t,w,200,nil)
- updated,_:=db.work(work.ID)
- if updated.Status!="model_ready"||updated.Model==""||updated.Model=="old.glb"||len(updated.Preview)!=0{
-  t.Fatalf("model replacement kept stale preview or incorrect status: %+v",updated)
- }
- pic:=new(bytes.Buffer)
- if err:=png.Encode(pic,image.NewRGBA(image.Rect(0,0,8,8)));err!=nil{t.Fatal(err)}
- mustJSON(t,postFile(t,a.routes(),"/api/admin/works/"+work.ID+"/asset?kind=preview","",true,pic.Bytes(),"front.png"),200,nil)
- updated,_=db.work(work.ID)
- if updated.Status!="model_ready"||len(updated.Preview)!=1{t.Fatalf("new preview did not restore readiness: %+v",updated)}
+	cfg := Config{DataDir: t.TempDir(), PublicURL: "http://localhost:8080", AdminToken: "admin-secret", SessionKey: "test-secret-longer-than-24-chars", Dev: true}
+	if err := os.MkdirAll(filepath.Join(cfg.DataDir, "media"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	db, err := newStore(filepath.Join(cfg.DataDir, "store.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	work := &Work{ID: newID(), Owner: "parent", Status: "model_ready", Original: "original.png", Candidates: []string{"image.png"}, Selected: 0, Model: "old.glb", Preview: []string{"old.png"}}
+	if err := db.update(func(d *Data) error { d.Works[work.ID] = work; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{cfg: cfg, db: db}
+	glb := append([]byte("glTF"), make([]byte, 24)...)
+	w := postFile(t, a.routes(), "/api/admin/works/"+work.ID+"/asset?kind=model", "", true, glb, "new.glb")
+	mustJSON(t, w, 200, nil)
+	updated, _ := db.work(work.ID)
+	if updated.Status != "model_ready" || updated.Model == "" || updated.Model == "old.glb" || len(updated.Preview) != 0 {
+		t.Fatalf("model replacement kept stale preview or incorrect status: %+v", updated)
+	}
+	pic := new(bytes.Buffer)
+	if err := png.Encode(pic, image.NewRGBA(image.Rect(0, 0, 8, 8))); err != nil {
+		t.Fatal(err)
+	}
+	mustJSON(t, postFile(t, a.routes(), "/api/admin/works/"+work.ID+"/asset?kind=preview", "", true, pic.Bytes(), "front.png"), 200, nil)
+	updated, _ = db.work(work.ID)
+	if updated.Status != "model_ready" || len(updated.Preview) != 1 {
+		t.Fatalf("new preview did not restore readiness: %+v", updated)
+	}
 }
 
 func TestAdminBundledPreviewScripts(t *testing.T) {
- a:=&App{}
- for _,path:=range []string{"/admin/vendor/preview.mjs","/admin/vendor/three.module.min.js","/admin/vendor/loaders/GLTFLoader.js","/admin/vendor/utils/BufferGeometryUtils.js"}{
-  req:=httptest.NewRequest("GET",path,nil)
-  recorder:=httptest.NewRecorder()
-  a.routes().ServeHTTP(recorder,req)
-  if recorder.Code!=200{t.Fatalf("%s HTTP %d",path,recorder.Code)}
-  if !strings.Contains(recorder.Header().Get("Content-Type"),"javascript"){t.Fatalf("%s wrong MIME: %s",path,recorder.Header().Get("Content-Type"))}
- }
+	a := &App{}
+	for _, path := range []string{"/admin/vendor/preview.mjs", "/admin/vendor/three.module.min.js", "/admin/vendor/loaders/GLTFLoader.js", "/admin/vendor/utils/BufferGeometryUtils.js"} {
+		req := httptest.NewRequest("GET", path, nil)
+		recorder := httptest.NewRecorder()
+		a.routes().ServeHTTP(recorder, req)
+		if recorder.Code != 200 {
+			t.Fatalf("%s HTTP %d", path, recorder.Code)
+		}
+		if !strings.Contains(recorder.Header().Get("Content-Type"), "javascript") {
+			t.Fatalf("%s wrong MIME: %s", path, recorder.Header().Get("Content-Type"))
+		}
+	}
 }
 
 func TestMigrateLegacyGLBWorks(t *testing.T) {
- db,err:=newStore(filepath.Join(t.TempDir(),"works.json"))
- if err!=nil{t.Fatal(err)}
- if err=db.update(func(data *Data)error {
-  data.Works["legacy"]=&Work{ID:"legacy",Status:"model_pending",Model:"old.glb",Preview:[]string{}}
-  data.Works["waiting"]=&Work{ID:"waiting",Status:"model_pending",Model:""}
-  return nil
- });err!=nil{t.Fatal(err)}
- if err=activateLegacyGLBWorks(db);err!=nil{t.Fatal(err)}
- a,_:=db.work("legacy")
- b,_:=db.work("waiting")
- if a.Status!="model_ready" || b.Status!="model_pending" {t.Fatalf("migration changed unexpected states: %+v %+v",a,b)}
- if err=activateLegacyGLBWorks(db);err!=nil{t.Fatal(err)}
+	db, err := newStore(filepath.Join(t.TempDir(), "works.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = db.update(func(data *Data) error {
+		data.Works["legacy"] = &Work{ID: "legacy", Status: "model_pending", Model: "old.glb", Preview: []string{}}
+		data.Works["waiting"] = &Work{ID: "waiting", Status: "model_pending", Model: ""}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = activateLegacyGLBWorks(db); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := db.work("legacy")
+	b, _ := db.work("waiting")
+	if a.Status != "model_ready" || b.Status != "model_pending" {
+		t.Fatalf("migration changed unexpected states: %+v %+v", a, b)
+	}
+	if err = activateLegacyGLBWorks(db); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestInteractiveViewerAvailable(t *testing.T) {
- cfg:=Config{}
- a:=&App{cfg:cfg}
- req:=httptest.NewRequest("GET","/admin/3d/",nil)
- w:=httptest.NewRecorder()
- a.routes().ServeHTTP(w,req)
- if w.Code!=200 {t.Fatalf("viewer route HTTP %d: %s",w.Code,w.Body.String())}
- html:=w.Body.String()
- for _,expected:=range []string{"GLTFLoader","camera","model","旋转"} {
-  if !strings.Contains(html,expected){t.Fatalf("viewer missing %s",expected)}
- }
+	cfg := Config{}
+	a := &App{cfg: cfg}
+	req := httptest.NewRequest("GET", "/admin/3d/", nil)
+	w := httptest.NewRecorder()
+	a.routes().ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("viewer route HTTP %d: %s", w.Code, w.Body.String())
+	}
+	html := w.Body.String()
+	for _, expected := range []string{"GLTFLoader", "camera", "model", "旋转"} {
+		if !strings.Contains(html, expected) {
+			t.Fatalf("viewer missing %s", expected)
+		}
+	}
 }
 
 func TestDBDialectBindings(t *testing.T) {

@@ -58,12 +58,12 @@ func (a *App) aiResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var q struct {
-		WorkID   string   `json:"work_id"`
-		Stage    string   `json:"stage"`
-		GenerationID string `json:"generation_id"`
-		Error    string   `json:"error"`
-		URLs     []string `json:"urls"`
-		ModelURL string   `json:"model_url"`
+		WorkID       string   `json:"work_id"`
+		Stage        string   `json:"stage"`
+		GenerationID string   `json:"generation_id"`
+		Error        string   `json:"error"`
+		URLs         []string `json:"urls"`
+		ModelURL     string   `json:"model_url"`
 	}
 	if decode(r, &q) != nil {
 		fail(w, 400, "参数错误")
@@ -84,7 +84,9 @@ func (a *App) aiResult(w http.ResponseWriter, r *http.Request) {
 	}
 	if q.Error != "" {
 		expected := "image_pending"
-		if q.Stage == "model" { expected = "model_pending" }
+		if q.Stage == "model" {
+			expected = "model_pending"
+		}
 		err := a.db.update(func(d *Data) error {
 			v := d.Works[wk.ID]
 			if v.Status != expected || (v.GenerationID != "" && q.GenerationID != v.GenerationID) {
@@ -94,7 +96,10 @@ func (a *App) aiResult(w http.ResponseWriter, r *http.Request) {
 			v.Note = q.Error
 			return nil
 		})
-		if err != nil { fail(w, 409, err.Error()); return }
+		if err != nil {
+			fail(w, 409, err.Error())
+			return
+		}
 		reply(w, 200, map[string]string{"status": "failed"})
 		return
 	}
