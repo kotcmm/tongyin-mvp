@@ -25,7 +25,7 @@ jobs:
       - name: Verify method/path parity
         run: node scripts/check-dotnet-api-surface.cjs
       - name: Build migration backend
-        run: dotnet build backend-dotnet/src/Tongyin.Api/Tongyin.Api.csproj --configuration Release
+        run: dotnet build backend-dotnet/Tongyin.slnx --configuration Release
       - name: Run endpoint integration checks
         run: dotnet run --project backend-dotnet/tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj --configuration Release
       - name: Simulate verified WeChat payment notification

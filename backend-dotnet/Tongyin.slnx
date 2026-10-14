@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tongyin.Api/Tongyin.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj" />
+    <Project Path="tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj" />
+    <Project Path="tests/Tongyin.PayChecks/Tongyin.PayChecks.csproj" />
+    <Project Path="tests/Tongyin.SqlChecks/Tongyin.SqlChecks.csproj" />
+  </Folder>
+</Solution>

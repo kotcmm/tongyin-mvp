@@ -11,7 +11,7 @@ try {
             throw ("dotnet returned error code " + $LASTEXITCODE)
         }
     }
-    Run-Dotnet -Arguments @("build","backend-dotnet/src/Tongyin.Api/Tongyin.Api.csproj","--configuration","Release")
+    Run-Dotnet -Arguments @("build","backend-dotnet/Tongyin.slnx","--configuration","Release")
     Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj","--configuration","Release")
     Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj","--configuration","Release")
     Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.PayChecks/Tongyin.PayChecks.csproj","--configuration","Release")

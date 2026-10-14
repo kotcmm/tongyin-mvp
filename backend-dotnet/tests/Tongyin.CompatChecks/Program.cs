@@ -86,12 +86,35 @@ try
         };
         return true;
     });
+    // The fixture contains TWO distinct legacy owners without user records:
+    // "openid-one" from work w1, and "old-openid" from the order/model.
+    // Go's backfillLegacyUsers creates one profile for EACH distinct owner.
     var migrated=await LegacyDataMigration.Apply(store);
-    Assert(migrated.Users==1 && migrated.Models==1,"Go startup data repairs");
+    Assert(migrated.Users==2 && migrated.Models==1,
+        $"Go startup data repairs: expected 2 users and 1 GLB, got {migrated.Users} users and {migrated.Models} GLBs");
+    var repairedState=await store.Read(s=>new
+    {
+        Owners=s.Users.Keys.OrderBy(k=>k,StringComparer.Ordinal).ToArray(),
+        Users=s.Users.ToDictionary(x=>x.Key,x=>Doc.Copy(x.Value)),
+        ModelStatus=Doc.Str(s.Works["legacy-model"],"status"),
+        PendingStatus=Doc.Str(s.Works["w1"],"status")
+    });
+    Assert(repairedState.Owners.SequenceEqual(new[]{"old-openid","openid-one"}),
+        "backfill creates profiles for both distinct legacy owners");
+    foreach(var owner in repairedState.Owners)
+    {
+        var profile=repairedState.Users[owner];
+        Assert(Doc.Str(profile,"owner")==owner && Doc.Str(profile,"id")!="" &&
+               Doc.Str(profile,"created_at")!="","legacy profile fields preserved");
+    }
+    Assert(repairedState.ModelStatus=="model_ready","legacy GLB is ready after migration");
+    Assert(repairedState.PendingStatus=="model_pending","work without GLB stays pending");
     var migratedAgain=await LegacyDataMigration.Apply(store);
     Assert(migratedAgain.Users==0 && migratedAgain.Models==0,"Go data repair is idempotent");
-    var ready=await store.Read(s=>Doc.Str(s.Works["legacy-model"],"status"));
-    Assert(ready=="model_ready","legacy GLB is ready after migration");
+    var usersAgain=await store.Read(s=>s.Users.ToDictionary(k=>k.Key,v=>Doc.Str(v.Value,"id")));
+    foreach(var owner in repairedState.Owners)
+        Assert(usersAgain[owner]==Doc.Str(repairedState.Users[owner],"id"),
+            "repeat startup must not replace existing user profiles");
 
     var document=Snapshot.FromJson(Doc.Parse(await File.ReadAllTextAsync(file)));
     Assert(document.Works.ContainsKey("w1"),"Go document model loading");

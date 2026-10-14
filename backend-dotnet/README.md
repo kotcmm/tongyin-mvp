@@ -31,6 +31,15 @@
 | 完整接口契约与端到端回归 | **待完成** | 同样请求两套后端相同结果 |
 | Go 移除 | **等待用户验收，禁止提前删除** | 全模块达标并获得确认 |
 
+## 解决方案（.NET 10）
+
+项目采用 `Tongyin.slnx`（.NET 10 默认的 XML 解决方案格式），包含 API 及四个验收测试项目。旧 `Tongyin.sln` 已移除，以避免 IDE/CLI 在同一目录识别到两份解决方案。
+
+```powershell
+dotnet sln backend-dotnet/Tongyin.slnx list
+dotnet build backend-dotnet/Tongyin.slnx --configuration Release
+```
+
 ## Windows 本地验收（先测，暂不切换 Go）
 
 从 GitHub 切到 `feat/dotnet-backend-migration` 分支后，安装 .NET SDK 10，在 Windows 命令行进入 `backend-dotnet` 运行：
