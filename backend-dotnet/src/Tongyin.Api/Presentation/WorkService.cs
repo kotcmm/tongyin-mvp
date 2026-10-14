@@ -3,7 +3,7 @@ using Tongyin.Api.Core;
 using Tongyin.Application.UseCases;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Application;
+namespace Tongyin.Api.Presentation;
 
 // Migration phase 1: original art upload, signed media and ownership-safe reads.
 // Generation will be wired to a dedicated AI service in the next phase.

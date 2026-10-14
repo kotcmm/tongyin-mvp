@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Application;
+namespace Tongyin.Api.Presentation;
 
 public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService media)
 {

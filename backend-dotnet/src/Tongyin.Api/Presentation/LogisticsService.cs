@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Application;
+namespace Tongyin.Api.Presentation;
 
 // Port of Go's real tracking-only logistics module. Never fabricates shipment events.
 public sealed class LogisticsService(CompatAuth auth, IStore db, Settings cfg, IHttpClientFactory http)

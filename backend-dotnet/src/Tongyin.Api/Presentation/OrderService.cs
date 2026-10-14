@@ -3,7 +3,7 @@ using Tongyin.Api.Core;
 using Tongyin.Application.UseCases;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Application;
+namespace Tongyin.Api.Presentation;
 
 public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, OrderUseCases useCases)
 {

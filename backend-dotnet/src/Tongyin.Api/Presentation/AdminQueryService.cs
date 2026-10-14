@@ -4,7 +4,7 @@ using System.Text;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Application;
+namespace Tongyin.Api.Presentation;
 
 public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, MediaService media)
 {
