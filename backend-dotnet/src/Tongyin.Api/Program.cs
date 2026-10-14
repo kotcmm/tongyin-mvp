@@ -18,6 +18,7 @@ builder.Services.AddSingleton<AiService>();
 builder.Services.AddHttpClient("wechat", client => client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHttpClient("ai", client => client.Timeout = TimeSpan.FromSeconds(190));
 builder.Services.AddHttpClient("worker", client => client.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHttpClient("kuaidi", client => client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHttpClient("download", client => client.Timeout = TimeSpan.FromSeconds(60))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 var app = builder.Build();
@@ -62,6 +63,7 @@ app.MapOrders();
 app.MapAdminFoundation();
 app.MapAi();
 app.MapAdminOperations();
+app.MapLogistics();
 
 // Still missing modules are deliberately NOT routed to Go or marked complete.
 // Migration acceptance must pass before this application may replace Go.
