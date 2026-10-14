@@ -10,7 +10,8 @@ foreach(var (driver,dsn) in new[]{("postgres",postgres),("mysql",mysql)})
 {
     var db=new SqlStore(driver,dsn);
     await db.Initialize();
-    var id=Doc.NewId(), owner="openid-legacy";
+    var id=Doc.NewId();
+    var owner="openid-legacy";
     var legacy=new JsonObject {
         ["id"]=id,["owner"]=owner,["created_at"]=Doc.Now(),["original"]="go-source.png",
         ["selected"]=-1,["candidates"]=new JsonArray(),["preview"]=new JsonArray(),
