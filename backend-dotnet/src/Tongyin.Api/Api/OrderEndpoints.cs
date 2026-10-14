@@ -129,19 +129,26 @@ public static class OrderEndpoints
         app.MapPost("/api/orders/{id}/cancel",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
         {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
+            var body=await Body(ctx);if(body==null)return Fail(400,"参数错误");
+            var reason=Doc.Str(body,"reason").Trim();
+            if(reason.EnumerateRunes().Count()>200)return Fail(400,"取消原因太长");
             try
             {
-                var updated=await db.Update(s=>
+                await db.Update(s=>
                 {
                     if(!s.Orders.TryGetValue(id,out var o) || Doc.Str(o,"owner")!=owner)throw new KeyNotFoundException();
-                    if(Doc.Str(o,"status")!="awaiting_payment" || Doc.Str(o,"payment_started_at")!="")
-                        throw new InvalidOperationException("订单已经支付或发起支付，不能直接取消");
-                    o["status"]="canceled";o["cancel_reason"]="customer";
-                    var history=Doc.Array(o,"history");history.Add(new JsonObject{["at"]=Doc.Now(),["actor"]="customer",["action"]="canceled"});
-                    o["history"]=history;
-                    return ExposeOrder(o);
+                    if(Doc.Str(o,"status")!="awaiting_payment")
+                        throw new InvalidOperationException("只有待付款订单可取消");
+                    if(Doc.Str(o,"payment_started_at")!="")
+                        throw new InvalidOperationException("该订单已发起微信支付，请等待支付状态确认后联系客服处理取消");
+                    o["status"]="canceled";o["cancel_reason"]=reason;
+                    if(o["history"] is not JsonArray)o["history"]=new JsonArray();
+                    ((JsonArray)o["history"]!).Add(new JsonObject{
+                        ["at"]=Doc.Now(),["actor"]="customer",["action"]="canceled",["note"]=reason});
+                    Record(s,"customer","order.canceled",id);
+                    return true;
                 });
-                return Ok(updated);
+                return Ok(new {status="canceled"});
             }
             catch(KeyNotFoundException){return Fail(404,"订单不存在");}
             catch(Exception e){return Fail(409,e.Message);}
