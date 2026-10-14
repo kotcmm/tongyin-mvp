@@ -18,6 +18,7 @@ try {
         }
     }
     Run-Dotnet -Arguments @("build","backend-dotnet/Tongyin.slnx","--configuration","Release")
+    Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.CleanArchitectureChecks/Tongyin.CleanArchitectureChecks.csproj","--configuration","Release")
     Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj","--configuration","Release")
     Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj","--configuration","Release")
     Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.PayChecks/Tongyin.PayChecks.csproj","--configuration","Release")

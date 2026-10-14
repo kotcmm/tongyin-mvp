@@ -6,6 +6,7 @@
     <Project Path="src/Tongyin.Api/Tongyin.Api.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Tongyin.CleanArchitectureChecks/Tongyin.CleanArchitectureChecks.csproj" />
     <Project Path="tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj" />
     <Project Path="tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj" />
     <Project Path="tests/Tongyin.PayChecks/Tongyin.PayChecks.csproj" />
