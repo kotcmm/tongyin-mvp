@@ -130,42 +130,77 @@ public static class AiEndpoints
             if(stage!="image" && stage!="model")return Fail(400,"stage 无效");
             var current=await db.Read(s=>s.Works.TryGetValue(wid,out var w)?Doc.Copy(w):null);
             if(current==null)return Fail(404,"作品不存在");
-            if(Doc.Str(current,"generation_id")!=generation)return Fail(409,"旧生成任务已失效");
+            // Go accepts generation-less legacy works. New jobs must match exactly.
+            static bool CurrentJob(JsonObject work,string phase,string gen) =>
+                Doc.Str(work,"status")==phase &&
+                (Doc.Str(work,"generation_id")=="" || Doc.Str(work,"generation_id")==gen);
             var expected=stage=="image"?"image_pending":"model_pending";
-            if(Doc.Str(current,"status")!=expected)return Fail(409,"任务已完成或不在处理状态");
+            if(!CurrentJob(current,expected,generation))return Fail(409,"旧生成任务已失效或状态已变化");
             var error=Doc.Str(q,"error");
             if(error!="")
             {
-                await db.Update(s=>
+                try
                 {
-                    var w=s.Works[wid];
-                    if(Doc.Str(w,"status")!=expected || Doc.Str(w,"generation_id")!=generation)
-                        throw new InvalidOperationException("任务状态已变化");
-                    w["status"]="failed";w["note"]=error[..Math.Min(error.Length,200)];
-                    return true;
-                });
-                return Ok(new{status="failed"});
+                    await db.Update(s=>
+                    {
+                        if(!s.Works.TryGetValue(wid,out var w) || !CurrentJob(w,expected,generation))
+                            throw new InvalidOperationException("任务状态已变化");
+                        w["status"]="failed";
+                        w["note"]=error[..Math.Min(error.Length,200)];
+                        return true;
+                    });
+                    return Ok(new{status="failed"});
+                }
+                catch(InvalidOperationException){return Fail(409,"任务状态已变化");}
             }
             var urls=Doc.Array(q,"urls");
             if(stage=="image" && (urls.Count!=1 || urls[0] is null))return Fail(400,"图片生成必须返回一张图片");
             if(stage=="model" && (Doc.Str(q,"model_url")=="" || urls.Count>4))return Fail(400,"模型阶段必须提供 GLB");
-            var files=new List<string>();
+            var images=new List<string>();
+            var downloaded=new List<string>();
             try
             {
-                foreach(var url in urls)files.Add(await ai.Download(url?.ToString()??"",true));
-                var model=stage=="model"?await ai.Download(Doc.Str(q,"model_url"),false):"";
+                foreach(var url in urls)
+                {
+                    var file=await ai.Download(url?.ToString()??"",true);
+                    images.Add(file);downloaded.Add(file);
+                }
+                var model="";
+                if(stage=="model")
+                {
+                    model=await ai.Download(Doc.Str(q,"model_url"),false);
+                    downloaded.Add(model);
+                }
                 await db.Update(s=>
                 {
-                    var w=s.Works[wid];
-                    if(Doc.Str(w,"status")!=expected || Doc.Str(w,"generation_id")!=generation)
+                    if(!s.Works.TryGetValue(wid,out var w) || !CurrentJob(w,expected,generation))
                         throw new InvalidOperationException("任务状态已变化");
-                    if(stage=="image"){w["candidates"]=new JsonArray(files.Select(x=>(JsonNode?)JsonValue.Create(x)).ToArray());w["status"]="image_ready";}
-                    else {w["model"]=model;w["preview"]=new JsonArray(files.Select(x=>(JsonNode?)JsonValue.Create(x)).ToArray());w["status"]="model_ready";}
+                    if(stage=="image")
+                    {
+                        w["candidates"]=new JsonArray(images.Select(x=>(JsonNode?)JsonValue.Create(x)).ToArray());
+                        w["status"]="image_ready";
+                    }
+                    else
+                    {
+                        w["model"]=model;
+                        w["preview"]=new JsonArray(images.Select(x=>(JsonNode?)JsonValue.Create(x)).ToArray());
+                        w["status"]="model_ready";
+                    }
+                    w["note"]="";
                     return true;
                 });
                 return Ok(new{status="ok"});
             }
-            catch(Exception){return Fail(502,"下载或写入模型失败");}
+            catch(InvalidOperationException)
+            {
+                foreach(var file in downloaded)File.Delete(ai.ResultPath(file));
+                return Fail(409,"任务已变化或 AI 结果不合法");
+            }
+            catch(Exception)
+            {
+                foreach(var file in downloaded)File.Delete(ai.ResultPath(file));
+                return Fail(502,"下载或写入模型失败");
+            }
         });
     }
 }

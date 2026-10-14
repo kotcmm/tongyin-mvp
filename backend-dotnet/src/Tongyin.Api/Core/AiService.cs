@@ -180,6 +180,7 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
         try{return JsonNode.Parse(raw) as JsonObject;}
         catch{return null;}
     }
+    public string ResultPath(string file) => media.Absolute(file);
     public async Task<string> Download(string url,bool image)
     {
         if(!Uri.TryCreate(url,UriKind.Absolute,out var uri) ||
