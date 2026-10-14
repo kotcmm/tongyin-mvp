@@ -28,6 +28,8 @@ jobs:
         run: dotnet build backend-dotnet/src/Tongyin.Api/Tongyin.Api.csproj --configuration Release
       - name: Run endpoint integration checks
         run: dotnet run --project backend-dotnet/tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj --configuration Release
+      - name: Simulate verified WeChat payment notification
+        run: dotnet run --project backend-dotnet/tests/Tongyin.PayChecks/Tongyin.PayChecks.csproj --configuration Release
       - name: Run compatibility checks
         run: dotnet run --project backend-dotnet/tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj --configuration Release
   database-compat:
