@@ -26,7 +26,7 @@ func TestSingleServiceConsoleAndAdminRoles(t *testing.T){
   rec:=httptest.NewRecorder();mux.ServeHTTP(rec,req);return rec
  }
  root:=get("GET","/admin/","","")
- if root.Code!=200 || !strings.Contains(root.Body.String(),"运营管理中心")||!strings.Contains(root.Body.String(),"物流管理"){
+ if root.Code!=200 || !strings.Contains(root.Body.String(),"运营管理中心") || !strings.Contains(string(embeddedAdminJS),"物流管理"){
   t.Fatalf("embedded single-binary admin console missing: %d",root.Code)
  }
  var logged struct{Token string `json:"token"`;Role string `json:"role"`}
