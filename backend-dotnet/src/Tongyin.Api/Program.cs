@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.AspNetCore.StaticFiles;
 using Tongyin.Api.Core;
 using Tongyin.Api.Api;
 
@@ -76,12 +77,17 @@ if (Directory.Exists(sourceWebadmin)) adminProviders.Add(new PhysicalFileProvide
 if (Directory.Exists(sourceLegacyAdmin)) adminProviders.Add(new PhysicalFileProvider(sourceLegacyAdmin));
 if (adminProviders.Count > 0)
 {
+    var adminContentTypes = new FileExtensionContentTypeProvider();
+    adminContentTypes.Mappings[".mjs"] = "text/javascript";
+    adminContentTypes.Mappings[".js"] = "text/javascript";
+    adminContentTypes.Mappings[".glb"] = "model/gltf-binary";
     app.UseFileServer(new FileServerOptions
     {
         RequestPath = "/admin",
         FileProvider = new CompositeFileProvider(adminProviders),
         EnableDefaultFiles = true,
-        EnableDirectoryBrowsing = false
+        EnableDirectoryBrowsing = false,
+        StaticFileOptions = { ContentTypeProvider = adminContentTypes }
     });
 }
 

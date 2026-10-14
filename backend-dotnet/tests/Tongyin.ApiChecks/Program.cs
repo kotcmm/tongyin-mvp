@@ -36,6 +36,17 @@ try
     Must(adminHome.StatusCode==HttpStatusCode.OK,"legacy web admin entry served by .NET");
     var html=await adminHome.Content.ReadAsStringAsync();
     Must(html.Contains("童印运营中心"),"legacy admin HTML content unchanged");
+    foreach(var asset in new[]{"/admin/core.js","/admin/views.js","/admin/ai-admin.js",
+        "/admin/actions.js","/admin/app.css","/admin/3d/index.html",
+        "/admin/vendor/three.module.min.js","/admin/vendor/preview.mjs"})
+    {
+        var assetResponse=await client.GetAsync(asset);
+        Must(assetResponse.StatusCode==HttpStatusCode.OK,"legacy admin asset "+asset);
+        var contentType=assetResponse.Content.Headers.ContentType?.MediaType ?? "";
+        if(asset.EndsWith(".js") || asset.EndsWith(".mjs"))
+            Must(contentType.Contains("javascript"),"JavaScript MIME for "+asset);
+    }
+
     var login=await client.PostAsJsonAsync("/api/admin/auth/login",new {username="admin",password="local-test-password-123456"});
     Must(login.StatusCode==HttpStatusCode.OK,"admin login");
     var adminToken=Doc.Str(Parse(await login.Content.ReadAsStringAsync()),"token");
