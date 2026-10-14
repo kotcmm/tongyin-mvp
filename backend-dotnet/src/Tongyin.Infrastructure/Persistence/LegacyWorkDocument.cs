@@ -21,6 +21,9 @@ public static class LegacyWorkDocument
         WorkStatus.Failed=>"failed", _=>throw new InvalidOperationException("未知作品状态不能写入数据库")
     };
 
+    /// <summary>
+    /// 将 Go 数据文档映射为领域聚合。
+    /// </summary>
     public static Work ToDomain(JsonObject raw) => Work.Restore(new WorkState(
         Doc.Str(raw,"id"),Doc.Str(raw,"owner"),Doc.Str(raw,"created_at"),
         Doc.Str(raw,"original"),ParseStatus(Doc.Str(raw,"status")),
@@ -31,6 +34,9 @@ public static class LegacyWorkDocument
         Doc.Str(raw,"model"),Doc.Str(raw,"note")));
 
     // Unknown Go keys are preserved by cloning the stored JSON before patching fields.
+    /// <summary>
+    /// 将领域状态写回旧版数据格式，并保留未知字段。
+    /// </summary>
     public static JsonObject ToDocument(WorkState state,JsonObject? previous=null)
     {
         var raw=previous is null ? new JsonObject() : Doc.Copy(previous);
