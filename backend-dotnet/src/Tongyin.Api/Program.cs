@@ -3,6 +3,7 @@ using Tongyin.Api.Core;
 using Tongyin.Api.Application;
 using Tongyin.Api.Adapters;
 using Tongyin.Application.Works;
+using Tongyin.Application.Orders;
 using Tongyin.Infrastructure.Persistence;
 
 var settings = Settings.Load();
@@ -35,6 +36,9 @@ builder.Services.AddSingleton<IWorkRepository,LegacyWorkRepository>();
 builder.Services.AddSingleton<IWorkIdsAndTime,GoCompatibleIdsAndTime>();
 builder.Services.AddSingleton<IWorkGenerationGateway,AiWorkGenerationGateway>();
 builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<OrderUseCases>();
+builder.Services.AddSingleton<IOrderRepository,LegacyOrderRepository>();
+builder.Services.AddSingleton<IOrderIdsAndTime,GoCompatibleOrderIdsAndTime>();
 builder.Services.AddScoped<AdminQueryService>();
 builder.Services.AddScoped<AdminCommandService>();
 builder.Services.AddScoped<AiManagementService>();
