@@ -1,5 +1,23 @@
 # 童印 ASP.NET Core 10 后端迁移（进行中）
 
+## Clean Architecture 结构（迁移中）
+
+整洁架构重构在独立分支 `feat/dotnet-clean-architecture` 开发，不影响已通过验收的 `feat/dotnet-backend-migration`：
+
+```text
+src/
+  Tongyin.Domain/           - 领域数据、状态和核心规则；不依赖其它项目
+  Tongyin.Application/      - 用例与 IStore 持久化端口；只依赖 Domain
+  Tongyin.Infrastructure/   - File/PostgreSQL/MySQL、认证、媒体、AI 等适配器
+  Tongyin.Api/              - ASP.NET Core Controllers + 表现层适配，依赖内层
+```
+
+依赖方向：`Api -> Application + Infrastructure + Domain`、`Infrastructure -> Application + Domain`、`Application -> Domain`。
+
+**当前迁移程度**：作品创建、图片生成排队、图片选择、订单创建和取消的业务规则已提取为无 ASP.NET 引用的用例；旧后台、支付、物流、AI 等 HTTP 编排代码仍留在 `Api/Presentation/`，是过渡适配代码，**尚不能宣称整洁架构重构全部完成**。现有 Go JSON 数据结构和旧 namespace 暂时保留，用于迁移兼容。后续应把剩余业务规则逐模块下沉，把 `HttpContext`/`IResult` 限制在 API，并将外部依赖转换为 Application 定义的端口。
+
+新增纯 Application 验收项目 `Tongyin.ApplicationChecks`，不依赖 API 或 Infrastructure，可验证无 Web 宿主时业务用例照样工作。所有 45 条 API 地址保持不变。当前 C# 服务本地端口仍为 18080，启动前需关闭 Go 服务。
+
 ## 目标与强约束
 
 这是 **tongyin-mvp 原仓库内部的并行迁移**，不是重新开发一个脱离业务的系统。
