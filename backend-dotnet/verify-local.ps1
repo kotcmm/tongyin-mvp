@@ -3,21 +3,21 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {
-    $commands = @(
-        @("build", "backend-dotnet/src/Tongyin.Api/Tongyin.Api.csproj", "--configuration", "Release"),
-        @("run", "--project", "backend-dotnet/tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj", "--configuration", "Release"),
-        @("run", "--project", "backend-dotnet/tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj", "--configuration", "Release"),
-        @("run", "--project", "backend-dotnet/tests/Tongyin.PayChecks/Tongyin.PayChecks.csproj", "--configuration", "Release")
-    )
-    foreach ($commandArgs in $commands) {
+    function Run-Dotnet([string[]]$Arguments) {
         Write-Host ""
-        Write-Host ("dotnet " + ($commandArgs -join " "))
-        & dotnet @commandArgs
-        if ($LASTEXITCODE -ne 0) { throw "dotnet tests failed with exit code $LASTEXITCODE" }
+        Write-Host ("dotnet " + ($Arguments -join " "))
+        & dotnet @Arguments
+        if ($LASTEXITCODE -ne 0) {
+            throw ("dotnet returned error code " + $LASTEXITCODE)
+        }
     }
+    Run-Dotnet -Arguments @("build","backend-dotnet/src/Tongyin.Api/Tongyin.Api.csproj","--configuration","Release")
+    Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj","--configuration","Release")
+    Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj","--configuration","Release")
+    Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.PayChecks/Tongyin.PayChecks.csproj","--configuration","Release")
     Write-Host ""
-    Write-Host "PASS：C# 构建、跨语言兼容性用例及 HTTP 端到端本地测试全部通过。"
-    Write-Host "注：真实微信支付、Seedream 和快递100 API 未包含在本地模拟测试中。"
+    Write-Host "PASS: .NET build, Go compatibility, HTTP flow, simulated signed payment notification."
+    Write-Host "Real Seedream, 3D, WeChat payment, and Kuaidi100 API calls are not part of these safe local tests."
 } finally {
     Pop-Location
 }

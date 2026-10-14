@@ -177,7 +177,7 @@ public static class AdminEndpoints
             new[]{"","image_pending","image_ready","model_pending","model_ready","failed"} :
             kind=="orders" ? new[]{"","awaiting_payment","paid","printing","shipped","completed","canceled"} :
             new[]{""};
-        if(!valid.Contains(status))return kind=="works"?"无效作品状态":"无效订单状态";
+        if(kind!="users" && !valid.Contains(status))return kind=="works"?"无效作品状态":"无效订单状态";
         if(kind=="orders")
         {
             var category=ctx.Request.Query["category"].ToString();
