@@ -5,11 +5,6 @@ using Npgsql;
 
 namespace Tongyin.Api.Core;
 
-public interface IStore
-{
-    Task<T> Read<T>(Func<Snapshot,T> fn, CancellationToken ct = default);
-    Task<T> Update<T>(Func<Snapshot,T> fn, CancellationToken ct = default);
-}
 public sealed class FileStore(string path) : IStore
 {
     private readonly SemaphoreSlim gate = new(1, 1);
