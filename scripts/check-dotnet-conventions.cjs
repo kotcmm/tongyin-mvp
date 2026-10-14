@@ -24,6 +24,9 @@ for(const file of walk(root)){
   const src=fs.readFileSync(file,'utf8'),lines=src.split(/\r?\n/);
   const relative=path.relative(root,file);
   const types=[...src.matchAll(/^(?:public|internal)\s+(?:(?:sealed|static|abstract|readonly|partial)\s+)*(?:class|interface|record|enum|struct)\s+(\w+)/gm)].map(m=>m[1]);
+  for(const type of types)
+    if(!/^[A-Z][A-Za-z0-9]*$/.test(type))
+      errors.push(relative+': public/internal type must be PascalCase: '+type);
   if(types.length!==1 || path.basename(file,'.cs')!==types[0]){
     errors.push(relative+': one public/internal type per same-named C# file required; found '+types.join(', '));
   }
@@ -34,6 +37,18 @@ for(const file of walk(root)){
       (/(?:\(|\{|=>)/.test(trim) || /\b(?:class|interface|record|enum|struct)\s+\w+/.test(trim));
     const interfaceMember=isInterface && /^(?:Task(?:<.*>)?|ValueTask(?:<.*>)?|void|string)\s+\w+(?:<.*>)?\s*\(/.test(trim);
     const enumMember=isEnum && /^\s+[A-Z]\w*(?:\s*=\s*\d+)?\s*,?\s*$/.test(line) && !/^\s+(?:public|internal)/.test(line);
+    // Public C# members use PascalCase. Record positional parameter names
+    // are constructor inputs rather than public symbol declarations.
+    if(decl && !/\\b(?:class|interface|record|enum|struct)\\s+\\w+/.test(trim)){
+      const names=[...trim.matchAll(/([A-Za-z_]\\w*)(?:<[^()]*>)?\\s*\\(/g)];
+      const methodName=names.length ? names[names.length-1][1] : null;
+      const propertyName=trim.match(/\\b([A-Za-z_]\\w*)\\s*(?:\\{|=>)/)?.[1];
+      const name=methodName||propertyName;
+      if(name && !/^[A-Z][A-Za-z0-9]*$/.test(name))
+        errors.push(relative+':'+(i+1)+': public/internal member must be PascalCase: '+name);
+      if(/\\b(public|internal)\\b/.test(trim) && /\\w+\\s*\\($/.test(trim))
+        errors.push(relative+':'+(i+1)+': keep method parameters on the declaration line');
+    }
     if((decl||interfaceMember||enumMember) && !hasXml(lines,i))
       errors.push(relative+':'+(i+1)+': missing Chinese XML <summary> for '+trim.slice(0,80));
     const field=line.match(/^\s*private\s+(?:(?:static|readonly|volatile|const)\s+)*[\w.<>,?\[\]]+\s+([A-Za-z_]\w*)\s*(?:=(?!>)|;)/);
