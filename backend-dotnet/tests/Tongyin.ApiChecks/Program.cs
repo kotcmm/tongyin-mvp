@@ -32,6 +32,10 @@ try
 
     var health=await client.GetAsync("/health");
     Must(health.StatusCode==HttpStatusCode.OK,"health");
+    var adminHome=await client.GetAsync("/admin/");
+    Must(adminHome.StatusCode==HttpStatusCode.OK,"legacy web admin entry served by .NET");
+    var html=await adminHome.Content.ReadAsStringAsync();
+    Must(html.Contains("童印运营中心"),"legacy admin HTML content unchanged");
     var login=await client.PostAsJsonAsync("/api/admin/auth/login",new {username="admin",password="local-test-password-123456"});
     Must(login.StatusCode==HttpStatusCode.OK,"admin login");
     var adminToken=Doc.Str(Parse(await login.Content.ReadAsStringAsync()),"token");
