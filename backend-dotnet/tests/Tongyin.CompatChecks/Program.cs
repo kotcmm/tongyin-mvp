@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
 
 var dir=Path.Combine(Path.GetTempPath(),"ty-migration-"+Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(dir);
@@ -43,6 +45,33 @@ try
         "a-password-for-test",Encoding.UTF8.GetBytes(salt),120000,HashAlgorithmName.SHA256,32)).ToLowerInvariant();
     Assert(computed==independent && computed.Length==64,"Go PBKDF2 compatibility");
 
+    // Golden values are generated from the legacy Go algorithm using a fixed
+    // synthetic secret / timestamp, not from the new C# implementation.
+    Assert(computed=="0dfaa474694e0e429716ceb2709b18441be4b5c459fb1956d2654d5d12246b3e",
+        "Go PBKDF2-HMAC-SHA256 fixed fixture");
+    var fixedMediaSig="cXDf5odBSXwy3ZCTCYF8aEq2ZXOmiZ2yRSJp942wna4";
+    Assert(media.Verify("original.png","4102444800",fixedMediaSig),"Go signed media fixed fixture");
+
+    await store.Update(s =>
+    {
+        s.Admins["admin"]=new JsonObject {
+            ["owner"]="admin",["role"]="owner",["version"]=1,["disabled"]=false,
+            ["salt"]=salt,["password_hash"]=computed,["created_at"]=Doc.Now()
+        };
+        return true;
+    });
+    var compatibleAuth=new CompatAuth(cfg,store);
+    var adminContext=new DefaultHttpContext();
+    adminContext.Request.Headers.Authorization="Bearer admin1.YWRtaW58MXw0MTAyNDQ0ODAw.OYoN7OtGEMQY10PuqV8g7EDet9CqQS7eSu-E7idvIJw";
+    var oldAdmin=await compatibleAuth.VerifyAdmin(adminContext);
+    Assert(oldAdmin?.Name=="admin" && oldAdmin?.Role=="owner","Go admin session token fixed fixture");
+    var customerContext=new DefaultHttpContext();
+    customerContext.Request.Headers.Authorization="Bearer ZGV2LXVzZXJ8NDEwMjQ0NDgwMA.O8rBEkx2zZSRJ0cph1VARb7nr0avFu8ND4c4YgvCDSo";
+    Assert(compatibleAuth.VerifyCustomer(customerContext)=="dev-user","Go customer session token fixed fixture");
+    var legacyKey="AAECAwQFBgcICQoLII2Lue0b20wiM4sQLZ4hvzdWB2oNqneHlkUhNBY2pa7peNgQXA";
+    var ai=new AiService(cfg,store,media,new LocalHttpFactory(),NullLogger<AiService>.Instance);
+    Assert(ai.DecryptKey(legacyKey)=="test-seedream-api-key","Go AES-GCM API Key fixed fixture");
+
     var document=Snapshot.FromJson(Doc.Parse(await File.ReadAllTextAsync(file)));
     Assert(document.Works.ContainsKey("w1"),"Go document model loading");
     Console.WriteLine("PASS: file store round-trip, unknown field, signed media, PBKDF2, Go snapshot layout");
@@ -51,4 +80,9 @@ finally {Directory.Delete(dir,true);}
 static void Assert(bool condition,string reason)
 {
     if(!condition)throw new Exception("FAIL: "+reason);
+}
+
+file sealed class LocalHttpFactory : IHttpClientFactory
+{
+    public HttpClient CreateClient(string name) => new();
 }
