@@ -2,14 +2,14 @@ using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Api;
+namespace Tongyin.Api.Application;
 
-public static class CustomerEndpoints
+public sealed class CustomerService(Settings cfg, IStore store, CompatAuth auth, IHttpClientFactory factory, MediaService media)
 {
-    public static void MapCustomers(this WebApplication app)
+
+    // POST /api/auth/wechat
+    public async Task<IResult> LoginWechat(HttpContext ctx)
     {
-        app.MapPost("/api/auth/wechat", async (HttpContext ctx,Settings cfg, IStore store,CompatAuth auth,IHttpClientFactory factory) =>
-        {
             var body=await Body(ctx);
             var code=Doc.Str(body,"code");
             if (code == "") return Fail(400,"参数不合法");
@@ -46,10 +46,11 @@ public static class CustomerEndpoints
                 return disabled ? Fail(403,"账号已停用") : Ok(new {token=auth.CustomerToken(owner)});
             }
             catch {return Fail(500,"登录记录失败");}
-        });
+    }
 
-        app.MapGet("/api/me", async (HttpContext ctx,CompatAuth auth,IStore store) =>
-        {
+    // GET /api/me
+    public async Task<IResult> GetProfile(HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);
             if (owner == null) return Fail(401,"请登录");
             var result=await store.Read(s =>
@@ -59,8 +60,9 @@ public static class CustomerEndpoints
                     orders=s.Orders.Values.Count(o=>Doc.Str(o,"owner")==owner) };
             });
             return Ok(result);
-        });
-        app.MapGet("/media/{file}", (string file, HttpContext ctx, MediaService media) =>
-            media.Serve(file,ctx.Request.Query["expires"],ctx.Request.Query["signature"]));
     }
+
+    public IResult ServeMedia(string file, HttpContext ctx) =>
+        media.Serve(file, ctx.Request.Query["expires"], ctx.Request.Query["signature"]);
+
 }

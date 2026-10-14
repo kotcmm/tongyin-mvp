@@ -11,6 +11,18 @@
 - **不能在同一数据库/数据文件上同时运行 Go 与 .NET 测试写入**。正式切换前创建数据库副本测试。
 - 未迁移的接口不得静默代理 Go，也不得宣称可上线。
 
+## 代码结构（Controller + Application + Repository）
+
+迁移后的 API 采用单项目分层，以便直接在 Visual Studio / Rider 中按传统 C# Web API 习惯维护：
+
+- `Controllers/`：`[ApiController]` + `[HttpGet/Post/Put/Delete]`，只负责 HTTP 路由、参数和调用应用层；45 个 Go 对应的业务 API 均已迁入。
+- `Application/`：客户、作品、订单、后台、AI、物流、支付等业务服务，承接原来的状态检查、授权调用、数据更新和错误码规则。
+- `Core/Store.cs`：`IStore` 是数据存储抽象（现有 FileStore / SqlStore 实现）；暂不拆项目以降低迁移风险。后续可按领域再拆 DTO、Repository 和 Domain。
+- `Core/`：原兼容性基础设施，包括 Go 令牌、媒体文件、AI 调用及数据迁移。
+- `Program.cs`：只注册依赖和 Controller 路由（`AddControllers / MapControllers`）；管理后台 HTML/JS 静态文件仍独立提供。
+
+**本次重构首先追求接口兼容和层次清晰**：Application 层部分服务仍使用 `HttpContext` / `IResult` 适配原 Go HTTP 契约，尚不是完全与 Web 脱钩的领域模型。待所有验收通过后再改成纯业务 DTO，不一次性修改业务流程。
+
 ## 当前迁移状态
 
 **此分支用于并行验收**，不能直接替换生产 Go 服务。所有现有 Go 业务路由已经有对应 .NET 路由，但支付、AI、物流等行为仍需使用真实服务验证。

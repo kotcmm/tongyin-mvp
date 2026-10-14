@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
-using Tongyin.Api.Api;
+using Tongyin.Api.Application;
 
 var settings = Settings.Load();
 settings.Validate();
@@ -24,6 +24,15 @@ builder.Services.AddSingleton<IStore>(settings.DBDriver == "file"
 builder.Services.AddSingleton<CompatAuth>();
 builder.Services.AddSingleton<MediaService>();
 builder.Services.AddSingleton<AiService>();
+builder.Services.AddControllers();
+builder.Services.AddScoped<CustomerService>();
+builder.Services.AddScoped<WorkService>();
+builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<AdminQueryService>();
+builder.Services.AddScoped<AdminCommandService>();
+builder.Services.AddScoped<AiManagementService>();
+builder.Services.AddScoped<LogisticsService>();
+builder.Services.AddScoped<PaymentService>();
 builder.Services.AddHttpClient("wechat", client => client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHttpClient("ai", client => client.Timeout = TimeSpan.FromSeconds(190));
 builder.Services.AddHttpClient("worker", client => client.Timeout = TimeSpan.FromSeconds(20));
@@ -68,22 +77,9 @@ var adminAssets = AdminAssetServer.Discover(builder.Environment.ContentRootPath)
 // Separate /admin and /admin/ patterns overlap under ASP.NET Core routing.
 app.MapGet("/admin/{**asset}", (string? asset) => adminAssets.Serve(asset));
 
-app.MapGet("/health", () => Results.Json(new { status = "ok", backend = "dotnet" }));
-app.MapGet("/api/config", async (IStore store) => Results.Json(new
-{
-    price_fen = settings.PriceFen,
-    dev = settings.DevMode,
-    ai_auto_enabled = await store.Read(s => s.AIProviders.Values.Any(p => Doc.Bool(p,"default") && Doc.Bool(p,"enabled") && Doc.Str(p,"stage")=="image")) || settings.AiWorkerUrl.Length > 0,
-    free_image_attempts = settings.FreeImageAttempts
-}));
-app.MapCustomers();
-app.MapWorks();
-app.MapOrders();
-app.MapAdminFoundation();
-app.MapAi();
-app.MapAdminOperations();
-app.MapLogistics();
-app.MapPayment();
+// Controller routing replaces all Minimal API business endpoints.
+app.MapControllers();
+
 
 // Still missing modules are deliberately NOT routed to Go or marked complete.
 // Migration acceptance must pass before this application may replace Go.

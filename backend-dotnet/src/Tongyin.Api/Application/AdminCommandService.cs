@@ -3,9 +3,9 @@ using System.Text.RegularExpressions;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Api;
+namespace Tongyin.Api.Application;
 
-public static class AdminOperations
+public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService media)
 {
     private static async Task<(IResult? Error,string Actor)> Authorize(HttpContext ctx,CompatAuth auth,params string[] roles)
     {
@@ -15,18 +15,20 @@ public static class AdminOperations
             return (Fail(403,"当前角色无权进行此操作"),"");
         return (null,person.Value.Name);
     }
-    public static void MapAdminOperations(this WebApplication app)
+
+    // GET /api/admin/accounts
+    public async Task<IResult> ListAccounts(HttpContext ctx)
     {
-        app.MapGet("/api/admin/accounts",async (HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
             return Ok(await db.Read(s=>s.Admins.Values.Select(a=>new {
                 username=Doc.Str(a,"owner"),role=Doc.Str(a,"role"),disabled=Doc.Bool(a,"disabled"),
                 created_at=Doc.Str(a,"created_at")
             }).ToArray()));
-        });
-        app.MapPost("/api/admin/accounts",async (HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // POST /api/admin/accounts
+    public async Task<IResult> CreateAccount(HttpContext ctx)
+    {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
             var body=await Body(ctx);if(body==null)return Fail(400,"参数错误");
             try
@@ -44,9 +46,11 @@ public static class AdminOperations
             }
             catch(ArgumentException e){return Fail(400,e.Message);}
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapPut("/api/admin/accounts/{id}",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // PUT /api/admin/accounts/{id}
+    public async Task<IResult> UpdateAccount(string id, HttpContext ctx)
+    {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
             var body=await Body(ctx);if(body==null)return Fail(400,"参数错误");
             var role=Doc.Str(body,"role");
@@ -79,9 +83,11 @@ public static class AdminOperations
             }
             catch(KeyNotFoundException){return Fail(404,"管理员不存在");}
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapPost("/api/admin/works/{id}/asset",async (string id,HttpContext ctx,CompatAuth auth,IStore db,MediaService media)=>
-        {
+    }
+
+    // POST /api/admin/works/{id}/asset
+    public async Task<IResult> UploadWorkAsset(string id, HttpContext ctx)
+    {
             var guard=await Authorize(ctx,auth,"operator","production");
             if(guard.Error!=null)return guard.Error;
             var kind=ctx.Request.Query["kind"].ToString();
@@ -133,9 +139,11 @@ public static class AdminOperations
                 return Ok(updated);
             }
             catch(Exception e){File.Delete(media.Absolute(file));return Fail(409,e.Message);}
-        });
-        app.MapPost("/api/admin/works/{id}/status",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // POST /api/admin/works/{id}/status
+    public async Task<IResult> UpdateWorkStatus(string id, HttpContext ctx)
+    {
             var guard=await Authorize(ctx,auth,"operator","production");
             if(guard.Error!=null)return guard.Error;
             var body=await Body(ctx);if(body==null)return Fail(400,"参数无效");
@@ -157,9 +165,11 @@ public static class AdminOperations
             }
             catch(KeyNotFoundException){return Fail(404,"作品不存在");}
             catch(Exception e){return Fail(400,e.Message);}
-        });
-        app.MapPost("/api/admin/orders/{id}/status",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // POST /api/admin/orders/{id}/status
+    public async Task<IResult> UpdateOrderStatus(string id, HttpContext ctx)
+    {
             var guard=await Authorize(ctx,auth,"operator","shipping");
             if(guard.Error!=null)return guard.Error;
             var body=await Body(ctx);if(body==null)return Fail(400,"参数无效");
@@ -192,9 +202,11 @@ public static class AdminOperations
             }
             catch(KeyNotFoundException){return Fail(404,"订单不存在");}
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapPost("/api/admin/orders/{id}/refund",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // POST /api/admin/orders/{id}/refund
+    public async Task<IResult> RefundOrder(string id, HttpContext ctx)
+    {
             var guard=await Authorize(ctx,auth,"operator","shipping");
             if(guard.Error!=null)return guard.Error;
             var body=await Body(ctx);
@@ -218,6 +230,6 @@ public static class AdminOperations
             }
             catch(KeyNotFoundException){return Fail(404,"订单不存在");}
             catch(Exception e){return Fail(409,e.Message);}
-        });
     }
+
 }

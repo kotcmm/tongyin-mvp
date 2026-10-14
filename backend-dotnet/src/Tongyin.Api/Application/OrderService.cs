@@ -2,9 +2,9 @@ using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Api;
+namespace Tongyin.Api.Application;
 
-public static class OrderEndpoints
+public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg)
 {
     private static bool ShippingValid(JsonObject? o)
     {
@@ -20,10 +20,10 @@ public static class OrderEndpoints
         cp["owner"]="";
         return cp;
     }
-    public static void MapOrders(this WebApplication app)
+
+    // GET /api/shipping-address
+    public async Task<IResult> GetSavedAddress(HttpContext ctx)
     {
-        app.MapGet("/api/shipping-address", async (HttpContext ctx,CompatAuth auth,IStore db) =>
-        {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var v=await db.Read(s => {
                 if(s.Addresses.TryGetValue(owner,out var a))return CopyAddress(a);
@@ -35,9 +35,11 @@ public static class OrderEndpoints
                 };
             });
             return Ok(new {address=v});
-        });
-        app.MapPut("/api/shipping-address", async (HttpContext ctx,CompatAuth auth,IStore db) =>
-        {
+    }
+
+    // PUT /api/shipping-address
+    public async Task<IResult> SaveAddress(HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var body=await Body(ctx);if(body==null || !ShippingValid(body))return Fail(400,"请填写完整收货信息");
             var addr=new JsonObject{
@@ -46,9 +48,11 @@ public static class OrderEndpoints
             };
             await db.Update(s=>{s.Addresses[owner]=addr;return true;});
             return Ok(new {address=CopyAddress(addr)});
-        });
-        app.MapGet("/api/works/{id}/order",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // GET /api/works/{id}/order
+    public async Task<IResult> GetWorkOrder(string id, HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var result=await db.Read(s=>
             {
@@ -58,9 +62,11 @@ public static class OrderEndpoints
                 return (Found:true,Order:order==null ? null : ExposeOrder(order));
             });
             return !result.Found ? Fail(404,"作品不存在") : Ok(new {order=result.Order});
-        });
-        app.MapPost("/api/orders",async (HttpContext ctx,CompatAuth auth,IStore db,Settings cfg)=>
-        {
+    }
+
+    // POST /api/orders
+    public async Task<IResult> CreateOrder(HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var body=await Body(ctx);
             if(body==null)return Fail(400,"参数有误");
@@ -91,22 +97,28 @@ public static class OrderEndpoints
                 return Ok(ExposeOrder(order),201);
             }
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapGet("/api/orders",async (HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // GET /api/orders
+    public async Task<IResult> ListOrders(HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var orders=await db.Read(s=>s.Orders.Values.Where(o=>Doc.Str(o,"owner")==owner)
                 .OrderByDescending(o=>Doc.Str(o,"created_at")).Select(ExposeOrder).ToArray());
             return Ok(orders);
-        });
-        app.MapGet("/api/orders/{id}",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // GET /api/orders/{id}
+    public async Task<IResult> GetOrder(string id, HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var order=await db.Read(s=>s.Orders.TryGetValue(id,out var o) && Doc.Str(o,"owner")==owner ? ExposeOrder(o):null);
             return order==null ? Fail(404,"订单不存在") : Ok(order);
-        });
-        app.MapPut("/api/orders/{id}/shipping-address",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // PUT /api/orders/{id}/shipping-address
+    public async Task<IResult> UpdateShippingAddress(string id, HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var body=await Body(ctx);
             if(body==null || !ShippingValid(body))return Fail(400,"请填写完整收货信息");
@@ -125,9 +137,11 @@ public static class OrderEndpoints
             }
             catch(KeyNotFoundException){return Fail(404,"订单不存在");}
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapPost("/api/orders/{id}/cancel",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // POST /api/orders/{id}/cancel
+    public async Task<IResult> CancelOrder(string id, HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var body=await Body(ctx);if(body==null)return Fail(400,"参数错误");
             var reason=Doc.Str(body,"reason").Trim();
@@ -152,9 +166,11 @@ public static class OrderEndpoints
             }
             catch(KeyNotFoundException){return Fail(404,"订单不存在");}
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapGet("/api/orders/{id}/tracking",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // GET /api/orders/{id}/tracking
+    public async Task<IResult> GetTracking(string id, HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var order=await db.Read(s=>s.Orders.TryGetValue(id,out var o) && Doc.Str(o,"owner")==owner ? Doc.Copy(o):null);
             if(order==null)return Fail(404,"订单不存在");
@@ -166,6 +182,6 @@ public static class OrderEndpoints
                 tracking_no=Doc.Str(order,"tracking"),tracking_state=Doc.Str(order,"tracking_state"),
                 updated_at=Doc.Str(order,"tracking_checked_at"),events,source
             });
-        });
     }
+
 }

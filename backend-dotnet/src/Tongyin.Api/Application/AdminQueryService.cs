@@ -4,127 +4,11 @@ using System.Text;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Api;
+namespace Tongyin.Api.Application;
 
-public static class AdminEndpoints
+public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, MediaService media)
 {
-    public static void MapAdminFoundation(this WebApplication app)
-    {
-        app.MapPost("/api/admin/auth/login",async (HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
-            var body=await Body(ctx);
-            var username=Doc.Str(body,"username");
-            var password=Doc.Str(body,"password");
-            var account=await db.Read(s=>s.Admins.TryGetValue(username,out var v)? Doc.Copy(v):null);
-            if(account==null || Doc.Bool(account,"disabled") || password=="")return Fail(401,"账号或密码错误");
-            var salt=Doc.Str(account,"salt");
-            var stored=Doc.Str(account,"password_hash");
-            var candidate=CompatAuth.PasswordHash(password,salt);
-            if(stored.Length!=candidate.Length || !CryptographicOperations.FixedTimeEquals(
-                Encoding.ASCII.GetBytes(stored),Encoding.ASCII.GetBytes(candidate)))return Fail(401,"账号或密码错误");
-            return Ok(new {token=auth.AdminToken(account),username,role=Doc.Str(account,"role")});
-        });
-        app.MapGet("/api/admin/me",async (HttpContext ctx,CompatAuth auth)=>
-        {
-            var info=await auth.VerifyAdmin(ctx);
-            return info==null ? Fail(401,"后台登录已失效"):Ok(new{username=info.Value.Name,role=info.Value.Role});
-        });
-        app.MapGet("/api/admin/dashboard",async (HttpContext ctx,CompatAuth auth,IStore db,Settings cfg)=>
-        {
-            if(await auth.ProtectAdmin(ctx) is { } denied)return denied;
-            return Ok(await db.Read(s=>
-            {
-                var keys=new[]{"users","works","orders","image_pending","model_pending","awaiting_payment","paid","printing","shipped","completed","refund_requested"};
-                var metrics=keys.ToDictionary(k=>k,_=>0);
-                metrics["users"]=s.Users.Count;
-                metrics["works"]=s.Works.Count;
-                metrics["orders"]=s.Orders.Count;
-                foreach(var w in s.Works.Values)
-                {
-                    var status=Doc.Str(w,"status");
-                    if(metrics.ContainsKey(status))metrics[status]++;
-                }
-                var revenue=0;
-                foreach(var o in s.Orders.Values)
-                {
-                    var status=Doc.Str(o,"status");
-                    if(metrics.ContainsKey(status))metrics[status]++;
-                    if(Doc.Str(o,"refund_status")=="requested")metrics["refund_requested"]++;
-                    if(status!="awaiting_payment" && status!="canceled")revenue+=Doc.Int(o,"price_fen");
-                }
-                return new {metrics,paid_gross_fen=revenue,pay_configured=cfg.PayReady,
-                    tracking_configured=cfg.Kuaidi100Key!="" && cfg.Kuaidi100Customer!=""};
-            }));
-        });
-        app.MapGet("/api/admin/works",async (HttpContext ctx,CompatAuth auth,IStore db,MediaService media)=>
-        {
-            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
-            return Ok(await db.Read(s=>s.Works.Values.Select(w=>ExposeAdminWork(s,w,media)).ToArray()));
-        });
-        app.MapGet("/api/admin/orders",async (HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
-            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
-            return Ok(await db.Read(s=>s.Orders.Values.Select(o=>ExposeAdminOrder(s,o)).ToArray()));
-        });
-        app.MapGet("/api/admin/users",async (HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
-            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
-            return Ok(await db.Read(s=>s.Users.Values.Select(u=>UserSummary(s,u))
-                .OrderByDescending(u=>Doc.Str(u,"created_at")).ToArray()));
-        });
-        app.MapGet("/api/admin/audit",async (HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
-            if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
-            return Ok(await db.Read(s=>s.Audit.Values.OrderByDescending(a=>Doc.Str(a,"created_at"))
-                .Take(300).Select(Doc.Copy).ToArray()));
-        });
-        app.MapGet("/api/admin/search/works",async (HttpContext ctx,CompatAuth auth,IStore db,MediaService media)=>
-        {
-            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
-            if(ValidatePage(ctx,"works") is { } validation)return Fail(400,validation);
-            return Ok(await db.Read(s =>
-            {
-                var rows=s.Works.Values.Where(w=>MatchStatus(w,ctx) && MatchText(ctx,Doc.Str(w,"id"), UserId(s,Doc.Str(w,"owner")), Doc.Str(w,"status")));
-                var view=rows.Select(w=>ExposeAdminWork(s,w,media));
-                return Page(view,ctx);
-            }));
-        });
-        app.MapGet("/api/admin/search/orders",async (HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
-            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
-            if(ValidatePage(ctx,"orders") is { } validation)return Fail(400,validation);
-            return Ok(await db.Read(s =>
-            {
-                var rows=s.Orders.Values.Where(o=>MatchStatus(o,ctx) && MatchText(ctx,Doc.Str(o,"id"),Doc.Str(o,"work_id"),Doc.Str(o,"name"),Doc.Str(o,"phone"),Doc.Str(o,"tracking"),UserId(s,Doc.Str(o,"owner"))));
-                if(ctx.Request.Query["category"]=="shipping")rows=rows.Where(o=>Doc.Str(o,"status") is "printing" or "shipped" or "completed");
-                return Page(rows.Select(o=>ExposeAdminOrder(s,o)),ctx);
-            }));
-        });
-        app.MapGet("/api/admin/search/users",async (HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
-            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
-            if(ValidatePage(ctx,"users") is { } validation)return Fail(400,validation);
-            return Ok(await db.Read(s=>Page(s.Users.Values.Select(u=>UserSummary(s,u))
-                .Where(u=>MatchText(ctx,Doc.Str(u,"id"))),ctx)));
-        });
-        app.MapPost("/api/admin/users/{id}/status",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
-            if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
-            var body=await Body(ctx);
-            if(body is null)return Fail(400,"参数错误");
-            var disabled=Doc.Bool(body,"disabled");
-            var admin=(await auth.VerifyAdmin(ctx))!.Value;
-            var found=await db.Update(s=>
-            {
-                var user=s.Users.Values.FirstOrDefault(u=>Doc.Str(u,"id")==id);
-                if(user==null)return false;
-                user["disabled"]=disabled;
-                Record(s,admin.Name,"user.status",id,"disabled="+disabled);
-                return true;
-            });
-            return found ? Ok(new {status="ok"}) : Fail(404,"用户不存在");
-        });
-    }
+
 
     public static JsonObject ExposeAdminWork(Snapshot s,JsonObject work,MediaService media)
     {
@@ -193,6 +77,142 @@ public static class AdminEndpoints
             .ThenByDescending(d=>Doc.Str(d,"id")).ToArray();
         return new { items=sorted.Skip((page-1)*size).Take(size).ToArray(),
             total=sorted.Length,page,page_size=size };
+    }
+
+    // POST /api/admin/auth/login
+    public async Task<IResult> LoginAdmin(HttpContext ctx)
+    {
+            var body=await Body(ctx);
+            var username=Doc.Str(body,"username");
+            var password=Doc.Str(body,"password");
+            var account=await db.Read(s=>s.Admins.TryGetValue(username,out var v)? Doc.Copy(v):null);
+            if(account==null || Doc.Bool(account,"disabled") || password=="")return Fail(401,"账号或密码错误");
+            var salt=Doc.Str(account,"salt");
+            var stored=Doc.Str(account,"password_hash");
+            var candidate=CompatAuth.PasswordHash(password,salt);
+            if(stored.Length!=candidate.Length || !CryptographicOperations.FixedTimeEquals(
+                Encoding.ASCII.GetBytes(stored),Encoding.ASCII.GetBytes(candidate)))return Fail(401,"账号或密码错误");
+            return Ok(new {token=auth.AdminToken(account),username,role=Doc.Str(account,"role")});
+    }
+
+    // GET /api/admin/me
+    public async Task<IResult> GetCurrentAdmin(HttpContext ctx)
+    {
+            var info=await auth.VerifyAdmin(ctx);
+            return info==null ? Fail(401,"后台登录已失效"):Ok(new{username=info.Value.Name,role=info.Value.Role});
+    }
+
+    // GET /api/admin/dashboard
+    public async Task<IResult> GetDashboard(HttpContext ctx)
+    {
+            if(await auth.ProtectAdmin(ctx) is { } denied)return denied;
+            return Ok(await db.Read(s=>
+            {
+                var keys=new[]{"users","works","orders","image_pending","model_pending","awaiting_payment","paid","printing","shipped","completed","refund_requested"};
+                var metrics=keys.ToDictionary(k=>k,_=>0);
+                metrics["users"]=s.Users.Count;
+                metrics["works"]=s.Works.Count;
+                metrics["orders"]=s.Orders.Count;
+                foreach(var w in s.Works.Values)
+                {
+                    var status=Doc.Str(w,"status");
+                    if(metrics.ContainsKey(status))metrics[status]++;
+                }
+                var revenue=0;
+                foreach(var o in s.Orders.Values)
+                {
+                    var status=Doc.Str(o,"status");
+                    if(metrics.ContainsKey(status))metrics[status]++;
+                    if(Doc.Str(o,"refund_status")=="requested")metrics["refund_requested"]++;
+                    if(status!="awaiting_payment" && status!="canceled")revenue+=Doc.Int(o,"price_fen");
+                }
+                return new {metrics,paid_gross_fen=revenue,pay_configured=cfg.PayReady,
+                    tracking_configured=cfg.Kuaidi100Key!="" && cfg.Kuaidi100Customer!=""};
+            }));
+    }
+
+    // GET /api/admin/works
+    public async Task<IResult> ListWorks(HttpContext ctx)
+    {
+            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            return Ok(await db.Read(s=>s.Works.Values.Select(w=>ExposeAdminWork(s,w,media)).ToArray()));
+    }
+
+    // GET /api/admin/orders
+    public async Task<IResult> ListOrders(HttpContext ctx)
+    {
+            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            return Ok(await db.Read(s=>s.Orders.Values.Select(o=>ExposeAdminOrder(s,o)).ToArray()));
+    }
+
+    // GET /api/admin/users
+    public async Task<IResult> ListUsers(HttpContext ctx)
+    {
+            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            return Ok(await db.Read(s=>s.Users.Values.Select(u=>UserSummary(s,u))
+                .OrderByDescending(u=>Doc.Str(u,"created_at")).ToArray()));
+    }
+
+    // GET /api/admin/audit
+    public async Task<IResult> ListAudit(HttpContext ctx)
+    {
+            if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
+            return Ok(await db.Read(s=>s.Audit.Values.OrderByDescending(a=>Doc.Str(a,"created_at"))
+                .Take(300).Select(Doc.Copy).ToArray()));
+    }
+
+    // GET /api/admin/search/works
+    public async Task<IResult> SearchWorks(HttpContext ctx)
+    {
+            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            if(ValidatePage(ctx,"works") is { } validation)return Fail(400,validation);
+            return Ok(await db.Read(s =>
+            {
+                var rows=s.Works.Values.Where(w=>MatchStatus(w,ctx) && MatchText(ctx,Doc.Str(w,"id"), UserId(s,Doc.Str(w,"owner")), Doc.Str(w,"status")));
+                var view=rows.Select(w=>ExposeAdminWork(s,w,media));
+                return Page(view,ctx);
+            }));
+    }
+
+    // GET /api/admin/search/orders
+    public async Task<IResult> SearchOrders(HttpContext ctx)
+    {
+            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            if(ValidatePage(ctx,"orders") is { } validation)return Fail(400,validation);
+            return Ok(await db.Read(s =>
+            {
+                var rows=s.Orders.Values.Where(o=>MatchStatus(o,ctx) && MatchText(ctx,Doc.Str(o,"id"),Doc.Str(o,"work_id"),Doc.Str(o,"name"),Doc.Str(o,"phone"),Doc.Str(o,"tracking"),UserId(s,Doc.Str(o,"owner"))));
+                if(ctx.Request.Query["category"]=="shipping")rows=rows.Where(o=>Doc.Str(o,"status") is "printing" or "shipped" or "completed");
+                return Page(rows.Select(o=>ExposeAdminOrder(s,o)),ctx);
+            }));
+    }
+
+    // GET /api/admin/search/users
+    public async Task<IResult> SearchUsers(HttpContext ctx)
+    {
+            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            if(ValidatePage(ctx,"users") is { } validation)return Fail(400,validation);
+            return Ok(await db.Read(s=>Page(s.Users.Values.Select(u=>UserSummary(s,u))
+                .Where(u=>MatchText(ctx,Doc.Str(u,"id"))),ctx)));
+    }
+
+    // POST /api/admin/users/{id}/status
+    public async Task<IResult> ChangeUserStatus(string id, HttpContext ctx)
+    {
+            if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
+            var body=await Body(ctx);
+            if(body is null)return Fail(400,"参数错误");
+            var disabled=Doc.Bool(body,"disabled");
+            var admin=(await auth.VerifyAdmin(ctx))!.Value;
+            var found=await db.Update(s=>
+            {
+                var user=s.Users.Values.FirstOrDefault(u=>Doc.Str(u,"id")==id);
+                if(user==null)return false;
+                user["disabled"]=disabled;
+                Record(s,admin.Name,"user.status",id,"disabled="+disabled);
+                return true;
+            });
+            return found ? Ok(new {status="ok"}) : Fail(404,"用户不存在");
     }
 
 }

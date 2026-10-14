@@ -5,10 +5,10 @@ using System.Text.RegularExpressions;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Api;
+namespace Tongyin.Api.Application;
 
 // Port of Go's real tracking-only logistics module. Never fabricates shipment events.
-public static class LogisticsEndpoints
+public sealed class LogisticsService(CompatAuth auth, IStore db, Settings cfg, IHttpClientFactory http)
 {
     private static readonly Regex CarrierCode=new("^[a-z0-9]{2,30}$",RegexOptions.Compiled);
     private static readonly Regex Number=new("^[A-Za-z0-9_-]{5,40}$",RegexOptions.Compiled);
@@ -20,10 +20,15 @@ public static class LogisticsEndpoints
             return (Fail(403,"当前角色无权发货"),"");
         return (null,user.Value.Name);
     }
-    public static void MapLogistics(this WebApplication app)
+
+    private static void History(JsonObject order,string actor,string action,string note)
     {
-        app.MapPost("/api/admin/orders/{id}/shipment",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+        if(order["history"] is not JsonArray)order["history"]=new JsonArray();
+        ((JsonArray)order["history"]!).Add(new JsonObject{["at"]=Doc.Now(),["actor"]=actor,["action"]=action,["note"]=note});
+    }
+    // POST /api/admin/orders/{id}/shipment
+    public async Task<IResult> CreateShipment(string id, HttpContext ctx)
+    {
             var guard=await Authorized(ctx,auth);if(guard.Error!=null)return guard.Error;
             var req=await Body(ctx);if(req==null)return Fail(400,"参数错误");
             var carrier=Doc.Str(req,"carrier").Trim();
@@ -48,9 +53,11 @@ public static class LogisticsEndpoints
             }
             catch(KeyNotFoundException){return Fail(404,"订单不存在");}
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapPost("/api/admin/orders/{id}/tracking",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // POST /api/admin/orders/{id}/tracking
+    public async Task<IResult> AddTracking(string id, HttpContext ctx)
+    {
             var guard=await Authorized(ctx,auth);if(guard.Error!=null)return guard.Error;
             var body=await Body(ctx);if(body==null)return Fail(400,"参数错误");
             var at=Doc.Str(body,"time").Trim();var content=Doc.Str(body,"context").Trim();
@@ -76,9 +83,11 @@ public static class LogisticsEndpoints
             }
             catch(KeyNotFoundException){return Fail(404,"订单不存在");}
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapPost("/api/admin/orders/{id}/tracking/refresh",async (string id,HttpContext ctx,CompatAuth auth,IStore db,Settings cfg,IHttpClientFactory http)=>
-        {
+    }
+
+    // POST /api/admin/orders/{id}/tracking/refresh
+    public async Task<IResult> RefreshTracking(string id, HttpContext ctx)
+    {
             var guard=await Authorized(ctx,auth);if(guard.Error!=null)return guard.Error;
             if(cfg.Kuaidi100Key=="" || cfg.Kuaidi100Customer=="")return Fail(503,"未配置快递100查询接口凭证");
             var order=await db.Read(s=>s.Orders.TryGetValue(id,out var o)?Doc.Copy(o):null);
@@ -133,11 +142,6 @@ public static class LogisticsEndpoints
                 return Ok(new{events=list,tracking_state=state});
             }
             catch{return Fail(409,"物流信息写入失败，请刷新后重试");}
-        });
     }
-    private static void History(JsonObject order,string actor,string action,string note)
-    {
-        if(order["history"] is not JsonArray)order["history"]=new JsonArray();
-        ((JsonArray)order["history"]!).Add(new JsonObject{["at"]=Doc.Now(),["actor"]=actor,["action"]=action,["note"]=note});
-    }
+
 }

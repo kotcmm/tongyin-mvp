@@ -16,7 +16,7 @@ function walk(p) {
 walk(dir)
 const dotnet = files.flatMap((p) => {
   const body = fs.readFileSync(p, 'utf8')
-  return [...body.matchAll(/app\.Map(Get|Post|Put|Delete)\("(\/api[^"]+)"/g)]
+  return [...body.matchAll(/\[Http(Get|Post|Put|Delete)\("(\/api[^"]+)"\)\]/g)]
     .map((m) => m[1].toUpperCase() + ' ' + m[2])
 })
 const missing = go.filter((route) => !dotnet.includes(route))
@@ -26,4 +26,4 @@ if (missing.length || extra.length || duplicate.length) {
   console.error({missing, extra, duplicate})
   process.exit(1)
 }
-console.log('API surface matched:', go.length, 'Go routes -> ASP.NET Core endpoints. Behavioral compatibility must be checked separately.')
+console.log('API surface matched:', go.length, 'Go routes -> ASP.NET Core controller actions. Behavioral compatibility must be checked separately.')

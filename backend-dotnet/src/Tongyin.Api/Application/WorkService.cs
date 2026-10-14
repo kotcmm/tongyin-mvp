@@ -2,16 +2,16 @@ using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Api;
+namespace Tongyin.Api.Application;
 
 // Migration phase 1: original art upload, signed media and ownership-safe reads.
 // Generation will be wired to a dedicated AI service in the next phase.
-public static class WorkEndpoints
+public sealed class WorkService(CompatAuth auth, IStore store, MediaService media, AiService ai, Settings cfg)
 {
-    public static void MapWorks(this WebApplication app)
+
+    // POST /api/works
+    public async Task<IResult> UploadDrawing(HttpContext ctx)
     {
-        app.MapPost("/api/works", async (HttpContext ctx,CompatAuth auth,IStore store,MediaService media) =>
-        {
             var owner=await auth.Customer(ctx);
             if (owner is null) return Fail(401,"请登录");
             try
@@ -30,24 +30,30 @@ public static class WorkEndpoints
             }
             catch(ArgumentException e){return Fail(400,e.Message);}
             catch(Exception){return Fail(500,"保存作品失败");}
-        });
-        app.MapGet("/api/works", async (HttpContext ctx,CompatAuth auth,IStore store,MediaService media) =>
-        {
+    }
+
+    // GET /api/works
+    public async Task<IResult> ListWorks(HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);
             if (owner is null) return Fail(401,"请登录");
             var works=await store.Read(s=>s.Works.Values.Where(w=>Doc.Str(w,"owner")==owner)
                 .OrderByDescending(w=>Doc.Str(w,"created_at")).Select(w=>ExposeWork(w,media)).ToArray());
             return Ok(works);
-        });
-        app.MapGet("/api/works/{id}", async (string id,HttpContext ctx,CompatAuth auth,IStore store,MediaService media) =>
-        {
+    }
+
+    // GET /api/works/{id}
+    public async Task<IResult> GetWork(string id, HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);
             if (owner is null) return Fail(401,"请登录");
             var work=await store.Read(s => s.Works.TryGetValue(id,out var w) && Doc.Str(w,"owner")==owner ? ExposeWork(w,media) : null);
             return work == null ? Fail(404,"作品不存在") : Ok(work);
-        });
-        app.MapPost("/api/works/{id}/generate",async (string id,HttpContext ctx,CompatAuth auth,IStore store,AiService ai,Settings cfg)=>
-        {
+    }
+
+    // POST /api/works/{id}/generate
+    public async Task<IResult> GenerateImage(string id, HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             try
             {
@@ -76,9 +82,11 @@ public static class WorkEndpoints
             }
             catch(KeyNotFoundException){return Fail(404,"作品不存在");}
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapPost("/api/works/{id}/select",async (string id,HttpContext ctx,CompatAuth auth,IStore store,AiService ai)=>
-        {
+    }
+
+    // POST /api/works/{id}/select
+    public async Task<IResult> SelectImage(string id, HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var body=await Body(ctx);
             if(body==null)return Fail(400,"参数有误");
@@ -102,6 +110,6 @@ public static class WorkEndpoints
             }
             catch(KeyNotFoundException){return Fail(404,"作品不存在");}
             catch(Exception e){return Fail(400,e.Message);}
-        });
     }
+
 }

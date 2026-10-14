@@ -5,9 +5,9 @@ using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Api;
+namespace Tongyin.Api.Application;
 
-public static class PayEndpoints
+public sealed class PaymentService(Settings cfg, CompatAuth auth, IStore db, IHttpClientFactory http)
 {
     private static RSA MerchantKey(string path)
     {
@@ -38,10 +38,15 @@ public static class PayEndpoints
         catch(FormatException){return false;}
     }
     private static string NowUnix() => DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
-    public static void MapPayment(this WebApplication app)
+
+    private static void History(JsonObject o,string action,string note)
     {
-        app.MapPost("/api/orders/{id}/pay",async (string id,HttpContext ctx,Settings cfg,CompatAuth auth,IStore db,IHttpClientFactory http)=>
-        {
+        if(o["history"] is not JsonArray)o["history"]=new JsonArray();
+        ((JsonArray)o["history"]!).Add(new JsonObject{["at"]=Doc.Now(),["actor"]="wechatpay",["action"]=action,["note"]=note});
+    }
+    // POST /api/orders/{id}/pay
+    public async Task<IResult> StartPayment(string id, HttpContext ctx)
+    {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
             var order=await db.Read(s=>s.Orders.TryGetValue(id,out var o) && Doc.Str(o,"owner")==owner ? Doc.Copy(o):null);
             if(order==null)return Fail(404,"订单不存在");
@@ -92,9 +97,11 @@ public static class PayEndpoints
                 }
                 catch{return Fail(502,"创建微信支付订单失败");}
             }
-        });
-        app.MapPost("/api/pay/notify",async (HttpContext ctx,Settings cfg,IStore db)=>
-        {
+    }
+
+    // POST /api/pay/notify
+    public async Task<IResult> NotifyPayment(HttpContext ctx)
+    {
             if(!cfg.PayReady)return Fail(503,"支付回调尚未配置");
             if(cfg.WxPlatformSerial!="" && ctx.Request.Headers["Wechatpay-Serial"]!=cfg.WxPlatformSerial)
                 return Fail(401,"平台序列号不符");
@@ -178,11 +185,6 @@ public static class PayEndpoints
                 }
                 catch{return Fail(409,"未找到匹配的订单");}
             }
-        });
     }
-    private static void History(JsonObject o,string action,string note)
-    {
-        if(o["history"] is not JsonArray)o["history"]=new JsonArray();
-        ((JsonArray)o["history"]!).Add(new JsonObject{["at"]=Doc.Now(),["actor"]="wechatpay",["action"]=action,["note"]=note});
-    }
+
 }

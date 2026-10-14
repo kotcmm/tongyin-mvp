@@ -2,9 +2,9 @@ using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
 using static Tongyin.Api.Api.ApiUtils;
 
-namespace Tongyin.Api.Api;
+namespace Tongyin.Api.Application;
 
-public static class AiEndpoints
+public sealed class AiManagementService(CompatAuth auth, IStore db, Settings cfg, AiService ai)
 {
     private static object View(JsonObject p) => new {
         id=Doc.Str(p,"id"), name=Doc.Str(p,"name"),stage=Doc.Str(p,"stage"),adapter=Doc.Str(p,"adapter"),
@@ -30,19 +30,21 @@ public static class AiEndpoints
         if(Doc.Bool(q,"default") && !Doc.Bool(q,"enabled"))return "默认模型必须启用";
         return null;
     }
-    public static void MapAi(this WebApplication app)
+
+    // GET /api/admin/ai/config
+    public async Task<IResult> GetAiConfig(HttpContext ctx)
     {
-        app.MapGet("/api/admin/ai/config",async (HttpContext ctx,CompatAuth auth,IStore db,Settings cfg)=>
-        {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
             return Ok(await db.Read(s=>new {
                 providers=s.AIProviders.Values.Select(View).ToArray(),
                 prompts=new { image=AiService.PromptOf(s,"image"), model=AiService.PromptOf(s,"model") },
                 legacy_worker_enabled=cfg.AiWorkerUrl!=""
             }));
-        });
-        app.MapPost("/api/admin/ai/providers",async (HttpContext ctx,CompatAuth auth,IStore db,Settings cfg,AiService ai)=>
-        {
+    }
+
+    // POST /api/admin/ai/providers
+    public async Task<IResult> CreateProvider(HttpContext ctx)
+    {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
             var body=await Body(ctx);
             if(body==null)return Fail(400,"参数错误");
@@ -88,9 +90,11 @@ public static class AiEndpoints
             }
             catch(KeyNotFoundException){return Fail(404,"提供商不存在");}
             catch(Exception e){return Fail(409,e.Message);}
-        });
-        app.MapDelete("/api/admin/ai/providers/{id}",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // DELETE /api/admin/ai/providers/{id}
+    public async Task<IResult> DeleteProvider(string id, HttpContext ctx)
+    {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
             var exists=await db.Update(s=>
             {
@@ -99,9 +103,11 @@ public static class AiEndpoints
                 return true;
             });
             return exists?Ok(new {status="ok"}):Fail(404,"提供商不存在");
-        });
-        app.MapPut("/api/admin/ai/prompts/{stage}",async (string stage,HttpContext ctx,CompatAuth auth,IStore db)=>
-        {
+    }
+
+    // PUT /api/admin/ai/prompts/{stage}
+    public async Task<IResult> UpdatePrompt(string stage, HttpContext ctx)
+    {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
             if(stage!="image" && stage!="model")return Fail(400,"stage 无效");
             var body=await Body(ctx);
@@ -119,9 +125,11 @@ public static class AiEndpoints
                 return Doc.Copy(item);
             });
             return Ok(prompt);
-        });
-        app.MapPost("/api/internal/ai-result",async (HttpContext ctx,IStore db,Settings cfg,AiService ai)=>
-        {
+    }
+
+    // POST /api/internal/ai-result
+    public async Task<IResult> HandleWorkerCallback(HttpContext ctx)
+    {
             if(cfg.AiWebhookToken=="" || ctx.Request.Headers["X-AI-Token"]!=cfg.AiWebhookToken)
                 return Fail(401,"无权限");
             var q=await Body(ctx);if(q==null)return Fail(400,"参数错误");
@@ -201,6 +209,6 @@ public static class AiEndpoints
                 foreach(var file in downloaded)File.Delete(ai.ResultPath(file));
                 return Fail(502,"下载或写入模型失败");
             }
-        });
     }
+
 }
