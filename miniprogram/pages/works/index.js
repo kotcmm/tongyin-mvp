@@ -1,5 +1,4 @@
 const { request, tip } = require('../../utils/api')
-const { loadIdentity } = require('../../utils/identity')
 const STATES = {
   image_pending: {
     title: '等待形象制作',
@@ -42,33 +41,10 @@ Page({
     filter: 'all',
     loading: true,
     error: '',
-    ongoing: 0,
-    identityState: 'loading',
-    identityLabel: '正在确认账号',
-    identityCode: ''
+    ongoing: 0
   },
   onShow() {
-    this.refreshIdentity()
     this.refresh()
-  },
-  onHide() {
-    this._identityRequest = (this._identityRequest || 0) + 1
-  },
-  async refreshIdentity() {
-    const seq = (this._identityRequest = (this._identityRequest || 0) + 1)
-    this.setData({ identityState: 'loading', identityLabel: '正在确认账号', identityHint: '' })
-    try {
-      const identity = await loadIdentity()
-      if (seq !== this._identityRequest) return
-      this.setData({
-        identityState: identity.mode,
-        identityLabel: identity.label,
-        identityCode: identity.accountCode
-      })
-    } catch (e) {
-      if (seq !== this._identityRequest) return
-      this.setData({ identityState: 'error', identityLabel: '账号状态获取失败', identityCode: '' })
-    }
   },
   onPullDownRefresh() {
     this.refresh().then(

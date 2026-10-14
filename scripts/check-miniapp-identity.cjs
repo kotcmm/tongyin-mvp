@@ -30,7 +30,7 @@ function identityInMode(dev){
  })
  return mod.exports
 }
-let home,works
+let home
 function fakePage(source,idService){
  let page
  vm.runInNewContext(source,{
@@ -57,21 +57,18 @@ function fakePage(source,idService){
  assert.equal(result.mode,'dev')
  assert.equal('description' in result,false)
  assert.deepEqual(calls,['/api/me','/api/me'])
- for(const source of [homeXML,worksXML])assert(source.includes('identityState'),'login UI must respond to identity state')
+ assert(homeXML.includes('identityState'),'home login UI must respond to identity state')
+ assert(!worksXML.includes('identity-card')&&!worksXML.includes('identityCode'),'作品页不应出现账号信息卡片')
+ assert(!worksSource.includes('refreshIdentity')&&!worksSource.includes('utils/identity'),'作品页不应重复请求账号状态')
  assert(homeXML.includes('accountAction'),'home identity entry missing')
- assert(worksXML.includes('identityCode'),'works account code missing')
  home=fakePage(homeSource,prod)
  await home.refreshIdentity()
  assert.equal(home.data.identityState,'wechat')
  assert.equal(home.data.identityLabel,'微信已登录')
- works=fakePage(worksSource,dev)
- await works.refreshIdentity()
- assert.equal(works.data.identityState,'dev')
- assert.equal(works.data.identityCode,'TY-ABCDEF12')
  error=new Error('backend unavailable')
- await works.refreshIdentity()
- assert.equal(works.data.identityState,'error')
- assert.equal(works.data.identityCode,'','do not show a stale account when verification fails')
+ await home.refreshIdentity()
+ assert.equal(home.data.identityState,'error')
+ assert.equal(home.data.identityLabel,'账号连接失败')
  error=null
  const invalid=identityInMode(false)
  const oldAccount=account.id
