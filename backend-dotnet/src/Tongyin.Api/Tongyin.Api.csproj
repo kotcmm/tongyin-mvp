@@ -6,8 +6,9 @@
     <InvariantGlobalization>false</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Npgsql" Version="10.0.0" />
-    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <ProjectReference Include="../Tongyin.Domain/Tongyin.Domain.csproj" />
+    <ProjectReference Include="../Tongyin.Application/Tongyin.Application.csproj" />
+    <ProjectReference Include="../Tongyin.Infrastructure/Tongyin.Infrastructure.csproj" />
     <Content Include="../../../backend/webadmin/*" Link="wwwroot/admin/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../../admin/**" Link="wwwroot/admin/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
