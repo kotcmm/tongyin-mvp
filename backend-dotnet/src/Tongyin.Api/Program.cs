@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
 using Tongyin.Api.Application;
+using Tongyin.Application.UseCases;
 
 var settings = Settings.Load();
 settings.Validate();
@@ -27,7 +28,9 @@ builder.Services.AddSingleton<AiService>();
 builder.Services.AddControllers();
 builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<WorkService>();
+builder.Services.AddScoped<WorkUseCases>();
 builder.Services.AddScoped<OrderService>();
+builder.Services.AddScoped<OrderUseCases>();
 builder.Services.AddScoped<AdminQueryService>();
 builder.Services.AddScoped<AdminCommandService>();
 builder.Services.AddScoped<AiManagementService>();
