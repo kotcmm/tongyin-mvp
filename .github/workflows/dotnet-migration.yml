@@ -6,7 +6,7 @@ on:
       - '.github/workflows/dotnet-migration.yml'
       - 'backend/webadmin/**'
   push:
-    branches: [feat/dotnet-backend-migration]
+    branches: [feat/dotnet-backend-migration, feat/dotnet-clean-architecture-v2]
     paths:
       - 'backend-dotnet/**'
       - '.github/workflows/dotnet-migration.yml'
@@ -26,6 +26,8 @@ jobs:
         run: node scripts/check-dotnet-api-surface.cjs
       - name: Build migration backend
         run: dotnet build backend-dotnet/Tongyin.slnx --configuration Release
+      - name: Verify strongly typed Clean Architecture slices
+        run: dotnet run --project backend-dotnet/tests/Tongyin.CleanArchitectureChecks/Tongyin.CleanArchitectureChecks.csproj --configuration Release
       - name: Run endpoint integration checks
         run: dotnet run --project backend-dotnet/tests/Tongyin.ApiChecks/Tongyin.ApiChecks.csproj --configuration Release
       - name: Simulate verified WeChat payment notification
