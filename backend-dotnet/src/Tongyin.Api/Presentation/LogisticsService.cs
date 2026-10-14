@@ -8,10 +8,13 @@ using static Tongyin.Api.Api.ApiUtils;
 namespace Tongyin.Api.Presentation;
 
 // Port of Go's real tracking-only logistics module. Never fabricates shipment events.
+/// <summary>
+/// 订单发货和快递轨迹的过渡 HTTP 适配服务。
+/// </summary>
 public sealed class LogisticsService(CompatAuth auth, IStore db, Settings cfg, IHttpClientFactory http)
 {
-    private static readonly Regex CarrierCode=new("^[a-z0-9]{2,30}$",RegexOptions.Compiled);
-    private static readonly Regex Number=new("^[A-Za-z0-9_-]{5,40}$",RegexOptions.Compiled);
+    private static readonly Regex _carrierCode=new("^[a-z0-9]{2,30}$",RegexOptions.Compiled);
+    private static readonly Regex _number=new("^[A-Za-z0-9_-]{5,40}$",RegexOptions.Compiled);
     private static async Task<(IResult? Error,string Actor)> Authorized(HttpContext ctx,CompatAuth auth)
     {
         var user=await auth.VerifyAdmin(ctx);
@@ -27,6 +30,9 @@ public sealed class LogisticsService(CompatAuth auth, IStore db, Settings cfg, I
         ((JsonArray)order["history"]!).Add(new JsonObject{["at"]=Doc.Now(),["actor"]=actor,["action"]=action,["note"]=note});
     }
     // POST /api/admin/orders/{id}/shipment
+    /// <summary>
+    /// 为订单登记发货信息。
+    /// </summary>
     public async Task<IResult> CreateShipment(string id, HttpContext ctx)
     {
             var guard=await Authorized(ctx,auth);if(guard.Error!=null)return guard.Error;
@@ -34,7 +40,7 @@ public sealed class LogisticsService(CompatAuth auth, IStore db, Settings cfg, I
             var carrier=Doc.Str(req,"carrier").Trim();
             var code=Doc.Str(req,"carrier_code").Trim().ToLowerInvariant();
             var tracking=Doc.Str(req,"tracking").Trim();
-            if(carrier.EnumerateRunes().Count() is <2 or >40 || !CarrierCode.IsMatch(code) || !Number.IsMatch(tracking))
+            if(carrier.EnumerateRunes().Count() is <2 or >40 || !_carrierCode.IsMatch(code) || !_number.IsMatch(tracking))
                 return Fail(400,"请填写快递公司、快递100编码和有效运单号");
             try
             {
@@ -56,6 +62,9 @@ public sealed class LogisticsService(CompatAuth auth, IStore db, Settings cfg, I
     }
 
     // POST /api/admin/orders/{id}/tracking
+    /// <summary>
+    /// 写入人工物流轨迹信息。
+    /// </summary>
     public async Task<IResult> AddTracking(string id, HttpContext ctx)
     {
             var guard=await Authorized(ctx,auth);if(guard.Error!=null)return guard.Error;
@@ -86,6 +95,9 @@ public sealed class LogisticsService(CompatAuth auth, IStore db, Settings cfg, I
     }
 
     // POST /api/admin/orders/{id}/tracking/refresh
+    /// <summary>
+    /// 从快递服务查询并刷新物流状态。
+    /// </summary>
     public async Task<IResult> RefreshTracking(string id, HttpContext ctx)
     {
             var guard=await Authorized(ctx,auth);if(guard.Error!=null)return guard.Error;

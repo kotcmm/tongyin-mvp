@@ -6,6 +6,9 @@ using static Tongyin.Api.Api.ApiUtils;
 
 namespace Tongyin.Api.Presentation;
 
+/// <summary>
+/// 订单查询、地址管理与业务操作的过渡 HTTP 适配服务。
+/// </summary>
 public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, OrderUseCases orders)
 {
     private static bool ShippingValid(JsonObject? o)
@@ -24,6 +27,9 @@ public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, Order
     }
 
     // GET /api/shipping-address
+    /// <summary>
+    /// 查找用户保存或最近使用的收货地址。
+    /// </summary>
     public async Task<IResult> GetSavedAddress(HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
@@ -40,6 +46,9 @@ public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, Order
     }
 
     // PUT /api/shipping-address
+    /// <summary>
+    /// 保存用户收货信息。
+    /// </summary>
     public async Task<IResult> SaveAddress(HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
@@ -53,6 +62,9 @@ public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, Order
     }
 
     // GET /api/works/{id}/order
+    /// <summary>
+    /// 查询作品最近一个有效订单。
+    /// </summary>
     public async Task<IResult> GetWorkOrder(string id, HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
@@ -67,6 +79,9 @@ public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, Order
     }
 
     // POST /api/orders
+    /// <summary>
+    /// 校验作品和收货信息并创建订单。
+    /// </summary>
     public async Task<IResult> CreateOrder(HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
@@ -84,6 +99,9 @@ public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, Order
     }
 
     // GET /api/orders
+    /// <summary>
+    /// 查询后台订单列表。
+    /// </summary>
     public async Task<IResult> ListOrders(HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
@@ -93,6 +111,9 @@ public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, Order
     }
 
     // GET /api/orders/{id}
+    /// <summary>
+    /// 查找属于当前用户的订单。
+    /// </summary>
     public async Task<IResult> GetOrder(string id, HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
@@ -101,6 +122,9 @@ public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, Order
     }
 
     // PUT /api/orders/{id}/shipping-address
+    /// <summary>
+    /// 修改尚未付款订单的收货信息。
+    /// </summary>
     public async Task<IResult> UpdateShippingAddress(string id, HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
@@ -124,6 +148,9 @@ public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, Order
     }
 
     // POST /api/orders/{id}/cancel
+    /// <summary>
+    /// 取消未支付且尚未进入支付流程的订单。
+    /// </summary>
     public async Task<IResult> CancelOrder(string id, HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
@@ -140,6 +167,9 @@ public sealed class OrderService(CompatAuth auth, IStore db, Settings cfg, Order
     }
 
     // GET /api/orders/{id}/tracking
+    /// <summary>
+    /// 读取已发货订单的追踪轨迹。
+    /// </summary>
     public async Task<IResult> GetTracking(string id, HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");

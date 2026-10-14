@@ -8,6 +8,9 @@ namespace Tongyin.Api.Presentation;
 
 // Thin HTTP adapter kept for the unchanged controller signatures.
 // Authentication, multipart parsing and response projection belong to the API.
+/// <summary>
+/// 作品上传、查询及生成任务调用的 HTTP 适配服务。
+/// </summary>
 public sealed class WorkService(CompatAuth auth,MediaService media,Settings cfg,WorkUseCases works)
 {
     public async Task<IResult> UploadDrawing(HttpContext ctx)
@@ -27,6 +30,9 @@ public sealed class WorkService(CompatAuth auth,MediaService media,Settings cfg,
         catch(Exception){return Fail(500,"保存作品失败");}
     }
 
+    /// <summary>
+    /// 查询当前用户拥有的作品。
+    /// </summary>
     public async Task<IResult> ListWorks(HttpContext ctx)
     {
         var owner=await auth.Customer(ctx);
@@ -35,6 +41,9 @@ public sealed class WorkService(CompatAuth auth,MediaService media,Settings cfg,
         return Ok(found.Select(w=>ExposeWork(LegacyWorkDocument.ToDocument(w),media)).ToArray());
     }
 
+    /// <summary>
+    /// 查找当前用户的指定作品。
+    /// </summary>
     public async Task<IResult> GetWork(string id,HttpContext ctx)
     {
         var owner=await auth.Customer(ctx);
@@ -44,6 +53,9 @@ public sealed class WorkService(CompatAuth auth,MediaService media,Settings cfg,
             Ok(ExposeWork(LegacyWorkDocument.ToDocument(found),media));
     }
 
+    /// <summary>
+    /// 提交卡通形象生成请求。
+    /// </summary>
     public async Task<IResult> GenerateImage(string id,HttpContext ctx)
     {
         var owner=await auth.Customer(ctx);
@@ -61,6 +73,9 @@ public sealed class WorkService(CompatAuth auth,MediaService media,Settings cfg,
         catch(Exception e){return Fail(409,e.Message);}
     }
 
+    /// <summary>
+    /// 确认候选形象并提交模型生成请求。
+    /// </summary>
     public async Task<IResult> SelectImage(string id,HttpContext ctx)
     {
         var owner=await auth.Customer(ctx);

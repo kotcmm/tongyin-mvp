@@ -4,10 +4,16 @@ using static Tongyin.Api.Api.ApiUtils;
 
 namespace Tongyin.Api.Presentation;
 
+/// <summary>
+/// 用户微信登录与资料查询的过渡 HTTP 适配服务。
+/// </summary>
 public sealed class CustomerService(Settings cfg, IStore store, CompatAuth auth, IHttpClientFactory factory, MediaService media)
 {
 
     // POST /api/auth/wechat
+    /// <summary>
+    /// 使用微信登录凭据创建客户会话。
+    /// </summary>
     public async Task<IResult> LoginWechat(HttpContext ctx)
     {
             var body=await Body(ctx);
@@ -49,6 +55,9 @@ public sealed class CustomerService(Settings cfg, IStore store, CompatAuth auth,
     }
 
     // GET /api/me
+    /// <summary>
+    /// 查询当前用户资料及作品、订单数量。
+    /// </summary>
     public async Task<IResult> GetProfile(HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);
@@ -62,6 +71,9 @@ public sealed class CustomerService(Settings cfg, IStore store, CompatAuth auth,
             return Ok(result);
     }
 
+    /// <summary>
+    /// 校验媒体资源签名并返回文件。
+    /// </summary>
     public Task<IResult> ServeMedia(string file, HttpContext ctx) =>
         media.Serve(file, ctx.Request.Query["expires"], ctx.Request.Query["signature"]);
 

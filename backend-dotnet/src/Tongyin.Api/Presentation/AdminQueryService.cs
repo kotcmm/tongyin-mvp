@@ -6,10 +6,16 @@ using static Tongyin.Api.Api.ApiUtils;
 
 namespace Tongyin.Api.Presentation;
 
+/// <summary>
+/// 后台管理查询的过渡 HTTP 适配服务，保留旧筛选规则。
+/// </summary>
 public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, MediaService media)
 {
 
 
+    /// <summary>
+    /// 转换后台作品视图数据并隐去敏感字段。
+    /// </summary>
     public static JsonObject ExposeAdminWork(Snapshot s,JsonObject work,MediaService media)
     {
         var v=ExposeWork(work,media);
@@ -17,6 +23,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
         v["owner_user_id"]=s.Users.TryGetValue(owner,out var u)?Doc.Str(u,"id"):"";
         return v;
     }
+    /// <summary>
+    /// 转换后台订单视图数据并隐去敏感字段。
+    /// </summary>
     public static JsonObject ExposeAdminOrder(Snapshot s,JsonObject order)
     {
         var v=ExposeOrder(order);
@@ -80,6 +89,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // POST /api/admin/auth/login
+    /// <summary>
+    /// 验证后台登录凭据并签发令牌。
+    /// </summary>
     public async Task<IResult> LoginAdmin(HttpContext ctx)
     {
             var body=await Body(ctx);
@@ -96,6 +108,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // GET /api/admin/me
+    /// <summary>
+    /// 查询当前后台管理员的身份和权限。
+    /// </summary>
     public async Task<IResult> GetCurrentAdmin(HttpContext ctx)
     {
             var info=await auth.VerifyAdmin(ctx);
@@ -103,6 +118,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // GET /api/admin/dashboard
+    /// <summary>
+    /// 汇总运营看板统计数据。
+    /// </summary>
     public async Task<IResult> GetDashboard(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx) is { } denied)return denied;
@@ -132,6 +150,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // GET /api/admin/works
+    /// <summary>
+    /// 查询当前用户拥有的作品。
+    /// </summary>
     public async Task<IResult> ListWorks(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
@@ -139,6 +160,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // GET /api/admin/orders
+    /// <summary>
+    /// 查询后台订单列表。
+    /// </summary>
     public async Task<IResult> ListOrders(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
@@ -146,6 +170,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // GET /api/admin/users
+    /// <summary>
+    /// 查询客户列表。
+    /// </summary>
     public async Task<IResult> ListUsers(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
@@ -154,6 +181,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // GET /api/admin/audit
+    /// <summary>
+    /// 查询操作审计记录。
+    /// </summary>
     public async Task<IResult> ListAudit(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
@@ -162,6 +192,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // GET /api/admin/search/works
+    /// <summary>
+    /// 根据搜索条件筛选作品。
+    /// </summary>
     public async Task<IResult> SearchWorks(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
@@ -175,6 +208,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // GET /api/admin/search/orders
+    /// <summary>
+    /// 根据搜索条件筛选订单。
+    /// </summary>
     public async Task<IResult> SearchOrders(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
@@ -188,6 +224,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // GET /api/admin/search/users
+    /// <summary>
+    /// 根据搜索条件筛选客户。
+    /// </summary>
     public async Task<IResult> SearchUsers(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
@@ -197,6 +236,9 @@ public sealed class AdminQueryService(CompatAuth auth, IStore db, Settings cfg, 
     }
 
     // POST /api/admin/users/{id}/status
+    /// <summary>
+    /// 调整客户账号启用状态。
+    /// </summary>
     public async Task<IResult> ChangeUserStatus(string id, HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;

@@ -5,6 +5,9 @@ using static Tongyin.Api.Api.ApiUtils;
 
 namespace Tongyin.Api.Presentation;
 
+/// <summary>
+/// 后台管理写操作的过渡 HTTP 适配服务，保留旧接口契约。
+/// </summary>
 public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService media)
 {
     private static async Task<(IResult? Error,string Actor)> Authorize(HttpContext ctx,CompatAuth auth,params string[] roles)
@@ -17,6 +20,9 @@ public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService
     }
 
     // GET /api/admin/accounts
+    /// <summary>
+    /// 列出当前后台账号。
+    /// </summary>
     public async Task<IResult> ListAccounts(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
@@ -27,6 +33,9 @@ public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService
     }
 
     // POST /api/admin/accounts
+    /// <summary>
+    /// 新建后台管理员账号。
+    /// </summary>
     public async Task<IResult> CreateAccount(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
@@ -49,6 +58,9 @@ public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService
     }
 
     // PUT /api/admin/accounts/{id}
+    /// <summary>
+    /// 修改已有后台账号。
+    /// </summary>
     public async Task<IResult> UpdateAccount(string id, HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
@@ -86,6 +98,9 @@ public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService
     }
 
     // POST /api/admin/works/{id}/asset
+    /// <summary>
+    /// 上传作品处理阶段所需资源文件。
+    /// </summary>
     public async Task<IResult> UploadWorkAsset(string id, HttpContext ctx)
     {
             var guard=await Authorize(ctx,auth,"operator","production");
@@ -142,6 +157,9 @@ public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService
     }
 
     // POST /api/admin/works/{id}/status
+    /// <summary>
+    /// 调整作品审核或生成状态。
+    /// </summary>
     public async Task<IResult> UpdateWorkStatus(string id, HttpContext ctx)
     {
             var guard=await Authorize(ctx,auth,"operator","production");
@@ -168,6 +186,9 @@ public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService
     }
 
     // POST /api/admin/orders/{id}/status
+    /// <summary>
+    /// 调整订单生产状态。
+    /// </summary>
     public async Task<IResult> UpdateOrderStatus(string id, HttpContext ctx)
     {
             var guard=await Authorize(ctx,auth,"operator","shipping");
@@ -205,6 +226,9 @@ public sealed class AdminCommandService(CompatAuth auth, IStore db, MediaService
     }
 
     // POST /api/admin/orders/{id}/refund
+    /// <summary>
+    /// 创建退款申请记录。
+    /// </summary>
     public async Task<IResult> RefundOrder(string id, HttpContext ctx)
     {
             var guard=await Authorize(ctx,auth,"operator","shipping");

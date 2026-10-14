@@ -4,6 +4,9 @@ using static Tongyin.Api.Api.ApiUtils;
 
 namespace Tongyin.Api.Presentation;
 
+/// <summary>
+/// 人工智能模型配置与生成回调的过渡 HTTP 适配服务。
+/// </summary>
 public sealed class AiManagementService(CompatAuth auth, IStore db, Settings cfg, AiService ai)
 {
     private static object View(JsonObject p) => new {
@@ -32,6 +35,9 @@ public sealed class AiManagementService(CompatAuth auth, IStore db, Settings cfg
     }
 
     // GET /api/admin/ai/config
+    /// <summary>
+    /// 获取图像或模型生成服务设置。
+    /// </summary>
     public async Task<IResult> GetAiConfig(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
@@ -43,6 +49,9 @@ public sealed class AiManagementService(CompatAuth auth, IStore db, Settings cfg
     }
 
     // POST /api/admin/ai/providers
+    /// <summary>
+    /// 创建模型服务商配置。
+    /// </summary>
     public async Task<IResult> CreateProvider(HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
@@ -93,6 +102,9 @@ public sealed class AiManagementService(CompatAuth auth, IStore db, Settings cfg
     }
 
     // DELETE /api/admin/ai/providers/{id}
+    /// <summary>
+    /// 删除已有模型服务商配置。
+    /// </summary>
     public async Task<IResult> DeleteProvider(string id, HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
@@ -106,6 +118,9 @@ public sealed class AiManagementService(CompatAuth auth, IStore db, Settings cfg
     }
 
     // PUT /api/admin/ai/prompts/{stage}
+    /// <summary>
+    /// 修改生成阶段对应的提示词模板。
+    /// </summary>
     public async Task<IResult> UpdatePrompt(string stage, HttpContext ctx)
     {
             if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
@@ -128,6 +143,9 @@ public sealed class AiManagementService(CompatAuth auth, IStore db, Settings cfg
     }
 
     // POST /api/internal/ai-result
+    /// <summary>
+    /// 接收并校验生成任务回传结果。
+    /// </summary>
     public async Task<IResult> HandleWorkerCallback(HttpContext ctx)
     {
             if(cfg.AiWebhookToken=="" || ctx.Request.Headers["X-AI-Token"]!=cfg.AiWebhookToken)

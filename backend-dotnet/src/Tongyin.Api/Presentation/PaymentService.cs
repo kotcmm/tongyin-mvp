@@ -7,6 +7,9 @@ using static Tongyin.Api.Api.ApiUtils;
 
 namespace Tongyin.Api.Presentation;
 
+/// <summary>
+/// 微信支付下单、验签与通知处理的过渡 HTTP 适配服务。
+/// </summary>
 public sealed class PaymentService(Settings cfg, CompatAuth auth, IStore db, IHttpClientFactory http)
 {
     private static RSA MerchantKey(string path)
@@ -28,9 +31,15 @@ public sealed class PaymentService(Settings cfg, CompatAuth auth, IStore db, IHt
         try {rsa.ImportFromPem(pem);return rsa;}
         catch {rsa.Dispose();throw;}
     }
+    /// <summary>
+    /// 使用指定密钥签名请求内容。
+    /// </summary>
     public static string Sign(RSA rsa,string content) =>
         Convert.ToBase64String(rsa.SignData(Encoding.UTF8.GetBytes(content),
             HashAlgorithmName.SHA256,RSASignaturePadding.Pkcs1));
+    /// <summary>
+    /// 验证请求签名与正文是否一致。
+    /// </summary>
     public static bool Verify(RSA rsa,string content,string signature)
     {
         try{return rsa.VerifyData(Encoding.UTF8.GetBytes(content),Convert.FromBase64String(signature),
@@ -45,6 +54,9 @@ public sealed class PaymentService(Settings cfg, CompatAuth auth, IStore db, IHt
         ((JsonArray)o["history"]!).Add(new JsonObject{["at"]=Doc.Now(),["actor"]="wechatpay",["action"]=action,["note"]=note});
     }
     // POST /api/orders/{id}/pay
+    /// <summary>
+    /// 生成微信支付下单参数。
+    /// </summary>
     public async Task<IResult> StartPayment(string id, HttpContext ctx)
     {
             var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
@@ -100,6 +112,9 @@ public sealed class PaymentService(Settings cfg, CompatAuth auth, IStore db, IHt
     }
 
     // POST /api/pay/notify
+    /// <summary>
+    /// 验证微信支付通知并更新订单。
+    /// </summary>
     public async Task<IResult> NotifyPayment(HttpContext ctx)
     {
             if(!cfg.PayReady)return Fail(503,"支付回调尚未配置");
