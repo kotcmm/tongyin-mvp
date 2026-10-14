@@ -4,7 +4,7 @@
 
 - 运营后台左侧 **AI 模型配置**（仅 owner 角色）：增删改多提供商，分别设置图片和 3D 默认模型、启用状态、模型 ID、API Key，修改图片/3D 提示词。
 - 后端将 API Key 使用由 `SESSION_SECRET` 派生的 AES-256-GCM 密钥加密后存入现有数据库，后台只返回 `has_key`，**不回显原密钥**。请保管好稳定的 `SESSION_SECRET`，不要提交生产密钥。
-- 图片生成：`seedream` 适配器调用火山方舟 `POST https://ark.cn-beijing.volces.com/api/v3/images/generations`，使用儿童画签名 URL + 提示词生成单张图片，下载后落本地 media 目录，再将作品改为 `image_ready`。
+- 图片生成：`seedream` 适配器调用火山方舟 `POST https://ark.cn-beijing.volces.com/api/v3/images/generations`，从后端读取儿童画，作为 Base64 图片数据 + 提示词生成单张图片，下载后落本地 media 目录，再将作品改为 `image_ready`。
 - 3D：`worker` 通用异步适配器。后端向配置的 Worker POST `work_id`、`stage`、`generation_id`、`source_url`、`callback_url`、`instructions`、`prompt_version`、`model`，其最终结果仍需调用已有 `/api/internal/ai-result` 回调。
 - 不配置默认提供商时优先走旧的 `AI_WORKER_URL`，都不配置则保持后台人工上传。
 - 原有用户上传原画 → 单张图片 → 用户确认 → GLB → 下单流程不变；旧作品保留。作品记录最后使用的提供商、提示词版本和发起时间。
@@ -12,12 +12,12 @@
 ## 启用 Seedream
 
 1. 在方舟平台获取图片模型 ID 和 API Key（请先确认账号额度、计费策略）。
-2. **保证 PUBLIC_URL 是公网可访问的 HTTPS 域名**，并且对方服务可以访问签名的 /media/ 图片地址。本地 `http://localhost` 对云端不可见，不适合做真实生图测试。
+2. **Seedream 图片生成不再要求 PUBLIC_URL 对互联网开放**，后端读取已上传的原画并通过 Base64 传给方舟。`PUBLIC_URL` 仍用于小程序访问媒体文件；未来接入异步 3D Worker 时，回调地址仍应为公网可达的 HTTPS 地址。
 3. 后台用 owner 账号登录 → AI 模型配置 → 添加：能力「图片」，适配器 Seedream，填入模型 ID 和 Key，勾选「启用」和「默认」，保存。
 4. 修改提示词（可选），在小程序上传原画并触发「生成」，查看作品生产中的状态。图片接口调用在 Go 服务内后台执行，返回结果后自动写入数据。
-5. API 超时、Key 无效、额度不足、图片不可访问等错误会使当前作品标记 `failed`，后台可人工上传补救。生成调用会产生第三方账单；目前 **不包含费用上限、计费对账或分布式持久任务队列**。
+5. API 超时、Key 无效、额度不足、图片格式或模型参数不兼容等错误会使当前作品标记 `failed`，后台可人工上传补救。生成调用会产生第三方账单；目前 **不包含费用上限、计费对账或分布式持久任务队列**。
 
-注意：不同 Seedream 模型对于尺寸、图生图参数和输出格式支持范围不同，当前采用单图模式、`size=2K`。请在实际启用前对所选模型做一次小额端到端测试。
+注意：不同 Seedream 模型对于尺寸、图生图参数和输出格式支持范围不同，当前采用单图模式、`size=2K`，不显式发送 `sequential_image_generation`，上游的 HTTP 错误码和脱敏后的错误信息会进入服务端日志与作品失败原因。请在实际启用前对所选模型做一次小额端到端测试。
 
 ## 启用 3D Worker
 
