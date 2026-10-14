@@ -21,14 +21,7 @@ public sealed class WorkUseCases(IStore store)
     public Task<JsonObject> QueueImage(string owner,string id,int freeAttempts) => store.Update(s=>
     {
         if(!s.Works.TryGetValue(id,out var w) || Doc.Str(w,"owner")!=owner)throw new KeyNotFoundException();
-        var status=Doc.Str(w,"status");
-        if(status!="image_ready" && status!="image_pending" &&
-           !(status=="failed" && Doc.Int(w,"selected",-1)<0))
-            throw new InvalidOperationException("当前作品不能重新生成形象");
-        if(status=="image_pending" && Doc.Int(w,"image_attempts")>0)
-            throw new InvalidOperationException("形象正在生成，请勿重复提交");
-        if(Doc.Int(w,"image_attempts")>=freeAttempts)
-            throw new InvalidOperationException("免费生成次数已用完");
+        WorkRules.RequireImageGeneration(w,freeAttempts);
         w["image_attempts"]=Doc.Int(w,"image_attempts")+1;
         w["generation_id"]=Doc.NewId();
         w["status"]="image_pending";w["selected"]=-1;
@@ -40,8 +33,7 @@ public sealed class WorkUseCases(IStore store)
     public Task<JsonObject> SelectImage(string owner,string id,int index) => store.Update(s=>
     {
         if(!s.Works.TryGetValue(id,out var w) || Doc.Str(w,"owner")!=owner)throw new KeyNotFoundException();
-        if(Doc.Str(w,"status")!="image_ready" || index!=0 ||
-           Doc.Array(w,"candidates").Count<1)throw new ArgumentException("无法选择此图片");
+        WorkRules.RequireImageSelection(w,index);
         var first=Doc.Array(w,"candidates")[0]?.ToString()??"";
         w["candidates"]=new JsonArray(first);
         w["selected"]=0;
