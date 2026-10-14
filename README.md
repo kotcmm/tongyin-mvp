@@ -43,6 +43,14 @@ go run .
 
 小程序只显示简洁的「测试账号 / 微信已登录」和童印账号编号，不再出现长篇开发调试提示。详见 [代码结构与维护规范](docs/代码结构与维护规范.md)。
 
+## 小程序公共 JS 模块打包检查
+
+项目由微信开发者工具导入 `miniprogram/` 目录。因工具的「过滤无依赖文件」可能将公共模块从开发包中排除，`miniprogram/project.config.json` 已关闭开发及上传时的无依赖文件过滤，并将 `utils/` 文件夹显式纳入打包范围。
+
+出现 `module 'utils/order.js' is not defined` 时，先执行 `git pull origin main`，确认本地 `miniprogram/utils/order.js`、`shipping.js`、`identity.js` 文件存在，再完全关闭并重新导入/打开微信开发者工具项目，重新编译。如果仍失败，可在开发者工具中清除编译缓存后重新编译。服务器无须重启。
+
+在提交之前可执行 `node scripts/check-miniapp-modules.cjs`：它会从 `app.json` 的页面入口静态解析相对路径 `require`，验证模块文件存在、`utils` 纳入打包配置，避免只有 `node --check` 却遗漏新增文件。
+
 ## 小程序微信身份显示
 
 小程序首页右上角展示经过服务器确认的登录状态；「我的作品」页面顶部会显示童印账户编号（服务器 `GET /api/me` 返回的内部 `User.ID` 前 8 位）及账号归属说明。原有「我的作品 / 我的订单」入口和使用流程不变。

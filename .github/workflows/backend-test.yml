@@ -32,6 +32,7 @@ jobs:
           node --check miniprogram/pages/order/index.js
           node scripts/check-order-flow.cjs
           node scripts/check-ui-utils.cjs
+          node scripts/check-miniapp-modules.cjs
           node scripts/check-refactor-layout.cjs
           node scripts/check-operations.cjs
           node scripts/check-admin-search.cjs
