@@ -31,6 +31,8 @@ jobs:
           node scripts/check-miniapp-identity.cjs
           node --check miniprogram/pages/order/index.js
           node scripts/check-order-flow.cjs
+          node scripts/check-ui-utils.cjs
+          node scripts/check-refactor-layout.cjs
           node scripts/check-operations.cjs
           node scripts/check-admin-search.cjs
       - name: Verify LAN/phone config generation
