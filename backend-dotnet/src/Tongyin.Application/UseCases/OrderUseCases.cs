@@ -8,6 +8,63 @@ public sealed class OrderUseCases(IStore store)
 {
     public static bool ShippingValid(JsonObject? o) => OrderRules.ShippingValid(o);
 
+    private static JsonObject ExposeAddress(JsonObject address)
+    {
+        var copy=Doc.Copy(address);
+        copy["owner"]="";
+        return copy;
+    }
+
+    public Task<JsonObject?> GetSavedAddress(string owner) => store.Read(s=>
+    {
+        if(s.Addresses.TryGetValue(owner,out var a))return ExposeAddress(a);
+        var prev=s.Orders.Values.Where(o=>Doc.Str(o,"owner")==owner && Doc.Str(o,"name")!="" && Doc.Str(o,"address")!="")
+            .OrderByDescending(o=>Doc.Str(o,"created_at")).FirstOrDefault();
+        return prev==null ? null : new JsonObject{
+            ["created_at"]=Doc.Str(prev,"created_at"),["name"]=Doc.Str(prev,"name"),
+            ["phone"]=Doc.Str(prev,"phone"),["address"]=Doc.Str(prev,"address"),["owner"]=""
+        };
+    });
+
+    public async Task<JsonObject> SaveAddress(string owner,JsonObject body)
+    {
+        var addr=new JsonObject{
+            ["owner"]=owner,["created_at"]=Doc.Now(),["name"]=Doc.Str(body,"name").Trim(),
+            ["phone"]=Doc.Str(body,"phone").Trim(),["address"]=Doc.Str(body,"address").Trim()
+        };
+        await store.Update(s=>{s.Addresses[owner]=addr;return true;});
+        return ExposeAddress(addr);
+    }
+
+    public Task<(bool Found,JsonObject? Order)> GetWorkOrder(string owner,string workId) => store.Read(s=>
+    {
+        if(!s.Works.TryGetValue(workId,out var work) || Doc.Str(work,"owner")!=owner)
+            return (Found:false,Order:(JsonObject?)null);
+        var order=s.Orders.Values.Where(o=>Doc.Str(o,"work_id")==workId && Doc.Str(o,"owner")==owner && Doc.Str(o,"status")!="canceled")
+            .OrderByDescending(o=>Doc.Str(o,"created_at")).FirstOrDefault();
+        return (Found:true,Order:order==null ? null : Doc.Copy(order));
+    });
+
+    public Task<JsonObject[]> List(string owner) => store.Read(s=>
+        s.Orders.Values.Where(o=>Doc.Str(o,"owner")==owner)
+            .OrderByDescending(o=>Doc.Str(o,"created_at")).Select(Doc.Copy).ToArray());
+
+    public Task<JsonObject?> Find(string owner,string id) => store.Read(s=>
+        s.Orders.TryGetValue(id,out var o) && Doc.Str(o,"owner")==owner
+            ? Doc.Copy(o) : null);
+
+    public Task<JsonObject> UpdateShippingAddress(string owner,string id,JsonObject body) => store.Update(s=>
+    {
+        if(!s.Orders.TryGetValue(id,out var order) || Doc.Str(order,"owner")!=owner)
+            throw new KeyNotFoundException();
+        if(Doc.Str(order,"status")!="awaiting_payment")
+            throw new InvalidOperationException("只有待付款订单可以修改收货地址");
+        order["name"]=Doc.Str(body,"name").Trim();
+        order["phone"]=Doc.Str(body,"phone").Trim();
+        order["address"]=Doc.Str(body,"address").Trim();
+        return Doc.Copy(order);
+    });
+
     public async Task<JsonObject> Create(string owner,JsonObject body,int priceFen)
     {
         var workId=Doc.Str(body,"work_id");
