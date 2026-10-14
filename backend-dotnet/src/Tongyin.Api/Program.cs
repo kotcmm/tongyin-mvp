@@ -1,6 +1,4 @@
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.AspNetCore.StaticFiles;
 using Tongyin.Api.Core;
 using Tongyin.Api.Api;
 
@@ -61,37 +59,14 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
     await next();
 });
-app.UseDefaultFiles();
-app.UseStaticFiles();
-
-// The Go version serves its administration HTML/JS from backend/webadmin and
-// its 3D viewer from admin/. Keep those EXACT assets rather than rebuilding UI.
-// In a published deployment they are linked to <output>/wwwroot/admin; while
-// running from the repository, fall back to both original source directories.
-var adminProviders = new List<IFileProvider>();
-var emittedAdmin = Path.Combine(webRoot, "admin");
-if (Directory.Exists(emittedAdmin)) adminProviders.Add(new PhysicalFileProvider(emittedAdmin));
-var sourceWebadmin = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "../../../backend/webadmin"));
-var sourceLegacyAdmin = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "../../../admin"));
-if (Directory.Exists(sourceWebadmin)) adminProviders.Add(new PhysicalFileProvider(sourceWebadmin));
-if (Directory.Exists(sourceLegacyAdmin)) adminProviders.Add(new PhysicalFileProvider(sourceLegacyAdmin));
-if (adminProviders.Count > 0)
-{
-    var adminContentTypes = new FileExtensionContentTypeProvider();
-    adminContentTypes.Mappings[".mjs"] = "text/javascript";
-    adminContentTypes.Mappings[".js"] = "text/javascript";
-    adminContentTypes.Mappings[".glb"] = "model/gltf-binary";
-    app.UseFileServer(new FileServerOptions
-    {
-        RequestPath = "/admin",
-        FileProvider = new CompositeFileProvider(adminProviders),
-        EnableDefaultFiles = true,
-        EnableDirectoryBrowsing = false,
-        StaticFileOptions = { ContentTypeProvider = adminContentTypes }
-    });
-}
-
+// Route admin assets explicitly instead of relying on FileServer's implicit
+// default-document rewriting. It also works with WebApplicationFactory, where
+// the API webroot may resolve to the *test* assembly rather than the API output.
+var adminAssets = AdminAssetServer.Discover(builder.Environment.ContentRootPath);
 app.MapGet("/admin", () => Results.Redirect("/admin/"));
+app.MapGet("/admin/", () => adminAssets.Serve("index.html"));
+app.MapGet("/admin/{**asset}", (string asset) => adminAssets.Serve(asset));
+
 app.MapGet("/health", () => Results.Json(new { status = "ok", backend = "dotnet" }));
 app.MapGet("/api/config", async (IStore store) => Results.Json(new
 {
