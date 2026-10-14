@@ -35,7 +35,7 @@ for(const file of walk(root)){
     const enumMember=isEnum && /^\s+[A-Z]\w*(?:\s*=\s*\d+)?\s*,?\s*$/.test(line) && !/^\s+(?:public|internal)/.test(line);
     if((decl||interfaceMember||enumMember) && !hasXml(lines,i))
       errors.push(relative+':'+(i+1)+': missing Chinese XML <summary> for '+trim.slice(0,80));
-    const field=line.match(/^\s*private\s+(?:(?:static|readonly|volatile|const)\s+)*[\w.<>,?\[\]]+\s+([A-Za-z_]\w*)\s*(?:=|;)/);
+    const field=line.match(/^\s*private\s+(?:(?:static|readonly|volatile|const)\s+)*[\w.<>,?\[\]]+\s+([A-Za-z_]\w*)\s*(?:=(?!>)|;)/);
     if(field && !/^_[a-z][A-Za-z0-9]*$/.test(field[1]))
       errors.push(relative+':'+(i+1)+': private field must use _camelCase: '+field[1]);
   }

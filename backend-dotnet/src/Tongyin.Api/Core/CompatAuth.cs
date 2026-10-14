@@ -54,6 +54,9 @@ public sealed class CompatAuth(Settings cfg, IStore db)
         }
         catch { return null; }
     }
+    /// <summary>
+    /// 验证管理员令牌、会话版本和账号状态。
+    /// </summary>
     public async Task<(string Name,string Role)?> VerifyAdmin(HttpContext ctx)
     {
         try

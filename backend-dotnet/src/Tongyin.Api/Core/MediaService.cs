@@ -34,6 +34,9 @@ public sealed class MediaService(Settings cfg)
         var given = Encoding.ASCII.GetBytes(signature);
         return expected.Length == given.Length && CryptographicOperations.FixedTimeEquals(expected,given);
     }
+    /// <summary>
+    /// 校验并保存用户上传的图片或三维模型文件。
+    /// </summary>
     public async Task<(string Name,string Mime)> Save(IFormFile file, bool imageOnly, CancellationToken ct=default)
     {
         var max = imageOnly ? 10L << 20 : 100L << 20;

@@ -7,6 +7,9 @@ namespace Tongyin.Api.Core;
 /// </summary>
 public static class LegacyDataMigration
 {
+    /// <summary>
+    /// 幂等修复 Go 历史用户与作品数据。
+    /// </summary>
     public static Task<(int Users, int Models)> Apply(IStore store) =>
         store.Update(s =>
         {
