@@ -72,6 +72,27 @@ try
     var ai=new AiService(cfg,store,media,new LocalHttpFactory(),NullLogger<AiService>.Instance);
     Assert(ai.DecryptKey(legacyKey)=="test-seedream-api-key","Go AES-GCM API Key fixed fixture");
 
+    await store.Update(s =>
+    {
+        s.Orders["legacy-order"]=new JsonObject
+        {
+            ["id"]="legacy-order",["owner"]="old-openid",["created_at"]=Doc.Now(),
+            ["status"]="paid"
+        };
+        s.Works["legacy-model"]=new JsonObject
+        {
+            ["id"]="legacy-model",["owner"]="old-openid",["created_at"]=Doc.Now(),
+            ["status"]="model_pending",["model"]="existing.glb"
+        };
+        return true;
+    });
+    var migrated=await LegacyDataMigration.Apply(store);
+    Assert(migrated.Users==1 && migrated.Models==1,"Go startup data repairs");
+    var migratedAgain=await LegacyDataMigration.Apply(store);
+    Assert(migratedAgain.Users==0 && migratedAgain.Models==0,"Go data repair is idempotent");
+    var ready=await store.Read(s=>Doc.Str(s.Works["legacy-model"],"status"));
+    Assert(ready=="model_ready","legacy GLB is ready after migration");
+
     var document=Snapshot.FromJson(Doc.Parse(await File.ReadAllTextAsync(file)));
     Assert(document.Works.ContainsKey("w1"),"Go document model loading");
     Console.WriteLine("PASS: file store round-trip, unknown field, signed media, PBKDF2, Go snapshot layout");

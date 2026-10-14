@@ -37,6 +37,9 @@ var app = builder.Build();
 if (app.Services.GetRequiredService<IStore>() is SqlStore sqlStore)
     await sqlStore.Initialize();
 var db = app.Services.GetRequiredService<IStore>();
+var repaired = await LegacyDataMigration.Apply(db);
+if (repaired.Users > 0 || repaired.Models > 0)
+    app.Logger.LogInformation("Legacy Go data repaired: users={Users}, GLBs={Models}", repaired.Users, repaired.Models);
 if (!string.IsNullOrEmpty(settings.AdminPassword))
 {
     await db.Update(s =>
