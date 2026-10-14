@@ -125,7 +125,14 @@ func (a *App) generateSeedream(wk *Work, stage, source string, p *AIProvider, pr
 	if err != nil {
 		return err
 	}
-	data, _ := json.Marshal(map[string]any{"model": p.Model, "prompt": prompt.Template, "image": a.signedMedia(source), "size": "2K", "response_format": "url", "watermark": false, "sequential_image_generation": "disabled"})
+	imageData, err := seedreamImageDataURL(a.cfg.DataDir, source)
+	if err != nil {
+		return fmt.Errorf("读取儿童原画失败: %w", err)
+	}
+	// Pass the original image inline: a local PUBLIC_URL is not reachable from Ark.
+	// Single-image generation is the default across supported Seedream versions;
+	// 5.0 pro/flash do not accept sequential_image_generation.
+	data, _ := json.Marshal(map[string]any{"model": p.Model, "prompt": prompt.Template, "image": imageData, "size": "2K", "response_format": "url", "watermark": false})
 	req, err := http.NewRequest("POST", p.Endpoint, bytes.NewReader(data))
 	if err != nil {
 		return err
@@ -139,7 +146,7 @@ func (a *App) generateSeedream(wk *Work, stage, source string, p *AIProvider, pr
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("Seedream HTTP %d：请检查 API Key、模型、额度及原画公网访问地址", resp.StatusCode)
+		return seedreamResponseError(resp, key)
 	}
 	var v struct {
 		Data []struct {
