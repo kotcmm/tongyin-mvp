@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Tongyin.Api.Core;
 
@@ -25,7 +26,7 @@ Environment.SetEnvironmentVariable("ADMIN_BOOTSTRAP_USER","admin");
 Environment.SetEnvironmentVariable("ADMIN_BOOTSTRAP_PASSWORD","local-test-password-123456");
 try
 {
-    await using var app=new WebApplicationFactory<Program>();
+    await using var app=new LocalApiFactory();
     using var client=app.CreateClient();
     JsonObject Parse(string s)=>JsonNode.Parse(s) as JsonObject ?? throw new Exception("missing JSON");
 
@@ -116,4 +117,14 @@ try
 finally{Directory.Delete(root,true);}
 }
 private static void Must(bool b,string reason){if(!b)throw new InvalidOperationException("FAIL "+reason);}
+}
+
+file sealed class LocalApiFactory : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        // WAF defaults to <solution>/<assembly name>; the project actually lives under src/.
+        builder.UseContentRoot(Path.GetFullPath("backend-dotnet/src/Tongyin.Api"));
+        base.ConfigureWebHost(builder);
+    }
 }
