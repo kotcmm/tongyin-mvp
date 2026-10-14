@@ -46,5 +46,62 @@ public static class WorkEndpoints
             var work=await store.Read(s => s.Works.TryGetValue(id,out var w) && Doc.Str(w,"owner")==owner ? ExposeWork(w,media) : null);
             return work == null ? Fail(404,"作品不存在") : Ok(work);
         });
+        app.MapPost("/api/works/{id}/generate",async (string id,HttpContext ctx,CompatAuth auth,IStore store,AiService ai,Settings cfg)=>
+        {
+            var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
+            try
+            {
+                var work=await store.Update(s=>
+                {
+                    if(!s.Works.TryGetValue(id,out var w) || Doc.Str(w,"owner")!=owner)throw new KeyNotFoundException();
+                    var status=Doc.Str(w,"status");
+                    if(status!="image_ready" && status!="image_pending" &&
+                       !(status=="failed" && Doc.Int(w,"selected",-1)<0))
+                        throw new InvalidOperationException("当前作品不能重新生成形象");
+                    if(status=="image_pending" && Doc.Int(w,"image_attempts")>0)
+                        throw new InvalidOperationException("形象正在生成，请勿重复提交");
+                    if(Doc.Int(w,"image_attempts")>=cfg.FreeImageAttempts)
+                        throw new InvalidOperationException("免费生成次数已用完");
+                    w["image_attempts"]=Doc.Int(w,"image_attempts")+1;
+                    w["generation_id"]=Doc.NewId();
+                    w["status"]="image_pending";w["selected"]=-1;
+                    w["candidates"]=new JsonArray();w["preview"]=new JsonArray();
+                    w["model"]="";w["note"]="";
+                    return Doc.Copy(w);
+                });
+                ai.Dispatch(work,"image");
+                var msg=await ai.Enabled("image") ? "AI 生成任务已提交" : "已进入人工处理队列";
+                return Ok(new {status="image_pending",image_attempts=Doc.Int(work,"image_attempts"),
+                    free_image_attempts=cfg.FreeImageAttempts,message=msg},202);
+            }
+            catch(KeyNotFoundException){return Fail(404,"作品不存在");}
+            catch(Exception e){return Fail(409,e.Message);}
+        });
+        app.MapPost("/api/works/{id}/select",async (string id,HttpContext ctx,CompatAuth auth,IStore store,AiService ai)=>
+        {
+            var owner=await auth.Customer(ctx);if(owner==null)return Fail(401,"请登录");
+            var body=await Body(ctx);
+            if(body==null)return Fail(400,"参数有误");
+            try
+            {
+                var work=await store.Update(s=>
+                {
+                    if(!s.Works.TryGetValue(id,out var w) || Doc.Str(w,"owner")!=owner)throw new KeyNotFoundException();
+                    if(Doc.Str(w,"status")!="image_ready" || Doc.Int(body,"index",-1)!=0 ||
+                       Doc.Array(w,"candidates").Count<1)throw new ArgumentException("无法选择此图片");
+                    var first=Doc.Array(w,"candidates")[0]?.ToString()??"";
+                    w["candidates"]=new JsonArray(first);
+                    w["selected"]=0;
+                    w["preview"]=new JsonArray();
+                    w["model"]="";
+                    w["status"]="model_pending";
+                    return Doc.Copy(w);
+                });
+                ai.Dispatch(work,"model");
+                return Ok(new {status="model_pending",message=await ai.Enabled("model")?"AI 生成任务已提交":"已进入人工处理队列"},202);
+            }
+            catch(KeyNotFoundException){return Fail(404,"作品不存在");}
+            catch(Exception e){return Fail(400,e.Message);}
+        });
     }
 }

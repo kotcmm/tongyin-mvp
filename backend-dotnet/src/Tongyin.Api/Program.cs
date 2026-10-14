@@ -14,8 +14,12 @@ builder.Services.AddSingleton<IStore>(settings.DBDriver == "file"
     : new SqlStore(settings.DBDriver, settings.DatabaseUrl));
 builder.Services.AddSingleton<CompatAuth>();
 builder.Services.AddSingleton<MediaService>();
+builder.Services.AddSingleton<AiService>();
 builder.Services.AddHttpClient("wechat", client => client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHttpClient("ai", client => client.Timeout = TimeSpan.FromSeconds(190));
+builder.Services.AddHttpClient("worker", client => client.Timeout = TimeSpan.FromSeconds(20));
+builder.Services.AddHttpClient("download", client => client.Timeout = TimeSpan.FromSeconds(60))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 var app = builder.Build();
 
 if (app.Services.GetRequiredService<IStore>() is SqlStore sqlStore)
@@ -56,6 +60,7 @@ app.MapCustomers();
 app.MapWorks();
 app.MapOrders();
 app.MapAdminFoundation();
+app.MapAi();
 
 // Still missing modules are deliberately NOT routed to Go or marked complete.
 // Migration acceptance must pass before this application may replace Go.
