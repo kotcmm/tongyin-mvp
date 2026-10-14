@@ -18,3 +18,6 @@ var embeddedAdminViews []byte
 
 //go:embed webadmin/actions.js
 var embeddedAdminActions []byte
+
+//go:embed webadmin/ai-admin.js
+var embeddedAdminAI []byte

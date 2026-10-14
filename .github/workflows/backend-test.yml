@@ -19,6 +19,8 @@ jobs:
       - name: Test Go backend
         working-directory: backend
         run: go test ./...
+      - name: Check admin AI script
+        run: node --check backend/webadmin/ai-admin.js
       - name: Check mini-program 3D scripts
         run: |
           node --check miniprogram/pages/preview/index.js

@@ -25,6 +25,10 @@ type Work struct {
 	ImageAttempts int      `json:"image_attempts"`
 	GenerationID  string   `json:"generation_id,omitempty"`
 	Note          string   `json:"note,omitempty"`
+	AIProviderID string `json:"ai_provider_id,omitempty"`
+	AIPromptVersion int `json:"ai_prompt_version,omitempty"`
+	AITaskStage string `json:"ai_task_stage,omitempty"`
+	AIStartedAt string `json:"ai_started_at,omitempty"`
 }
 
 type Order struct {
@@ -108,6 +112,8 @@ type Data struct {
 	Users     map[string]*User            `json:"users"`
 	Admins    map[string]*AdminUser       `json:"admins"`
 	Audit     map[string]*AuditRecord     `json:"audit"`
+	AIProviders map[string]*AIProvider `json:"ai_providers"`
+	AIPrompts map[string]*AIPrompt `json:"ai_prompts"`
 }
 
 // Repository isolates the persistence backend. Business handlers need not know SQL dialects.
@@ -160,6 +166,8 @@ func newStore(path string) (*Store, error) {
 	if s.d.Audit == nil {
 		s.d.Audit = map[string]*AuditRecord{}
 	}
+	if s.d.AIProviders == nil { s.d.AIProviders = map[string]*AIProvider{} }
+	if s.d.AIPrompts == nil { s.d.AIPrompts = map[string]*AIPrompt{} }
 	return s, nil
 }
 func (s *Store) Close() error { return nil }

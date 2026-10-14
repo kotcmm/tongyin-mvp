@@ -175,7 +175,7 @@ func (a *App) downloadResult(raw string, img bool) (string, error) {
 	if res.StatusCode != 200 {
 		return "", fmt.Errorf("上游返回 %d", res.StatusCode)
 	}
-	limit := int64(25 << 20)
+	limit := int64(100 << 20)
 	if img {
 		limit = 10 << 20
 	}

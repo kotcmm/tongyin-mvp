@@ -97,7 +97,7 @@ func (a *App) startImageGeneration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.dispatchAI(task, "image")
-	reply(w, 202, map[string]any{"status": "image_pending", "image_attempts": task.ImageAttempts, "free_image_attempts": a.imageLimit(), "message": a.taskMessage()})
+	reply(w, 202, map[string]any{"status": "image_pending", "image_attempts": task.ImageAttempts, "free_image_attempts": a.imageLimit(), "message": a.taskMessage("image")})
 }
 
 func (a *App) selectImage(w http.ResponseWriter, r *http.Request) {
@@ -136,7 +136,7 @@ func (a *App) selectImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.dispatchAI(copyWork, "model")
-	reply(w, 202, map[string]string{"status": "model_pending", "message": a.taskMessage()})
+	reply(w, 202, map[string]string{"status": "model_pending", "message": a.taskMessage("model")})
 }
 
 // Shipping address is a single server-side default per authenticated WeChat OpenID.
