@@ -6,8 +6,14 @@ using Tongyin.Domain.Works;
 
 namespace Tongyin.Infrastructure.Persistence;
 
+/// <summary>
+/// 以 Go 存储格式实现订单聚合仓储及原子操作。
+/// </summary>
 public sealed class LegacyOrderRepository(IStore store) : IOrderRepository
 {
+    /// <summary>
+    /// 在单个事务中校验并创建订单及最新收货地址。
+    /// </summary>
     public Task<Order> PlaceAsync(Order order,CancellationToken ct=default) => store.Update(s=>
     {
         var state=order.Snapshot();
@@ -29,10 +35,16 @@ public sealed class LegacyOrderRepository(IStore store) : IOrderRepository
         return order;
     },ct);
 
+    /// <summary>
+    /// 按用户标识查找聚合。
+    /// </summary>
     public Task<Order?> FindAsync(string owner,string id,CancellationToken ct=default) =>
         store.Read(s=>s.Orders.TryGetValue(id,out var doc) && Doc.Str(doc,"owner")==owner
             ? LegacyOrderDocument.ToDomain(doc):null,ct);
 
+    /// <summary>
+    /// 加载聚合、执行修改并原子保存。
+    /// </summary>
     public Task<Order> UpdateAsync(string owner,string id,Action<Order> change,CancellationToken ct=default) =>
         store.Update(s=>
         {
@@ -53,10 +65,4 @@ public sealed class LegacyOrderRepository(IStore store) : IOrderRepository
             }
             return order;
         },ct);
-}
-
-public sealed class GoCompatibleOrderIdsAndTime : IOrderIdsAndTime
-{
-    public string NewId()=>Doc.NewId();
-    public string Now()=>Doc.Now();
 }

@@ -4,31 +4,48 @@ using System.Text.Json;
 namespace Tongyin.Api.Core;
 
 // Reuses the JSON payload of ty_works/ty_orders/etc. Unknown Go fields survive round trips.
-public static class Doc
-{
-    public static string Str(JsonNode? obj, string key, string fallback = "") =>
-        obj is JsonObject map && map.TryGetPropertyValue(key, out var n) && n != null ? n.ToString() : fallback;
-    public static int Int(JsonNode? obj, string key, int fallback = 0) =>
-        int.TryParse(Str(obj, key), out var v) ? v : fallback;
-    public static bool Bool(JsonNode? obj, string key) => bool.TryParse(Str(obj, key), out var b) && b;
-    public static JsonArray Array(JsonNode? obj, string key) =>
-        obj is JsonObject map && map.TryGetPropertyValue(key, out var n) && n is JsonArray arr ? arr : new JsonArray();
-    public static JsonObject Copy(JsonObject obj) => (JsonObject)obj.DeepClone();
-    public static string NewId() => Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
-    public static string Now() => DateTimeOffset.Now.ToString("yyyy-MM-ddTHH:mm:sszzz");
-    public static JsonObject Parse(string s) => JsonNode.Parse(s) as JsonObject ?? new JsonObject();
-}
+
+/// <summary>
+/// Go 数据表快照，统一表示现存数据结构。
+/// </summary>
 public sealed class Snapshot
 {
+    /// <summary>
+    /// 执行new业务操作。
+    /// </summary>
     public Dictionary<string, JsonObject> Works { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>
+    /// 执行new业务操作。
+    /// </summary>
     public Dictionary<string, JsonObject> Orders { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>
+    /// 执行new业务操作。
+    /// </summary>
     public Dictionary<string, JsonObject> Addresses { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>
+    /// 执行new业务操作。
+    /// </summary>
     public Dictionary<string, JsonObject> Users { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>
+    /// 执行new业务操作。
+    /// </summary>
     public Dictionary<string, JsonObject> Admins { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>
+    /// 执行new业务操作。
+    /// </summary>
     public Dictionary<string, JsonObject> Audit { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>
+    /// 执行new业务操作。
+    /// </summary>
     public Dictionary<string, JsonObject> AIProviders { get; set; } = new(StringComparer.Ordinal);
+    /// <summary>
+    /// 执行new业务操作。
+    /// </summary>
     public Dictionary<string, JsonObject> AIPrompts { get; set; } = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// 执行undefined业务操作。
+    /// </summary>
     public IEnumerable<(string Table, Dictionary<string, JsonObject> Values)> Sections() =>
         new (string, Dictionary<string, JsonObject>)[]
         {
@@ -36,6 +53,9 @@ public sealed class Snapshot
             ("ty_users", Users), ("ty_admins", Admins), ("ty_audit", Audit),
             ("ty_ai_providers", AIProviders), ("ty_ai_prompts", AIPrompts)
         };
+    /// <summary>
+    /// 深度复制整个数据快照。
+    /// </summary>
     public Snapshot DeepClone()
     {
         var result = new Snapshot();
@@ -46,6 +66,9 @@ public sealed class Snapshot
         }
         return result;
     }
+    /// <summary>
+    /// 序列化为旧版 JSON 数据结构。
+    /// </summary>
     public JsonObject ToJson()
     {
         var obj = new JsonObject();
@@ -59,6 +82,9 @@ public sealed class Snapshot
         }
         return obj;
     }
+    /// <summary>
+    /// 从旧版 JSON 数据结构恢复快照。
+    /// </summary>
     public static Snapshot FromJson(JsonObject obj)
     {
         var result = new Snapshot();
