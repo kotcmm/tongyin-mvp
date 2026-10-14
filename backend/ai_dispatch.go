@@ -139,12 +139,22 @@ func (a *App) generateSeedream(wk *Work, stage, source string, p *AIProvider, pr
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+key)
+	// A request may be accepted and billed before the connection breaks.
+	// Collect transport phases without logging credentials, payloads or signed URLs.
+	traceID := newID()
+	tracedReq, netTrace := seedreamTracedRequest(req)
+	started := time.Now()
+	log.Printf("Seedream request started trace=%s work=%s model=%q body_bytes=%d image_data_bytes=%d proxy=%t timeout=190s", traceID, wk.ID, p.Model, len(data), len(imageData), netTrace.proxy)
 	c := http.Client{Timeout: 190 * time.Second}
-	resp, err := c.Do(req)
+	resp, err := c.Do(tracedReq)
 	if err != nil {
-		return fmt.Errorf("Seedream 连接失败: %w", err)
+		phase, reused := netTrace.snapshot()
+		kind := seedreamTransportErrorKind(err)
+		log.Printf("Seedream transport failed trace=%s work=%s phase=%s reused=%t proxy=%t elapsed_ms=%d error_kind=%s", traceID, wk.ID, phase, reused, netTrace.proxy, time.Since(started).Milliseconds(), kind)
+		return fmt.Errorf("Seedream 连接中断（%s，阶段 %s，诊断编号 %s），请查看后端日志；暂勿重复生成以免重复计费", kind, phase, traceID)
 	}
 	defer resp.Body.Close()
+	log.Printf("Seedream response received trace=%s work=%s status=%d protocol=%s elapsed_ms=%d", traceID, wk.ID, resp.StatusCode, resp.Proto, time.Since(started).Milliseconds())
 	if resp.StatusCode != 200 {
 		return seedreamResponseError(resp, key)
 	}
@@ -154,9 +164,11 @@ func (a *App) generateSeedream(wk *Work, stage, source string, p *AIProvider, pr
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&v); err != nil {
-		return fmt.Errorf("Seedream 解析失败: %w", err)
+		log.Printf("Seedream response parse failed trace=%s work=%s status=%d elapsed_ms=%d error_kind=%s", traceID, wk.ID, resp.StatusCode, time.Since(started).Milliseconds(), seedreamTransportErrorKind(err))
+		return fmt.Errorf("Seedream 响应读取或解析失败（诊断编号 %s），请查看后端日志", traceID)
 	}
 	if len(v.Data) != 1 || v.Data[0].URL == "" {
+		log.Printf("Seedream invalid image output trace=%s work=%s image_count=%d elapsed_ms=%d", traceID, wk.ID, len(v.Data), time.Since(started).Milliseconds())
 		return fmt.Errorf("Seedream 未返回单张有效图片")
 	}
 	name, err := a.downloadResult(v.Data[0].URL, true)
@@ -177,5 +189,6 @@ func (a *App) generateSeedream(wk *Work, stage, source string, p *AIProvider, pr
 		_ = os.Remove(filepath.Join(a.cfg.DataDir, "media", name))
 		return err
 	}
+	log.Printf("Seedream image saved trace=%s work=%s elapsed_ms=%d", traceID, wk.ID, time.Since(started).Milliseconds())
 	return nil
 }
