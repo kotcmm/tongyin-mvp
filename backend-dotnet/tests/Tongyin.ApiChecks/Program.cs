@@ -6,6 +6,8 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Tongyin.Api.Core;
 
 namespace Tongyin.ApiChecks;
@@ -33,6 +35,20 @@ try
 
     var health=await client.GetAsync("/health");
     Must(health.StatusCode==HttpStatusCode.OK,"health");
+    // All migrated API actions are MVC controllers, not legacy Minimal API routes.
+    var controllerActions=app.Services.GetRequiredService<IActionDescriptorCollectionProvider>()
+        .ActionDescriptors.Items.OfType<ControllerActionDescriptor>().ToArray();
+    Must(controllerActions.Length==48,
+        $"expected 45 Go APIs + /health + /api/config + /media, got {controllerActions.Length} controller actions");
+    foreach(var (controller,action) in new[] {
+        ("Customer","LoginWechat"),("Works","UploadDrawing"),
+        ("Orders","CreateOrder"),("AdminQuery","GetDashboard"),
+        ("AdminOperations","UploadWorkAsset"),("Ai","HandleWorkerCallback"),
+        ("Logistics","RefreshTracking"),("Payment","NotifyPayment"),("System","Config")
+    })
+        Must(controllerActions.Any(d=>d.ControllerName==controller && d.ActionName==action),
+            $"MVC action missing: {controller}.{action}");
+
     // All three URLs must match one endpoint, without AmbiguousMatchException.
     foreach(var adminPath in new[]{"/admin","/admin/","/admin/index.html"})
     {
