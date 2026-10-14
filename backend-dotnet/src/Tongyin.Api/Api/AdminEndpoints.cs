@@ -81,9 +81,10 @@ public static class AdminEndpoints
         app.MapGet("/api/admin/search/works",async (HttpContext ctx,CompatAuth auth,IStore db,MediaService media)=>
         {
             if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            if(ValidatePage(ctx,"works") is { } validation)return Fail(400,validation);
             return Ok(await db.Read(s =>
             {
-                var rows=s.Works.Values.Where(w=>Matches(w,ctx));
+                var rows=s.Works.Values.Where(w=>MatchStatus(w,ctx) && MatchText(ctx,Doc.Str(w,"id"), UserId(s,Doc.Str(w,"owner")), Doc.Str(w,"status")));
                 var view=rows.Select(w=>ExposeAdminWork(s,w,media));
                 return Page(view,ctx);
             }));
@@ -91,9 +92,10 @@ public static class AdminEndpoints
         app.MapGet("/api/admin/search/orders",async (HttpContext ctx,CompatAuth auth,IStore db)=>
         {
             if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            if(ValidatePage(ctx,"orders") is { } validation)return Fail(400,validation);
             return Ok(await db.Read(s =>
             {
-                var rows=s.Orders.Values.Where(o=>Matches(o,ctx));
+                var rows=s.Orders.Values.Where(o=>MatchStatus(o,ctx) && MatchText(ctx,Doc.Str(o,"id"),Doc.Str(o,"work_id"),Doc.Str(o,"name"),Doc.Str(o,"phone"),Doc.Str(o,"tracking"),UserId(s,Doc.Str(o,"owner"))));
                 if(ctx.Request.Query["category"]=="shipping")rows=rows.Where(o=>Doc.Str(o,"status") is "printing" or "shipped" or "completed");
                 return Page(rows.Select(o=>ExposeAdminOrder(s,o)),ctx);
             }));
@@ -101,12 +103,13 @@ public static class AdminEndpoints
         app.MapGet("/api/admin/search/users",async (HttpContext ctx,CompatAuth auth,IStore db)=>
         {
             if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            if(ValidatePage(ctx,"users") is { } validation)return Fail(400,validation);
             return Ok(await db.Read(s=>Page(s.Users.Values.Select(u=>UserSummary(s,u))
-                .Where(u=>Matches(u,ctx)),ctx)));
+                .Where(u=>MatchText(ctx,Doc.Str(u,"id"))),ctx)));
         });
         app.MapPost("/api/admin/users/{id}/status",async (string id,HttpContext ctx,CompatAuth auth,IStore db)=>
         {
-            if(await auth.ProtectAdmin(ctx) is {} denied)return denied;
+            if(await auth.ProtectAdmin(ctx,true) is {} denied)return denied;
             var body=await Body(ctx);
             if(body is null)return Fail(400,"参数错误");
             var disabled=Doc.Bool(body,"disabled");
@@ -147,19 +150,49 @@ public static class AdminEndpoints
             ["orders"]=s.Orders.Values.Count(o=>Doc.Str(o,"owner")==owner)
         };
     }
-    private static bool Matches(JsonObject item,HttpContext ctx)
+    private static string UserId(Snapshot s,string owner) => 
+        s.Users.TryGetValue(owner,out var u) ? Doc.Str(u,"id") : "";
+    private static bool MatchStatus(JsonObject item,HttpContext ctx)
     {
-        var filter=ctx.Request.Query["status"].ToString();
-        if(filter!="" && Doc.Str(item,"status")!=filter)return false;
+        var filter=ctx.Request.Query["status"].ToString().Trim();
+        return filter=="" || Doc.Str(item,"status")==filter;
+    }
+    private static bool MatchText(HttpContext ctx,params string[] fields)
+    {
         var search=ctx.Request.Query["q"].ToString().Trim();
-        if(search=="")return true;
-        return item.ToJsonString().Contains(search,StringComparison.OrdinalIgnoreCase);
+        return search=="" || fields.Any(v=>v.Contains(search,StringComparison.OrdinalIgnoreCase));
+    }
+    private static string? ValidatePage(HttpContext ctx,string kind)
+    {
+        var q=ctx.Request.Query["q"].ToString().Trim();
+        if(q.EnumerateRunes().Count()>100)return "搜索内容最多100个字";
+        foreach(var (key,max) in new[]{("page",100000),("page_size",100)})
+        {
+            var raw=ctx.Request.Query[key].ToString();
+            if(raw!="" && (!int.TryParse(raw,out var v) || v<1 || v>max))
+                return key=="page" ? "page 必须在1到100000之间" : "page_size 必须在1到100之间";
+        }
+        var status=ctx.Request.Query["status"].ToString().Trim();
+        var valid=kind=="works" ?
+            new[]{"","image_pending","image_ready","model_pending","model_ready","failed"} :
+            kind=="orders" ? new[]{"","awaiting_payment","paid","printing","shipped","completed","canceled"} :
+            new[]{""};
+        if(!valid.Contains(status))return kind=="works"?"无效作品状态":"无效订单状态";
+        if(kind=="orders")
+        {
+            var category=ctx.Request.Query["category"].ToString();
+            if(category!="" && category!="shipping")return "无效订单分类";
+        }
+        return null;
     }
     private static object Page(IEnumerable<JsonObject> docs,HttpContext ctx)
     {
-        var page=int.TryParse(ctx.Request.Query["page"],out var p) ? Math.Clamp(p,1,100000) : 1;
-        var size=int.TryParse(ctx.Request.Query["page_size"],out var n) ? Math.Clamp(n,1,100) : 12;
-        var sorted=docs.OrderByDescending(d=>Doc.Str(d,"created_at")).ThenByDescending(d=>Doc.Str(d,"id")).ToArray();
-        return new { items=sorted.Skip((page-1)*size).Take(size).ToArray(),total=sorted.Length,page,page_size=size };
+        var page=int.TryParse(ctx.Request.Query["page"],out var p) ? p : 1;
+        var size=int.TryParse(ctx.Request.Query["page_size"],out var n) ? n : 20;
+        var sorted=docs.OrderByDescending(d=>Doc.Str(d,"created_at"))
+            .ThenByDescending(d=>Doc.Str(d,"id")).ToArray();
+        return new { items=sorted.Skip((page-1)*size).Take(size).ToArray(),
+            total=sorted.Length,page,page_size=size };
     }
+
 }

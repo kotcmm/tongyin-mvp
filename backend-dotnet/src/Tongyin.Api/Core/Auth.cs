@@ -83,7 +83,32 @@ public sealed class CompatAuth(Settings cfg, IStore db)
         if (admin == null) return Results.Json(new { error="管理员未登录或会话已失效" },statusCode:401);
         if (ownerOnly && admin.Value.Role != "owner")
             return Results.Json(new { error="当前角色无权进行此操作" },statusCode:403);
+        if (!ownerOnly && !AllowedAdminRoute(admin.Value.Role, ctx.Request))
+            return Results.Json(new { error="当前角色无权进行此操作" },statusCode:403);
         return null;
+    }
+    // Go's adminAllowed() is the permission baseline for all operational roles.
+    public static bool AllowedAdminRoute(string role, HttpRequest request)
+    {
+        if (role == "owner") return true;
+        var path = request.Path.Value ?? "";
+        if (request.Method == "GET")
+        {
+            if (path.StartsWith("/api/admin/dashboard", StringComparison.Ordinal) ||
+                path.StartsWith("/api/admin/works", StringComparison.Ordinal) ||
+                path.StartsWith("/api/admin/orders", StringComparison.Ordinal) ||
+                path.StartsWith("/api/admin/me", StringComparison.Ordinal)) return true;
+            return (role == "operator" || role == "service") &&
+                path.StartsWith("/api/admin/users", StringComparison.Ordinal);
+        }
+        if (request.Method == "POST")
+        {
+            if (path.StartsWith("/api/admin/works/", StringComparison.Ordinal))
+                return role is "operator" or "production";
+            if (path.StartsWith("/api/admin/orders/", StringComparison.Ordinal))
+                return role is "operator" or "shipping";
+        }
+        return false;
     }
     public async Task<IResult?> ProtectCustomer(HttpContext ctx) =>
         await Customer(ctx) is null ? Results.Json(new { error="请登录或账号已停用" },statusCode:401) : null;
