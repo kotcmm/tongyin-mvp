@@ -1,5 +1,11 @@
 # Offline-credential-free smoke tests. Invoke from any directory.
 $ErrorActionPreference = "Stop"
+# Guard against non-ASCII bytes in the PS 5.1 launcher.
+$launcherBytes = [System.IO.File]::ReadAllBytes((Join-Path $PSScriptRoot "run-local.ps1"))
+$nonAsciiByte = $launcherBytes | Where-Object { $_ -gt 127 } | Select-Object -First 1
+if ($null -ne $nonAsciiByte) {
+    throw "run-local.ps1 must remain ASCII-only for Windows PowerShell 5.1."
+}
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Push-Location $repoRoot
 try {

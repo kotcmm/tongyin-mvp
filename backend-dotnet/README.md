@@ -44,6 +44,8 @@ dotnet build backend-dotnet/Tongyin.slnx --configuration Release
 
 从 GitHub 切到 `feat/dotnet-backend-migration` 分支后，安装 .NET SDK 10，在 Windows 命令行进入 `backend-dotnet` 运行：
 
+启动脚本 `run-local.ps1` 特意使用纯 ASCII 提示信息，以兼容 Windows PowerShell 5.1（其默认不能可靠识别无 BOM 的 UTF-8 中文脚本）。**不要向该脚本直接加入中文字符串**；中文操作说明请写在此 README 中。
+
 ```cmd
 run-local.cmd
 ```
