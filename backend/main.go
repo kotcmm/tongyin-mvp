@@ -50,7 +50,7 @@ func main() {
 	app := &App{cfg: c, db: db, client: &http.Client{Timeout: 90 * time.Second}}
 	s := &http.Server{Addr: c.Addr, Handler: app.routes(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 1 << 20}
 	if c.AIWorkerURL == "" {
-		log.Print("提示：AI_WORKER_URL 未配置，当前为后台人工处理模式；AI 任务不会自动生成结果")
+		log.Print("提示：未配置旧版 AI_WORKER_URL；可在后台 AI 配置页启用生成模型")
 	}
 	log.Printf("童印 API listening on %s", c.Addr)
 	log.Fatal(s.ListenAndServe())
@@ -95,7 +95,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/accounts", a.adminAccounts)
 	mux.HandleFunc("PUT /api/admin/accounts/{id}", a.adminAccountUpdate)
 	mux.HandleFunc("GET /api/config", func(w http.ResponseWriter, r *http.Request) {
-		reply(w, 200, map[string]any{"price_fen": a.cfg.PriceFen, "dev": a.cfg.Dev, "ai_auto_enabled": a.cfg.AIWorkerURL != "", "free_image_attempts": a.imageLimit()})
+		reply(w, 200, map[string]any{"price_fen": a.cfg.PriceFen, "dev": a.cfg.Dev, "ai_auto_enabled": a.aiAutoEnabled(), "free_image_attempts": a.imageLimit()})
 	})
 	mux.HandleFunc("GET /media/{file}", a.serveMedia)
 	mux.HandleFunc("POST /api/works", a.createWork)
@@ -126,6 +126,10 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /api/admin/works/{id}/status", a.adminWorkStatus)
 	mux.HandleFunc("GET /api/admin/orders", a.adminOrders)
 	mux.HandleFunc("POST /api/admin/orders/{id}/status", a.adminOrderStatus)
+	mux.HandleFunc("GET /api/admin/ai/config", a.adminAIConfig)
+	mux.HandleFunc("POST /api/admin/ai/providers", a.adminAISaveProvider)
+	mux.HandleFunc("DELETE /api/admin/ai/providers/{id}", a.adminAIDeleteProvider)
+	mux.HandleFunc("PUT /api/admin/ai/prompts/{stage}", a.adminAISavePrompt)
 	mux.HandleFunc("POST /api/internal/ai-result", a.aiResult)
 	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "/admin/", 302) })
 	mux.HandleFunc("GET /admin/{$}", func(w http.ResponseWriter, r *http.Request) {
@@ -145,6 +149,11 @@ func (a *App) routes() http.Handler {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
 		_, _ = w.Write(embeddedAdminViews)
+	})
+	mux.HandleFunc("GET /admin/ai-admin.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(embeddedAdminAI)
 	})
 	mux.HandleFunc("GET /admin/actions.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")

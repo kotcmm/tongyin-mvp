@@ -25,6 +25,7 @@ const names = {
   shipping: ['物流管理', '待发货、运单与物流轨迹'],
   users: ['微信用户', '用户的作品与订单归属'],
   accounts: ['管理人员', '角色权限和管理员账号'],
+  ai: ['AI 模型配置', '图片与 3D 提供商、默认模型及提示词'],
   audit: ['操作记录', '敏感后台操作追溯']
 }
 const state = {
@@ -43,7 +44,9 @@ const state = {
   works: [],
   orders: [],
   users: [],
-  accounts: []
+  accounts: [],
+  aiProviders: [],
+  aiPrompts: {}
 }
 let toastTimer
 function toast(message) {
@@ -141,7 +144,7 @@ function nav() {
     'orders',
     'shipping',
     'users',
-    ...(state.role === 'owner' ? ['accounts', 'audit'] : [])
+    ...(state.role === 'owner' ? ['ai', 'accounts', 'audit'] : [])
   ]
   const icons = {
     dashboard: '◈',
@@ -149,6 +152,7 @@ function nav() {
     orders: '▤',
     shipping: '◇',
     users: '♙',
+    ai: '✦',
     accounts: '⚙',
     audit: '≡'
   }
@@ -258,6 +262,8 @@ async function loadTab() {
     else if (['works', 'orders', 'shipping', 'users'].includes(state.tab)) {
       setupListPage()
       await fetchListPage()
+    } else if (state.tab === 'ai') {
+      await renderAIConfig()
     } else if (state.tab === 'accounts') {
       state.accounts = await api('/api/admin/accounts')
       renderItems()

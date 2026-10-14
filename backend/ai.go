@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,45 +10,7 @@ import (
 	"time"
 )
 
-// AI service is a swappable async worker. An unset AI_WORKER_URL leaves jobs in
-// the admin queue for manual processing; it never invents AI results.
-func (a *App) taskMessage() string {
-	if a.cfg.AIWorkerURL == "" {
-		return "已进入人工处理队列，请在运营后台上传生成结果"
-	}
-	return "AI 生成任务已提交"
-}
-func (a *App) dispatchAI(wk *Work, stage string) {
-	if a.cfg.AIWorkerURL == "" {
-		return
-	}
-	source := wk.Original
-	if stage == "model" {
-		if wk.Selected < 0 || wk.Selected >= len(wk.Candidates) {
-			return
-		}
-		source = wk.Candidates[wk.Selected]
-	}
-	data, _ := json.Marshal(map[string]any{"work_id": wk.ID, "stage": stage, "generation_id": wk.GenerationID, "source_url": a.signedMedia(source), "callback_url": a.cfg.PublicURL + "/api/internal/ai-result", "instructions": "Preserve distinctive features of original children's drawing. Single full-body printable character, neutral background, no unsupported thin parts. For image stage return exactly one candidate image; for model stage return GLB; preview images are optional fallback."})
-	go func() {
-		req, err := http.NewRequest("POST", a.cfg.AIWorkerURL, bytes.NewReader(data))
-		if err != nil {
-			return
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+a.cfg.AIWorkerToken)
-		c := http.Client{Timeout: 15 * time.Second}
-		resp, err := c.Do(req)
-		if err != nil {
-			log.Printf("AI worker submit error: %v", err)
-			return
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode >= 300 {
-			log.Printf("AI worker submit status: %d", resp.StatusCode)
-		}
-	}()
-}
+// AI dispatch is defined in ai_dispatch.go; result callback remains here.
 func (a *App) aiResult(w http.ResponseWriter, r *http.Request) {
 	if a.cfg.AIWebhookToken == "" || r.Header.Get("X-AI-Token") != a.cfg.AIWebhookToken {
 		fail(w, 401, "无权限")
@@ -175,7 +134,7 @@ func (a *App) downloadResult(raw string, img bool) (string, error) {
 	if res.StatusCode != 200 {
 		return "", fmt.Errorf("上游返回 %d", res.StatusCode)
 	}
-	limit := int64(25 << 20)
+	limit := int64(100 << 20)
 	if img {
 		limit = 10 << 20
 	}
