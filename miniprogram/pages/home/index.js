@@ -1,7 +1,26 @@
 const {request}=require('../../utils/api')
+const {loadIdentity}=require('../../utils/identity')
 Page({
-  data:{recent:null,count:0},
-  onShow(){this.refresh()},
+  data:{recent:null,count:0,identityState:'loading',identityLabel:'确认账号中…'},
+  onShow(){this.refresh();this.refreshIdentity()},
+  onHide(){this._identityRequest=(this._identityRequest||0)+1},
+  async refreshIdentity(){
+    const seq=this._identityRequest=(this._identityRequest||0)+1
+    this.setData({identityState:'loading',identityLabel:'确认账号中…'})
+    try{
+      const identity=await loadIdentity()
+      if(seq!==this._identityRequest)return
+      this.setData({identityState:identity.mode,identityLabel:identity.label})
+    }catch(e){
+      if(seq!==this._identityRequest)return
+      this.setData({identityState:'error',identityLabel:'账号连接失败'})
+    }
+  },
+  accountAction(){
+    if(this.data.identityState==='error'){this.refreshIdentity();return}
+    if(this.data.identityState==='loading')return
+    this.toWorks()
+  },
   async refresh(){
     try{
       const items=await request('GET','/api/works')

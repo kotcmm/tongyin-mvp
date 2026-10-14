@@ -2,7 +2,12 @@
   <view class="brandline">
     <view class="brandmark"><view class="brand-seed"></view><view class="brand-leaf"></view></view>
     <view class="brandname">童印 <text>TONGYIN</text></view>
-    <view class="brand-side" bindtap="toWorks">我的创作 <text>↗</text></view>
+    <view class="brand-side account-entry {{identityState}}" bindtap="accountAction" role="button" aria-label="{{identityLabel}}">
+      <view class="account-status-dot"></view>
+      <text>{{identityLabel}}</text>
+      <view wx:if="{{identityState==='wechat'||identityState==='dev'}}" class="account-entry-chevron">›</view>
+      <view wx:elif="{{identityState==='error'}}" class="account-entry-chevron">↻</view>
+    </view>
   </view>
   <view class="intro">
     <view class="page-kicker">让每一笔想象，拥有自己的形状</view>

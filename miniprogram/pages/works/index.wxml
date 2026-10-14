@@ -7,6 +7,18 @@
     </view>
     <view class="add-circle" bindtap="create" aria-label="新建作品"><text>＋</text></view>
   </view>
+  <view class="identity-card {{identityState}}">
+    <view class="identity-monogram"><text>童</text></view>
+    <view class="identity-content">
+      <view class="identity-line">
+        <view class="identity-dot"></view>
+        <text class="identity-title">{{identityLabel}}</text>
+      </view>
+      <view wx:if="{{identityCode}}" class="identity-id">童印账号 {{identityCode}}</view>
+      <view wx:if="{{identityHint}}" class="identity-description">{{identityHint}}</view>
+    </view>
+    <view wx:if="{{identityState==='error'}}" class="identity-retry" bindtap="refreshIdentity">重试 ↻</view>
+  </view>
   <view class="summary" wx:if="{{all.length}}">
     <view><text class="summary-number">{{all.length}}</text><text class="summary-unit">幅创作</text></view>
     <view class="summary-divider"></view>

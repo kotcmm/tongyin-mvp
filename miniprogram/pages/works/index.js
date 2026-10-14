@@ -1,4 +1,5 @@
 const {request,tip}=require('../../utils/api')
+const {loadIdentity}=require('../../utils/identity')
 const STATES={
   image_pending:{title:'等待形象制作',hint:'作品已收到，等待处理',step:1,tone:'processing'},
   image_ready:{title:'等待确认形象',hint:'已生成1张形象图，可以继续或重试',step:2,tone:'action'},
@@ -14,8 +15,23 @@ function match(work,key){
   return true
 }
 Page({
-  data:{all:[],items:[],filters:FILTERS,filter:'all',loading:true,error:'',ongoing:0},
-  onShow(){this.refresh()},
+  data:{all:[],items:[],filters:FILTERS,filter:'all',loading:true,error:'',ongoing:0,identityState:'loading',identityLabel:'正在确认账号',identityCode:'',identityHint:''},
+  onShow(){this.refreshIdentity();this.refresh()},
+  onHide(){this._identityRequest=(this._identityRequest||0)+1},
+  async refreshIdentity(){
+    const seq=this._identityRequest=(this._identityRequest||0)+1
+    this.setData({identityState:'loading',identityLabel:'正在确认账号',identityHint:''})
+    try{
+      const identity=await loadIdentity()
+      if(seq!==this._identityRequest)return
+      this.setData({identityState:identity.mode,identityLabel:identity.label,
+        identityCode:identity.accountCode,identityHint:identity.description})
+    }catch(e){
+      if(seq!==this._identityRequest)return
+      this.setData({identityState:'error',identityLabel:'账号状态获取失败',
+        identityCode:'',identityHint:'请检查网络连接，点击重新确认'})
+    }
+  },
   onPullDownRefresh(){this.refresh().then(()=>wx.stopPullDownRefresh(),()=>wx.stopPullDownRefresh())},
   async refresh(){
     this.setData({loading:this.data.all.length===0,error:''})
