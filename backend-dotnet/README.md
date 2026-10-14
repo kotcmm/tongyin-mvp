@@ -39,7 +39,9 @@
 run-local.cmd
 ```
 
-该脚本使用 `http://localhost:18081` 和独立目录 `backend-dotnet/data/`。**不会读取或覆盖你当前 Go 后端的数据目录和 PostgreSQL 数据库**。首次启动生成随机开发管理员密码并在终端显示一次，请保存。后台网址：`http://localhost:18081/admin/`。停止按 Ctrl+C。
+该脚本使用 `http://localhost:18081` 和独立目录 `backend-dotnet/data/`。
+
+**本迁移分支的 `miniprogram/config.js` 已改为 `http://localhost:18081`**，可直接用于微信开发者工具本地联调；Go 的 main 分支仍使用 18080。逐项验收参阅 [LOCAL_ACCEPTANCE.md](LOCAL_ACCEPTANCE.md)。**不会读取或覆盖你当前 Go 后端的数据目录和 PostgreSQL 数据库**。首次启动生成随机开发管理员密码并在终端显示一次，请保存。后台网址：`http://localhost:18081/admin/`。停止按 Ctrl+C。
 
 先运行自动化检查（从 `backend-dotnet` 目录）：
 

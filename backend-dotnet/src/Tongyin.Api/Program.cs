@@ -111,7 +111,7 @@ app.MapPayment();
 
 // Still missing modules are deliberately NOT routed to Go or marked complete.
 // Migration acceptance must pass before this application may replace Go.
-app.Logger.LogInformation("童印 .NET 迁移服务（未完成全部 Go API）监听 {ListenUrl}", settings.ListenUrl());
+app.Logger.LogInformation("童印 .NET 迁移验收版（API 路由已迁入，外部服务待验收）监听 {ListenUrl}", settings.ListenUrl());
 app.Run();
 
 public partial class Program { }
