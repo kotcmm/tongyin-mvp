@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.FileProviders;
 using Tongyin.Api.Core;
 using Tongyin.Api.Api;
 
@@ -58,6 +59,29 @@ app.Use(async (ctx, next) =>
 });
 app.UseDefaultFiles();
 app.UseStaticFiles();
+
+// The Go version serves its administration HTML/JS from backend/webadmin and
+// its 3D viewer from admin/. Keep those EXACT assets rather than rebuilding UI.
+// In a published deployment they are linked to <output>/wwwroot/admin; while
+// running from the repository, fall back to both original source directories.
+var adminProviders = new List<IFileProvider>();
+var emittedAdmin = Path.Combine(webRoot, "admin");
+if (Directory.Exists(emittedAdmin)) adminProviders.Add(new PhysicalFileProvider(emittedAdmin));
+var sourceWebadmin = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "../../../backend/webadmin"));
+var sourceLegacyAdmin = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "../../../admin"));
+if (Directory.Exists(sourceWebadmin)) adminProviders.Add(new PhysicalFileProvider(sourceWebadmin));
+if (Directory.Exists(sourceLegacyAdmin)) adminProviders.Add(new PhysicalFileProvider(sourceLegacyAdmin));
+if (adminProviders.Count > 0)
+{
+    app.UseFileServer(new FileServerOptions
+    {
+        RequestPath = "/admin",
+        FileProvider = new CompositeFileProvider(adminProviders),
+        EnableDefaultFiles = true,
+        EnableDirectoryBrowsing = false
+    });
+}
+
 app.MapGet("/admin", () => Results.Redirect("/admin/"));
 app.MapGet("/health", () => Results.Json(new { status = "ok", backend = "dotnet" }));
 app.MapGet("/api/config", async (IStore store) => Results.Json(new
