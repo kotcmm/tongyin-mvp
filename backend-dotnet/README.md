@@ -1,0 +1,51 @@
+# 童印 ASP.NET Core 10 后端迁移（进行中）
+
+## 目标与强约束
+
+这是 **tongyin-mvp 原仓库内部的并行迁移**，不是重新开发一个脱离业务的系统。
+
+- 完整迁移 Go 现有能力，并且**验证全部通过后才删除 `backend/` Go 代码**。
+- 原生微信小程序、管理后台现有页面与 HTTP 路由 / JSON 响应格式应保持不变。
+- 数据持久化继续使用既有 `ty_works`、`ty_orders`、`ty_addresses`、`ty_users`、`ty_admins`、`ty_audit`、`ty_ai_providers`、`ty_ai_prompts` 表，`payload` JSON 及用户 Owner/OpenID 不变。
+- 保持 Go 管理员密码 PBKDF2 校验、管理员 token、客户 token、媒体 URL 签名和 AI Key 加密方案兼容。
+- **不能在同一数据库/数据文件上同时运行 Go 与 .NET 测试写入**。正式切换前创建数据库副本测试。
+- 未迁移的接口不得静默代理 Go，也不得宣称可上线。
+
+## 当前迁移状态
+
+**此分支为迁移施工中**，不能直接替换生产 Go 服务，未迁移接口会返回 404。
+
+| 模块 | C# 迁移状态 | 下阶段验收 |
+|---|---|---|
+| ASP.NET Core 10 启动、静态后台资源 | 已建立 | 后台路径、静态资源实机打开 |
+| File / PostgreSQL / MySQL 快照存储 | 已编写兼容层 | 与真实 PostgreSQL / MySQL 副本读写对照 |
+| 密码、签名、客户/管理员令牌 | 已编写 | 跨语言黄金数据与真实旧账号验证 |
+| 微信登录 /api/auth/wechat、/api/me | 初版 | 真机登录与 disabled 账号 |
+| 原画上传 /api/works、作品列表详情 | 初版 | 手机上传、多用户隔离、媒体签名 |
+| 收货地址、创建订单、订单列表、修改未付订单 | 初版 | 和 Go 状态、字段、错误码对照 |
+| 后台管理员登录、看板、搜索、用户停用、审计读取 | 初版 | 角色权限、数据分页与后台页面 |
+| 图片 / 3D 自动生成、AI 配置及回调 | **待迁移** | Seedream 图生图、任务防重、回调 |
+| 后台步骤式模型上传及状态操作 | **待迁移** | GLB 上传、状态防越级 |
+| 微信支付 JSAPI / 回调验签解密 | **待迁移** | 微信沙箱 / 测试商户 & 幂等 |
+| 快递100与物流 / 发货 / 退款 | **待迁移** | 真实数据来源、权限与状态 |
+| 完整接口契约与端到端回归 | **待完成** | 同样请求两套后端相同结果 |
+| Go 移除 | **等待用户验收，禁止提前删除** | 全模块达标并获得确认 |
+
+## 运行（仅用于独立测试）
+
+需要 .NET SDK 10。在 `backend-dotnet` 目录：
+
+```powershell
+$env:DEV_MODE="true"
+$env:DB_DRIVER="file"
+$env:DATA_DIR="./data"
+$env:LISTEN_ADDR=":18081"
+$env:PUBLIC_URL="http://localhost:18081"
+$env:SESSION_SECRET="CHANGE_TO_AT_LEAST_24_CHAR_RANDOM_SECRET"
+$env:ADMIN_BOOTSTRAP_PASSWORD="CHANGE_TO_STRONG_PASSWORD"
+dotnet run --project src/Tongyin.Api
+```
+
+初版监听 **18081**，默认不占用 Go 服务的 18080。避免指向现有 Go 数据目录。正式跨数据库验证应使用克隆的数据与单独端口，并保管好 SESSION_SECRET（更改会使原有 AI Key 无法解密）。
+
+**不要将真实密钥写入 appsettings、源码、工作流或测试文件。** 后续迁移通过后会补齐发布部署文件并替换 Go 启动入口。

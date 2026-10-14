@@ -1,0 +1,28 @@
+name: Dotnet backend migration checks
+on:
+  pull_request:
+    paths:
+      - 'backend-dotnet/**'
+      - '.github/workflows/dotnet-migration.yml'
+      - 'backend/webadmin/**'
+  push:
+    branches: [feat/dotnet-backend-migration]
+    paths:
+      - 'backend-dotnet/**'
+      - '.github/workflows/dotnet-migration.yml'
+jobs:
+  dotnet-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build migration backend
+        run: dotnet build backend-dotnet/src/Tongyin.Api/Tongyin.Api.csproj --configuration Release
+      - name: Run compatibility checks
+        run: dotnet run --project backend-dotnet/tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj --configuration Release
