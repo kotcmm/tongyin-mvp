@@ -22,6 +22,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Verify method/path parity
+        run: node scripts/check-dotnet-api-surface.cjs
       - name: Build migration backend
         run: dotnet build backend-dotnet/src/Tongyin.Api/Tongyin.Api.csproj --configuration Release
       - name: Run endpoint integration checks
