@@ -7,6 +7,11 @@ settings.Validate();
 Directory.CreateDirectory(Path.Combine(settings.DataDir, "media"));
 
 var builder = WebApplication.CreateBuilder(args);
+// Linked existing Go-admin assets are copied into the .NET output wwwroot.
+// Use that location even when 'dotnet run --project' is invoked from another directory.
+var webRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+Directory.CreateDirectory(webRoot);
+builder.WebHost.UseWebRoot(webRoot);
 builder.WebHost.UseUrls(settings.ListenUrl());
 builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton<IStore>(settings.DBDriver == "file"
