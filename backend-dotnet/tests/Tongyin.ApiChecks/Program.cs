@@ -7,6 +7,12 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Tongyin.Api.Core;
 
+namespace Tongyin.ApiChecks;
+
+internal static class IntegrationMain
+{
+public static async Task Main()
+{
 var root=Path.Combine(Path.GetTempPath(),"ty-api-check-"+Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 Environment.SetEnvironmentVariable("DEV_MODE","true");
@@ -108,4 +114,6 @@ try
     Console.WriteLine("PASS: live ASP.NET API login, signed upload, ownership, manual image/GLB, order, payment guard, cancellation, admin AI config");
 }
 finally{Directory.Delete(root,true);}
-static void Must(bool b,string reason){if(!b)throw new InvalidOperationException("FAIL "+reason);}
+}
+private static void Must(bool b,string reason){if(!b)throw new InvalidOperationException("FAIL "+reason);}
+}
