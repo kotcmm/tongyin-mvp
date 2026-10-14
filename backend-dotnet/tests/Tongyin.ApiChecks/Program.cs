@@ -33,11 +33,15 @@ try
 
     var health=await client.GetAsync("/health");
     Must(health.StatusCode==HttpStatusCode.OK,"health");
-    var adminHome=await client.GetAsync("/admin/");
-    Must(adminHome.StatusCode==HttpStatusCode.OK,
-        $"legacy web admin entry served by .NET (HTTP {(int)adminHome.StatusCode}; URL {adminHome.RequestMessage?.RequestUri})");
-    var html=await adminHome.Content.ReadAsStringAsync();
-    Must(html.Contains("童印运营中心"),"legacy admin HTML content unchanged");
+    // All three URLs must match one endpoint, without AmbiguousMatchException.
+    foreach(var adminPath in new[]{"/admin","/admin/","/admin/index.html"})
+    {
+        using var adminHome=await client.GetAsync(adminPath);
+        Must(adminHome.StatusCode==HttpStatusCode.OK,
+            $"legacy web admin entry {adminPath} (HTTP {(int)adminHome.StatusCode}; URL {adminHome.RequestMessage?.RequestUri})");
+        var html=await adminHome.Content.ReadAsStringAsync();
+        Must(html.Contains("童印运营中心"),"legacy admin HTML content "+adminPath);
+    }
     foreach(var asset in new[]{"/admin/core.js","/admin/views.js","/admin/ai-admin.js",
         "/admin/actions.js","/admin/app.css","/admin/3d/index.html",
         "/admin/vendor/three.module.min.js","/admin/vendor/preview.mjs"})

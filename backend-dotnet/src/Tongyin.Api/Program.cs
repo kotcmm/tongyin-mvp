@@ -63,9 +63,10 @@ app.Use(async (ctx, next) =>
 // default-document rewriting. It also works with WebApplicationFactory, where
 // the API webroot may resolve to the *test* assembly rather than the API output.
 var adminAssets = AdminAssetServer.Discover(builder.Environment.ContentRootPath);
-app.MapGet("/admin", () => Results.Redirect("/admin/"));
-app.MapGet("/admin/", () => adminAssets.Serve("index.html"));
-app.MapGet("/admin/{**asset}", (string asset) => adminAssets.Serve(asset));
+// A catch-all can match an empty path. Register ONLY this endpoint:
+// /admin, /admin/, /admin/index.html and nested assets all use one handler.
+// Separate /admin and /admin/ patterns overlap under ASP.NET Core routing.
+app.MapGet("/admin/{**asset}", (string? asset) => adminAssets.Serve(asset));
 
 app.MapGet("/health", () => Results.Json(new { status = "ok", backend = "dotnet" }));
 app.MapGet("/api/config", async (IStore store) => Results.Json(new
