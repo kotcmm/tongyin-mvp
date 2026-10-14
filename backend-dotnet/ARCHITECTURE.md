@@ -31,15 +31,18 @@ Tongyin.Domain           Application
 - `WorkUseCases.Create`：创建作品记录
 - `WorkUseCases.QueueImage`：形象生成次数与任务状态转换
 - `WorkUseCases.SelectImage`：选图并进入模型生成阶段
+- `WorkUseCases.List / Find`：按用户隔离读取作品
 - `OrderUseCases.Create`：检查作品状态并原子写入订单及收货地址
 - `OrderUseCases.Cancel`：检查取消条件、更新历史和审计
+- `OrderUseCases.List / Find / GetWorkOrder`：按用户隔离读取订单
+- `OrderUseCases.GetSavedAddress / SaveAddress / UpdateShippingAddress`：订单地址业务
 - `WorkRules`、`OrderRules`：纯领域规则，异常和提示内容保持旧版兼容
 
 `Tongyin.ApplicationChecks` 只引用 Domain/Application，不引用 Web/Infrastructure，因此可以脱离 ASP.NET 和数据库测试业务不变量。
 
 ## 已知技术债 / 后续顺序
 
-1. 继续把作品/订单查询、地址修改、管理员权限/审核、AI 配置和回调、退款、发货/物流的业务规则下沉到 Application。
+1. 继续把管理员权限/审核、AI 配置和回调、退款、发货/物流的业务规则下沉到 Application。
 2. 由 Application 定义 `IAuthContext`、`IMediaStorage`、`IAiGenerationGateway`、`IPaymentGateway`、`ILogisticsGateway` 端口；Infrastructure 实现；Web 请求转换在 API 完成。
 3. 将 `Api/Presentation` 中目前兼容旧代码的 `HttpContext` 和 `IResult` 限制到 Controller，彻底移除过渡处理类。
 4. 将应用层 JSON 输入/输出逐步替换成强类型命令/DTO；领域状态替换成显式状态模型。迁移时必须保持原 `ty_*` JSON 序列化格式。
