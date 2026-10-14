@@ -12,11 +12,17 @@ public sealed class FileStore(string path) : IStore
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private Snapshot Load() => File.Exists(path) ? Snapshot.FromJson(Doc.Parse(File.ReadAllText(path))) : new();
+    /// <summary>
+    /// 提供兼容存储所需的数据操作。
+    /// </summary>
     public async Task<T> Read<T>(Func<Snapshot,T> fn, CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct);
         try { return fn(Load()); } finally { _gate.Release(); }
     }
+    /// <summary>
+    /// 提供兼容存储所需的数据操作。
+    /// </summary>
     public async Task<T> Update<T>(Func<Snapshot,T> fn, CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct);

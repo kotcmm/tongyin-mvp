@@ -99,12 +99,18 @@ public sealed class SqlStore(string driver, string connectionString) : IStore
         }
         return result;
     }
+    /// <summary>
+    /// 提供兼容存储所需的数据操作。
+    /// </summary>
     public async Task<T> Read<T>(Func<Snapshot,T> fn, CancellationToken ct = default)
     {
         await using var con = OpenConnection();
         await con.OpenAsync(ct);
         return fn(await Load(con, null, ct));
     }
+    /// <summary>
+    /// 提供兼容存储所需的数据操作。
+    /// </summary>
     public async Task<T> Update<T>(Func<Snapshot,T> fn, CancellationToken ct = default)
     {
         await using var con = OpenConnection();
