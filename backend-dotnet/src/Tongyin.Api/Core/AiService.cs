@@ -131,7 +131,11 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
             ["size"]="2K",["response_format"]="url",["watermark"]=false
         };
         var trace=Doc.NewId();var sw=Stopwatch.StartNew();
-        logger.LogInformation("Seedream start trace={Trace} work={Work} body_bytes={Size} model={Model}",trace,id,payload.ToJsonString().Length,Doc.Str(provider,"model"));
+        bool usesProxy;
+        try {usesProxy=!HttpClient.DefaultProxy.IsBypassed(new Uri(Doc.Str(provider,"endpoint")));}
+        catch {usesProxy=false;}
+        logger.LogInformation("Seedream start trace={Trace} work={Work} body_bytes={Size} image_bytes={ImageSize} model={Model} proxy={Proxy} timeout_seconds=190",
+            trace,id,Encoding.UTF8.GetByteCount(payload.ToJsonString()),bytes.Length,Doc.Str(provider,"model"),usesProxy);
         using var req=new HttpRequestMessage(HttpMethod.Post,Doc.Str(provider,"endpoint")){
             Content=new StringContent(payload.ToJsonString(),Encoding.UTF8,"application/json")
         };
@@ -140,8 +144,13 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
         try {response=await factory.CreateClient("ai").SendAsync(req);}
         catch(Exception e)
         {
-            logger.LogWarning("Seedream transport failed trace={Trace} work={Work} elapsed_ms={Ms} category={Category}",
-                trace,id,sw.ElapsedMilliseconds,e.GetType().Name);
+            var cause=e;
+            while(cause.InnerException!=null)cause=cause.InnerException;
+            var errorKind=cause is System.Net.Sockets.SocketException socket
+                ? "socket_"+socket.SocketErrorCode.ToString() : cause.GetType().Name;
+            // Never print full exception strings: a proxy may embed credential-bearing URLs.
+            logger.LogWarning("Seedream transport failed trace={Trace} work={Work} elapsed_ms={Ms} error_kind={ErrorKind} proxy={Proxy}",
+                trace,id,sw.ElapsedMilliseconds,errorKind,usesProxy);
             throw new InvalidOperationException("Seedream 请求中断，诊断编号 "+trace+"；请先检查后台日志，暂勿立即重试");
         }
         using(response)
