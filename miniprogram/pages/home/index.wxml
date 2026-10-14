@@ -49,7 +49,7 @@
   <view class="how-header"><view class="section-title">三步，把想象带回家</view><view class="tiny-english">HOW IT WORKS</view></view>
   <view class="steps">
     <view class="step"><view class="step-number">01</view><view class="step-content"><view class="step-name">上传一张画</view><view class="step-desc">保留孩子笔下与众不同的模样</view></view><view class="step-accent">✳</view></view>
-    <view class="step"><view class="step-number">02</view><view class="step-content"><view class="step-name">挑选喜欢的形象</view><view class="step-desc">从两种立体设计里选择一个</view></view><view class="step-accent">↗</view></view>
+    <view class="step"><view class="step-number">02</view><view class="step-content"><view class="step-name">挑选喜欢的形象</view><view class="step-desc">确认喜欢的形象</view></view><view class="step-accent">↗</view></view>
     <view class="step"><view class="step-number">03</view><view class="step-content"><view class="step-name">定制专属白模</view><view class="step-desc">收到实物后，继续自己涂色创作</view></view><view class="step-accent">✦</view></view>
   </view>
   <view class="footnote">由家长操作和下单，生成造型与最终实物可能有细节差异。</view>

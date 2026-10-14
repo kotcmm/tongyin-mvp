@@ -34,7 +34,16 @@ const wx={
  showToast(){},
  chooseAddress({success}){success({userName:'微信姓名',telNumber:'13900999000',provinceName:'广东省',cityName:'广州市',countyName:'海珠区',detailInfo:'新地址300号'})}
 }
-const req=name=>name.endsWith('utils/api')?{request:api,tip:e=>{throw e}}:name.endsWith('/index')?{createScopedThreejs(){}}:{registerGLTFLoader(){}}
+const req=name=>{
+ if(name.endsWith('utils/api'))return {request:api,tip:e=>{throw e}}
+ if(name.endsWith('utils/order'))return {formatOrder:x=>({...x,price:(x.price_fen/100).toFixed(2)})}
+ if(name.endsWith('utils/shipping'))return {
+  normalizeShipping:(name,phone,address)=>({name,phone,address}),
+  chooseAddress:cb=>cb({name:'微信姓名',phone:'13900999000',address:'广东省广州市海珠区新地址300号'})
+ }
+ if(name.endsWith('/index'))return {createScopedThreejs(){}}
+ return {registerGLTFLoader(){}}
+}
 vm.runInNewContext(preview,{Page:p=>previewPage=p,require:req,wx,setInterval(){},clearInterval(){}})
 const p=Object.assign({},previewPage,{data:{id:'work-a',name:'',phone:'',address:'',shippingLoaded:false,existingOrder:null,checkingOrder:false},setData(patch,cb){Object.assign(this.data,patch);if(cb)cb()}})
 ;(async()=>{

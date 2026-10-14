@@ -15,7 +15,7 @@ function match(work,key){
   return true
 }
 Page({
-  data:{all:[],items:[],filters:FILTERS,filter:'all',loading:true,error:'',ongoing:0,identityState:'loading',identityLabel:'正在确认账号',identityCode:'',identityHint:''},
+  data:{all:[],items:[],filters:FILTERS,filter:'all',loading:true,error:'',ongoing:0,identityState:'loading',identityLabel:'正在确认账号',identityCode:''},
   onShow(){this.refreshIdentity();this.refresh()},
   onHide(){this._identityRequest=(this._identityRequest||0)+1},
   async refreshIdentity(){
@@ -25,11 +25,11 @@ Page({
       const identity=await loadIdentity()
       if(seq!==this._identityRequest)return
       this.setData({identityState:identity.mode,identityLabel:identity.label,
-        identityCode:identity.accountCode,identityHint:identity.description})
+        identityCode:identity.accountCode})
     }catch(e){
       if(seq!==this._identityRequest)return
       this.setData({identityState:'error',identityLabel:'账号状态获取失败',
-        identityCode:'',identityHint:'请检查网络连接，点击重新确认'})
+        identityCode:''})
     }
   },
   onPullDownRefresh(){this.refresh().then(()=>wx.stopPullDownRefresh(),()=>wx.stopPullDownRefresh())},

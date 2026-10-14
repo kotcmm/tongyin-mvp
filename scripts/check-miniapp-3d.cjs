@@ -9,7 +9,7 @@ const wxml=read('miniprogram/pages/preview/index.wxml')
 const app=JSON.parse(read('miniprogram/app.json'))
 const config=JSON.parse(read('miniprogram/pages/preview/index.json'))
 const pageSource=read('miniprogram/pages/preview/index.js')
-const admin=read('admin/index.html')
+const admin=read('backend/webadmin/app.js')
 for(const s of ['type="webgl"','id="modelCanvas"','canvasTouchStart','canvasTouchMove','viewerLoading','viewerError','toggleFullscreen','fullscreen-gallery','model-toolbar','zoomIn','zoomOut','resetView']){
  assert(wxml.includes(s),'missing viewer UI: '+s)
 }
@@ -30,6 +30,7 @@ vm.runInNewContext(pageSource,{
  Page:opts=>{page=opts},
  require:name=>{
   if(name.endsWith('utils/api'))return {request:()=>Promise.resolve({}),tip:()=>{}}
+  if(name.endsWith('utils/shipping'))return {normalizeShipping:()=>({}),chooseAddress:()=>{}}
   if(name.endsWith('/index'))return {createScopedThreejs:()=>{}}
   return {registerGLTFLoader:()=>{}}
  },
@@ -78,6 +79,7 @@ let fullscreenPage
 vm.runInNewContext(pageSource,{
  Page:opts=>fullscreenPage=opts,
  require:name=>name.endsWith('utils/api')?{request(){},tip(){}}:
+   name.endsWith('utils/shipping')?{normalizeShipping:()=>({}),chooseAddress:()=>{}}:
    name.endsWith('/index')?{createScopedThreejs(){}}:{registerGLTFLoader(){}},
  wx:mockWx,setInterval(){return 1},clearInterval(){}
 })
@@ -109,7 +111,7 @@ for(const term of ['shipping-summary','shipping-editor','shipping-wechat','choos
  assert(shippingWxml.includes(term),'shipping action missing: '+term)
 }
 assert(pageSource.includes("'/api/shipping-address'"),'server-side address endpoint missing')
-assert(pageSource.includes('wx.chooseAddress'),'WeChat address picker missing')
+assert(read('miniprogram/utils/shipping.js').includes('wx.chooseAddress'),'WeChat address picker missing')
 let shippingPage
 const calls=[]
 vm.runInNewContext(pageSource,{
@@ -120,6 +122,9 @@ vm.runInNewContext(pageSource,{
    if(method==='GET')return {address:{name:'旧地址',phone:'13800138000',address:'广州市海珠区老街100号'}}
    return {address:data}
   },tip(err){throw err}
+ }:name.endsWith('utils/shipping')?{
+  normalizeShipping:(name,phone,address)=>({name,phone,address}),
+  chooseAddress:callback=>callback({name:'新收件人',phone:'13900139000',address:'广东省广州市海珠区测试路200号'})
  }:name.endsWith('/index')?{createScopedThreejs(){}}:{registerGLTFLoader(){}},
  wx:{
   chooseAddress({success}){success({

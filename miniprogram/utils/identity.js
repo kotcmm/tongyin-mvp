@@ -1,5 +1,4 @@
-// Current mini-program account identity, verified by the Go API.
-// Never infer login status from a cached token or claim to know a WeChat nickname.
+// 账户状态以服务端 /api/me 验证结果为准，不使用本地缓存推断登录成功。
 const {DEV_LOGIN}=require('../config')
 const {request}=require('./api')
 
@@ -10,11 +9,8 @@ async function loadIdentity(){
  }
  return {
   mode:DEV_LOGIN?'dev':'wechat',
-  label:DEV_LOGIN?'开发测试账号':'微信已登录',
-  description:DEV_LOGIN?'当前为共用调试身份，不代表实际微信账号':'作品、订单与收货地址均归属于当前微信账号',
-  accountCode:'TY-'+account.id.slice(0,8).toUpperCase(),
-  workCount:typeof account.works==='number'?account.works:0,
-  orderCount:typeof account.orders==='number'?account.orders:0
+  label:DEV_LOGIN?'测试账号':'微信已登录',
+  accountCode:'TY-'+account.id.slice(0,8).toUpperCase()
  }
 }
 module.exports={loadIdentity}

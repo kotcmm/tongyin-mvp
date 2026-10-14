@@ -1,4 +1,5 @@
 const {request,tip}=require('../../utils/api')
+const {normalizeShipping,chooseAddress}=require('../../utils/shipping')
 const {createScopedThreejs}=require('../../vendor/threejs-miniprogram/index')
 const {registerGLTFLoader}=require('../../vendor/threejs-miniprogram/gltf-loader')
 
@@ -312,10 +313,8 @@ Page({
  editShipping(){this.setData({shippingEditing:true})},
  async saveShipping(){
   if(this.data.shippingSaving)return false
-  const name=(this.data.name||'').trim()
-  const phone=(this.data.phone||'').trim()
-  const address=(this.data.address||'').trim()
-  if(name.length<2 || phone.length<6 || address.length<8){
+  const details=normalizeShipping(this.data.name,this.data.phone,this.data.address)
+  if(!details){
    wx.showToast({title:'请填写完整收货信息',icon:'none'})
    this.setData({shippingEditing:true})
    return false
@@ -323,8 +322,8 @@ Page({
   if(this.data.existingOrder){this.openExistingOrder(true);return false}
   this.setData({shippingSaving:true})
   try{
-   await request('PUT','/api/shipping-address',{name,phone,address})
-   this.setData({name,phone,address,shippingExists:true,shippingEditing:false})
+   await request('PUT','/api/shipping-address',details)
+   this.setData({...details,shippingExists:true,shippingEditing:false})
    return true
   }catch(e){
    tip(e)
@@ -336,27 +335,12 @@ Page({
  },
  chooseWeChatAddress(){
   if(this.data.existingOrder){this.openExistingOrder(true);return}
-  if(typeof wx.chooseAddress!=='function'){
-   wx.showToast({title:'当前环境不支持微信地址，请手动填写',icon:'none'})
-   this.setData({shippingEditing:true})
-   return
-  }
-  wx.chooseAddress({
-   success:res=>{
-    const address=[
-     res.provinceName||'',res.cityName||'',res.countyName||'',res.detailInfo||''
-    ].join('')
-    this.setData({name:res.userName||'',phone:res.telNumber||'',address,shippingEditing:true},()=>{
-     this.saveShipping()
-    })
-   },
-   fail:err=>{
-    if(/cancel/i.test((err&&err.errMsg)||''))return
-    this.setData({shippingEditing:true})
-    wx.showToast({title:'微信地址暂不可用，请手动填写',icon:'none'})
-   }
+  chooseAddress(details=>{
+   // 从微信获取后立即保存为下次可用的收货地址。
+   this.setData({...details,shippingEditing:true},()=>this.saveShipping())
   })
  },
+
  name(e){this.setData({name:e.detail.value})},
  phone(e){this.setData({phone:e.detail.value})},
  address(e){this.setData({address:e.detail.value})},

@@ -1,4 +1,6 @@
 const {request,tip}=require('../../utils/api')
+const {normalizeShipping,chooseAddress}=require('../../utils/shipping')
+const {formatOrder}=require('../../utils/order')
 Page({
  data:{
   id:'',item:null,paying:false,editingShipping:false,savingShipping:false,
@@ -13,8 +15,7 @@ Page({
  async refresh(){
   try{
    const x=await request('GET','/api/orders/'+this.data.id)
-   const labels={awaiting_payment:'等待付款',paid:'已付款，等待制作',printing:'正在打印',shipped:'已发货',completed:'已完成',canceled:'已取消'}
-   const item={...x,label:labels[x.status]||x.status,price:(x.price_fen/100).toFixed(2),date:(x.created_at||'').replace('T',' ').slice(0,16)}
+   const item=formatOrder(x)
    const openEdit=this._editOnOpen&&item.status==='awaiting_payment'
    this._editOnOpen=false
    this.setData({
@@ -50,35 +51,21 @@ Page({
  changePhone(e){this.setData({editPhone:e.detail.value})},
  changeAddress(e){this.setData({editAddress:e.detail.value})},
  chooseWeChatAddress(){
-  if(typeof wx.chooseAddress!=='function'){
-   wx.showToast({title:'当前无法选择微信地址，请手动填写',icon:'none'})
-   return
-  }
-  wx.chooseAddress({
-   success:res=>{
-    this.setData({
-     editName:res.userName||'',editPhone:res.telNumber||'',
-     editAddress:[res.provinceName||'',res.cityName||'',res.countyName||'',res.detailInfo||''].join('')
-    })
-   },
-   fail:e=>{
-    if(/cancel/i.test((e&&e.errMsg)||''))return
-    wx.showToast({title:'微信地址暂不可用，请手动填写',icon:'none'})
-   }
+  chooseAddress(details=>{
+   this.setData({editName:details.name,editPhone:details.phone,editAddress:details.address})
   })
  },
+
  async saveShipping(){
   if(this.data.savingShipping||!this.data.item||this.data.item.status!=='awaiting_payment')return
-  const name=(this.data.editName||'').trim()
-  const phone=(this.data.editPhone||'').trim()
-  const address=(this.data.editAddress||'').trim()
-  if(name.length<2||phone.length<6||address.length<8){
+  const details=normalizeShipping(this.data.editName,this.data.editPhone,this.data.editAddress)
+  if(!details){
    wx.showToast({title:'请填写完整收货信息',icon:'none'})
    return
   }
   this.setData({savingShipping:true})
   try{
-   const updated=await request('PUT','/api/orders/'+this.data.id+'/shipping-address',{name,phone,address})
+   const updated=await request('PUT','/api/orders/'+this.data.id+'/shipping-address',details)
    this.setData({
     item:{...this.data.item,name:updated.name,phone:updated.phone,address:updated.address,status:updated.status},
     editName:updated.name,editPhone:updated.phone,editAddress:updated.address,

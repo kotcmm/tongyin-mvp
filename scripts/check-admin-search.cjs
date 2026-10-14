@@ -1,8 +1,7 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert')
-const html=fs.readFileSync(path.resolve(__dirname,'../admin/index.html'),'utf8')
-const embedded=fs.readFileSync(path.resolve(__dirname,'../backend/webadmin/index.html'),'utf8')
-assert.strictEqual(html,embedded,'Go embedded admin must match source')
-const script=html.match(/<script>([\s\S]*?)<\/script>/)[1]
+const html=fs.readFileSync(path.resolve(__dirname,'../backend/webadmin/index.html'),'utf8')
+const script=fs.readFileSync(path.resolve(__dirname,'../backend/webadmin/app.js'),'utf8')
+assert(html.includes('/admin/app.js'),'admin script must be served by Go')
 new Function(script)
 assert(!html.includes('state.works.filter('),'browser still filtering works')
 assert(!html.includes('state.orders.filter('),'browser still filtering orders')
