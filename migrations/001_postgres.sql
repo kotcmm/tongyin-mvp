@@ -22,3 +22,10 @@ CREATE TABLE IF NOT EXISTS ty_admins (id VARCHAR(128) PRIMARY KEY, owner_id VARC
 CREATE TABLE IF NOT EXISTS ty_audit (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_ty_users_owner ON ty_users(owner_id, created_at);
 CREATE INDEX IF NOT EXISTS ix_ty_admins_owner ON ty_admins(owner_id, created_at);
+
+-- Admin search: recent-page and status filters; SQL LIMIT/OFFSET is always applied.
+CREATE INDEX IF NOT EXISTS ix_ty_works_recent ON ty_works(created_at DESC,id DESC);
+CREATE INDEX IF NOT EXISTS ix_ty_orders_recent ON ty_orders(created_at DESC,id DESC);
+CREATE INDEX IF NOT EXISTS ix_ty_users_recent ON ty_users(created_at DESC,id DESC);
+CREATE INDEX IF NOT EXISTS ix_ty_works_search_status ON ty_works ((payload::jsonb->>'status'),created_at DESC,id DESC);
+CREATE INDEX IF NOT EXISTS ix_ty_orders_search_status ON ty_orders ((payload::jsonb->>'status'),created_at DESC,id DESC);

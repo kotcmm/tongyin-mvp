@@ -28,6 +28,7 @@ jobs:
           node --check miniprogram/pages/order/index.js
           node scripts/check-order-flow.cjs
           node scripts/check-operations.cjs
+          node scripts/check-admin-search.cjs
       - name: Verify LAN/phone config generation
         run: node scripts/check-dev-phone.cjs
       - name: Parse phone dev script (Windows)

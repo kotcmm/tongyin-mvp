@@ -22,3 +22,9 @@ CREATE TABLE IF NOT EXISTS ty_addresses (
 CREATE TABLE IF NOT EXISTS ty_users (id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS ty_admins (id VARCHAR(128) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS ty_audit (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Run on existing databases only when the indexes are absent; backend startup
+-- checks information_schema.statistics and creates them automatically.
+CREATE INDEX ix_ty_works_recent ON ty_works(created_at DESC,id DESC);
+CREATE INDEX ix_ty_orders_recent ON ty_orders(created_at DESC,id DESC);
+CREATE INDEX ix_ty_users_recent ON ty_users(created_at DESC,id DESC);

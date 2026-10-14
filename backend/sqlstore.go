@@ -117,15 +117,38 @@ func (s *SQLStore) ensureSchema(ctx context.Context) error {
  `CREATE TABLE IF NOT EXISTS ty_audit (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 		}
 	} else {
-		ddl = append(ddl,
-			`CREATE INDEX IF NOT EXISTS ix_ty_works_owner ON ty_works(owner_id, created_at)`,
-			`CREATE INDEX IF NOT EXISTS ix_ty_orders_owner ON ty_orders(owner_id, created_at)`)
-	}
+        ddl=append(ddl,
+          `CREATE INDEX IF NOT EXISTS ix_ty_works_owner ON ty_works(owner_id, created_at)`,
+          `CREATE INDEX IF NOT EXISTS ix_ty_orders_owner ON ty_orders(owner_id, created_at)`,
+          `CREATE INDEX IF NOT EXISTS ix_ty_works_recent ON ty_works(created_at DESC,id DESC)`,
+          `CREATE INDEX IF NOT EXISTS ix_ty_orders_recent ON ty_orders(created_at DESC,id DESC)`,
+          `CREATE INDEX IF NOT EXISTS ix_ty_users_recent ON ty_users(created_at DESC,id DESC)`,
+          `CREATE INDEX IF NOT EXISTS ix_ty_works_search_status ON ty_works ((payload::jsonb->>'status'),created_at DESC,id DESC)`,
+          `CREATE INDEX IF NOT EXISTS ix_ty_orders_search_status ON ty_orders ((payload::jsonb->>'status'),created_at DESC,id DESC)`)
+    }
 	for _, statement := range ddl {
 		if _, err := s.db.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("SQL schema initialization: %w", err)
 		}
 	}
+    // Existing MySQL deployments need indexes too. Check metadata first:
+    // MySQL 8 does not reliably support CREATE INDEX IF NOT EXISTS.
+    if s.dialect=="mysql"{
+       for _,idx:=range []struct{Table,Name,Column string}{
+        {"ty_works","ix_ty_works_recent","created_at DESC,id DESC"},
+        {"ty_orders","ix_ty_orders_recent","created_at DESC,id DESC"},
+        {"ty_users","ix_ty_users_recent","created_at DESC,id DESC"},
+       }{
+        var present int
+        err:=s.db.QueryRowContext(ctx,`SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name=? AND index_name=?`,idx.Table,idx.Name).Scan(&present)
+        if err!=nil{return fmt.Errorf("check search index: %w",err)}
+        if present==0{
+         if _,err:=s.db.ExecContext(ctx,"CREATE INDEX "+idx.Name+" ON "+idx.Table+"("+idx.Column+")");err!=nil{
+          return fmt.Errorf("create search index %s: %w",idx.Name,err)
+         }
+        }
+       }
+    }
 	insert := `INSERT INTO ty_store_lock(id) VALUES (1) ON CONFLICT (id) DO NOTHING`
 	if s.dialect == "mysql" {
 		insert = `INSERT IGNORE INTO ty_store_lock(id) VALUES (1)`

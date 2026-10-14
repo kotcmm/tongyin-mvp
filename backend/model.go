@@ -115,6 +115,9 @@ type Repository interface {
 	order(string) (*Order, bool)
 	works(string, bool) []*Work
 	orders(string, bool) []*Order
+ adminWorksPage(AdminPage)([]*Work,int,error)
+ adminOrdersPage(AdminPage)([]*Order,int,error)
+ adminUsersPage(AdminPage)([]AdminUserRow,int,error)
  address(string) (*ShippingAddress, bool)
  user(string) (*User, bool)
  adminUser(string) (*AdminUser, bool)

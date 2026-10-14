@@ -37,6 +37,14 @@ go run .
 
 小程序：使用微信开发者工具导入 `miniprogram/`，将 `miniprogram/config.js` 的 `API_BASE` 改为本地地址或 HTTPS API 域名。在开发者工具的本地调试中可关闭域名校验（**仅用于本地调试**）；开发模式使用 `DEV_LOGIN: true` 并确保后端 `DEV_MODE=true`。正式环境必须双端禁用 DEV 模式。
 
+## 后台搜索与数据库分页
+
+- 管理后台「作品生产」「全部订单」「物流管理」「微信用户」均改为服务端搜索及分页；按关键字 / 状态 / 分类请求当前页，不会再一次性下载所有记录到浏览器。
+- 新接口为 `GET /api/admin/search/works|orders|users?page=1&page_size=12&q=关键字&status=状态`。物流页另外发送 `category=shipping`。响应 `{items,total,page,page_size}`；单次最多100条，参数校验和后台账号角色权限照常执行。
+- PostgreSQL/MySQL 查询先在数据库中过滤、统计，再执行 `ORDER BY created_at DESC,id DESC LIMIT/OFFSET`；相关时间和状态查询增加索引。开发用 `DB_DRIVER=file` 只在本地数据内分页。
+- 搜索框使用 300ms 防抖，仅替换结果区域；不会因为每输入一个字符就重建输入框、导致丢失焦点。异步响应还会检查请求序号，防止旧结果覆盖新结果。
+- `q` 支持作品ID、用户内部编号，订单ID、作品ID、收件人、联系电话和运单号。任意子串搜索仍可能在数据库中进行扫描；大量数据或复杂检索时应根据真实查询指标进一步添加全文搜索索引。
+
 ## 单体运营后台、微信用户、订单与物流（升级版）
 
 Go 服务一次部署，同时承载小程序 API、作品/GLB 资源和已打包的 Web 运营后台（`/admin/`）。数据库仍是原来的 PostgreSQL（可切换 MySQL）。不引入第二套独立后端、Node 常驻服务或新的用户数据库。
