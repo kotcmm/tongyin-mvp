@@ -7,11 +7,17 @@ namespace Tongyin.Api.Core;
 
 // Port of Go's per-stage Seedream / async Worker dispatch. It deliberately does
 // not auto-retry requests with uncertain upstream billing.
+/// <summary>
+/// 负责 AI 生成配置、密钥、任务派发及服务回调。
+/// </summary>
 public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttpClientFactory factory,ILogger<AiService> logger)
 {
     public static string DefaultPrompt(string stage) => stage=="model"
         ? "将参考卡通形象转换为单个可3D打印的完整角色模型，保留脸部和服饰的核心辨识特征，结构完整稳定，避免悬浮部件、过薄的四肢和无法打印的细节；输出可预览的 GLB 模型。"
         : "严格参考上传的儿童画，保留原画主体的轮廓、颜色、标志性装饰和稚拙特色，转换成单个全身、正面、立体感清晰的可爱卡通角色；纯净背景，造型简单完整，避免细小悬空零件，适合进一步生成3D打印白模。只输出一张图片，不添加文字、水印或额外角色。";
+    /// <summary>
+    /// 查找当前生图或三维模型提示词。
+    /// </summary>
     public static JsonObject PromptOf(Snapshot s,string stage) =>
         s.AIPrompts.TryGetValue(stage,out var p)?Doc.Copy(p):
             new JsonObject{["id"]=stage,["version"]=1,["template"]=DefaultPrompt(stage)};
@@ -19,6 +25,9 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
         s.AIProviders.Values.FirstOrDefault(p=>Doc.Str(p,"stage")==stage && Doc.Bool(p,"enabled") && Doc.Bool(p,"default")) is { } p
             ? Doc.Copy(p) : null;
     private byte[] KeyBytes => SHA256.HashData(Encoding.UTF8.GetBytes("tongyin-ai-api-key-v1:"+cfg.SessionSecret));
+    /// <summary>
+    /// 加密存储外部模型服务密钥。
+    /// </summary>
     public string EncryptKey(string secret)
     {
         var nonce=RandomNumberGenerator.GetBytes(12);
@@ -29,6 +38,9 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
         gcm.Encrypt(nonce,data,cipher,tag);
         return Convert.ToBase64String(nonce.Concat(cipher).Concat(tag).ToArray()).TrimEnd('=');
     }
+    /// <summary>
+    /// 解密已保存的模型服务密钥。
+    /// </summary>
     public string DecryptKey(string encrypted)
     {
         if(encrypted=="")throw new InvalidOperationException("尚未配置 API Key");
@@ -41,6 +53,9 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
         catch(CryptographicException){throw new InvalidOperationException("AI 密钥无法解密，请检查 SESSION_SECRET");}
         return Encoding.UTF8.GetString(plain);
     }
+    /// <summary>
+    /// 判断当前生成阶段是否支持自动生成。
+    /// </summary>
     public async Task<bool> Enabled(string stage) =>
         await store.Read(s=>ProviderOf(s,stage)!=null) || cfg.AiWorkerUrl.Length>0;
     public void Dispatch(JsonObject work,string stage)
@@ -74,6 +89,9 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
         var trimmed=message.Replace('\r',' ').Replace('\n',' ');
         return trimmed.Length>200 ? trimmed[..200] : trimmed;
     }
+    /// <summary>
+    /// 按作品配置执行图像或模型生成。
+    /// </summary>
     public async Task Generate(JsonObject work,string stage)
     {
         var pair=await store.Read(s=> (Provider:ProviderOf(s,stage),Prompt:PromptOf(s,stage)));
@@ -189,6 +207,9 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
         try{return JsonNode.Parse(raw) as JsonObject;}
         catch{return null;}
     }
+    /// <summary>
+    /// 执行ResultPath操作。
+    /// </summary>
     public string ResultPath(string file) => media.Absolute(file);
     public async Task<string> Download(string url,bool image)
     {

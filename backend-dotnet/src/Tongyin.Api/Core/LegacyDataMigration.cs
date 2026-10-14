@@ -3,9 +3,7 @@ using System.Text.Json.Nodes;
 namespace Tongyin.Api.Core;
 
 /// <summary>
-/// Matches the two non-destructive startup repairs performed by Go main():
-/// users owned by existing works/orders and legacy GLBs awaiting static previews.
-/// Safe to re-run; do not create duplicate owners or mutate current jobs.
+/// 根据 Go 旧数据恢复缺失客户记录与已经上传的三维模型状态；可重复执行。
 /// </summary>
 public static class LegacyDataMigration
 {

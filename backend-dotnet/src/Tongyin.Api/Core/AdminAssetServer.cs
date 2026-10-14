@@ -3,23 +3,24 @@ using Microsoft.AspNetCore.StaticFiles;
 namespace Tongyin.Api.Core;
 
 /// <summary>
-/// Serves the exact existing Go admin UI and Three.js files from either
-/// build/publish output or their repository source directories. No frontend
-/// rebuild and no dependency on the ASP.NET Core test host's content root.
+/// 提供管理后台静态文件及三维模型预览资源，并防止越权目录访问。
 /// </summary>
 public sealed class AdminAssetServer
 {
-    private readonly string[] roots;
-    private readonly FileExtensionContentTypeProvider mime = new();
+    private readonly string[] _roots;
+    private readonly FileExtensionContentTypeProvider _mime = new();
 
     private AdminAssetServer(string[] roots)
     {
-        this.roots = roots;
-        mime.Mappings[".mjs"] = "text/javascript";
-        mime.Mappings[".js"] = "text/javascript";
-        mime.Mappings[".glb"] = "model/gltf-binary";
+        _roots = roots;
+        _mime.Mappings[".mjs"] = "text/javascript";
+        _mime.Mappings[".js"] = "text/javascript";
+        _mime.Mappings[".glb"] = "model/gltf-binary";
     }
 
+    /// <summary>
+    /// 查找可用管理后台静态资源目录。
+    /// </summary>
     public static AdminAssetServer Discover(string contentRoot)
     {
         var roots = new List<string>();
@@ -56,6 +57,9 @@ public sealed class AdminAssetServer
         return new AdminAssetServer(roots.ToArray());
     }
 
+    /// <summary>
+    /// 验证文件路径并返回静态或签名媒体资源。
+    /// </summary>
     public IResult Serve(string? requested)
     {
         if (string.IsNullOrEmpty(requested))
@@ -69,7 +73,7 @@ public sealed class AdminAssetServer
             requested.Split('/').Any(segment => segment is "" or "." or ".."))
             return Results.NotFound();
 
-        foreach (var root in roots)
+        foreach (var root in _roots)
         {
             var full = Path.GetFullPath(Path.Combine(root, requested.Replace('/', Path.DirectorySeparatorChar)));
             var prefix = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
@@ -80,7 +84,7 @@ public sealed class AdminAssetServer
             if (!File.Exists(full))
                 continue;
 
-            if (!mime.TryGetContentType(full, out var contentType))
+            if (!_mime.TryGetContentType(full, out var contentType))
                 contentType = "application/octet-stream";
 
             return Results.File(full, contentType, enableRangeProcessing: false);

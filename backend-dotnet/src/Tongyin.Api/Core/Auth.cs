@@ -5,6 +5,9 @@ using System.Text.Json.Nodes;
 namespace Tongyin.Api.Core;
 
 // Preserve Go wire tokens and admin password hashes during migration.
+/// <summary>
+/// 兼容原 Go 服务的客户端、管理员令牌与权限校验。
+/// </summary>
 public sealed class CompatAuth(Settings cfg, IStore db)
 {
     private static string B64(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+','-').Replace('/','_');
@@ -15,6 +18,9 @@ public sealed class CompatAuth(Settings cfg, IStore db)
     }
     private byte[] Hmac(string text) => HMACSHA256.HashData(Encoding.UTF8.GetBytes(cfg.SessionSecret), Encoding.UTF8.GetBytes(text));
     private static bool SecureEqual(byte[] a, byte[] b) => a.Length == b.Length && CryptographicOperations.FixedTimeEquals(a,b);
+    /// <summary>
+    /// 按既有规则计算管理员密码摘要。
+    /// </summary>
     public static string PasswordHash(string password, string saltHex) =>
         Convert.ToHexString(Rfc2898DeriveBytes.Pbkdf2(password, Encoding.UTF8.GetBytes(saltHex), 120000, HashAlgorithmName.SHA256, 32)).ToLowerInvariant();
     public string CustomerToken(string owner)
@@ -22,11 +28,17 @@ public sealed class CompatAuth(Settings cfg, IStore db)
         var encoded = B64(Encoding.UTF8.GetBytes(owner + "|" + DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeSeconds()));
         return encoded + "." + B64(Hmac(encoded));
     }
+    /// <summary>
+    /// 生成兼容旧系统的管理员访问令牌。
+    /// </summary>
     public string AdminToken(JsonObject user)
     {
         var data = B64(Encoding.UTF8.GetBytes(Doc.Str(user,"owner")+"|"+Doc.Int(user,"version")+"|"+DateTimeOffset.UtcNow.AddHours(12).ToUnixTimeSeconds()));
         return "admin1." + data + "." + B64(Hmac("admin1."+data));
     }
+    /// <summary>
+    /// 校验客户令牌并读取用户身份。
+    /// </summary>
     public string? VerifyCustomer(HttpContext ctx)
     {
         try
@@ -59,6 +71,9 @@ public sealed class CompatAuth(Settings cfg, IStore db)
         }
         catch { return null; }
     }
+    /// <summary>
+    /// 查询或初始化当前客户身份。
+    /// </summary>
     public async Task<string?> Customer(HttpContext ctx)
     {
         var owner = VerifyCustomer(ctx);
@@ -77,6 +92,9 @@ public sealed class CompatAuth(Settings cfg, IStore db)
         else if (Doc.Bool(exists,"disabled")) return null;
         return owner;
     }
+    /// <summary>
+    /// 检查后台接口的身份和角色权限。
+    /// </summary>
     public async Task<IResult?> ProtectAdmin(HttpContext ctx, bool ownerOnly=false)
     {
         var admin = await VerifyAdmin(ctx);
@@ -88,6 +106,9 @@ public sealed class CompatAuth(Settings cfg, IStore db)
         return null;
     }
     // Go's adminAllowed() is the permission baseline for all operational roles.
+    /// <summary>
+    /// 按请求方法和路径校验管理员角色权限。
+    /// </summary>
     public static bool AllowedAdminRoute(string role, HttpRequest request)
     {
         if (role == "owner") return true;
@@ -110,6 +131,9 @@ public sealed class CompatAuth(Settings cfg, IStore db)
         }
         return false;
     }
+    /// <summary>
+    /// 检查客户端身份有效性。
+    /// </summary>
     public async Task<IResult?> ProtectCustomer(HttpContext ctx) =>
         await Customer(ctx) is null ? Results.Json(new { error="请登录或账号已停用" },statusCode:401) : null;
     public static JsonObject NewAdmin(string username, string password, string role)

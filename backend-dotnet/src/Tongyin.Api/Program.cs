@@ -97,4 +97,7 @@ app.MapControllers();
 app.Logger.LogInformation("童印 .NET 迁移验收版（API 路由已迁入，外部服务待验收）监听 {ListenUrl}", settings.ListenUrl());
 app.Run();
 
+/// <summary>
+/// 后端应用启动与依赖注入的程序入口。
+/// </summary>
 public partial class Program { }

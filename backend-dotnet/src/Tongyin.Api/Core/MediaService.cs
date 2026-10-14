@@ -3,18 +3,27 @@ using System.Text;
 
 namespace Tongyin.Api.Core;
 
+/// <summary>
+/// 媒体文件保存、签名访问与文件格式校验服务。
+/// </summary>
 public sealed class MediaService(Settings cfg)
 {
     private string Root => Path.Combine(cfg.DataDir, "media");
     private static string B64(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+','-').Replace('/','_');
     private byte[] Sign(string payload) =>
         HMACSHA256.HashData(Encoding.UTF8.GetBytes(cfg.SessionSecret), Encoding.UTF8.GetBytes(payload));
+    /// <summary>
+    /// 生成媒体文件签名访问地址。
+    /// </summary>
     public string Signed(string? name)
     {
         if (string.IsNullOrEmpty(name)) return "";
         var exp = DateTimeOffset.UtcNow.AddHours(48).ToUnixTimeSeconds().ToString();
         return cfg.PublicUrl + "/media/" + name + "?expires=" + exp + "&signature=" + B64(Sign(name + ":" + exp));
     }
+    /// <summary>
+    /// 校验请求资源的访问签名。
+    /// </summary>
     public bool Verify(string file, string? expires, string? signature)
     {
         if (string.IsNullOrEmpty(file) || file.Length > 100 || Path.GetFileName(file)!=file ||
@@ -47,6 +56,9 @@ public sealed class MediaService(Settings cfg)
         catch { File.Delete(output); throw; }
         return (name,mime);
     }
+    /// <summary>
+    /// 获取已保存媒体文件的绝对路径。
+    /// </summary>
     public string Absolute(string name) => Path.Combine(Root,name);
     public static string MediaMime(ReadOnlySpan<byte> head,bool imageOnly)
     {
@@ -56,6 +68,9 @@ public sealed class MediaService(Settings cfg)
         if (imageOnly && head.Length>=12 && head[..4].SequenceEqual("RIFF"u8) && head[8..12].SequenceEqual("WEBP"u8)) return "image/webp";
         return "";
     }
+    /// <summary>
+    /// 验证文件路径并返回静态或签名媒体资源。
+    /// </summary>
     public async Task<IResult> Serve(string file,string? exp,string? signature,CancellationToken ct=default)
     {
         if (!Verify(file,exp,signature)) return Results.NotFound();
