@@ -1,6 +1,9 @@
 using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
 using Tongyin.Api.Application;
+using Tongyin.Api.Adapters;
+using Tongyin.Application.Works;
+using Tongyin.Infrastructure.Persistence;
 
 var settings = Settings.Load();
 settings.Validate();
@@ -27,6 +30,10 @@ builder.Services.AddSingleton<AiService>();
 builder.Services.AddControllers();
 builder.Services.AddScoped<CustomerService>();
 builder.Services.AddScoped<WorkService>();
+builder.Services.AddScoped<WorkUseCases>();
+builder.Services.AddSingleton<IWorkRepository,LegacyWorkRepository>();
+builder.Services.AddSingleton<IWorkIdsAndTime,GoCompatibleIdsAndTime>();
+builder.Services.AddSingleton<IWorkGenerationGateway,AiWorkGenerationGateway>();
 builder.Services.AddScoped<OrderService>();
 builder.Services.AddScoped<AdminQueryService>();
 builder.Services.AddScoped<AdminCommandService>();
