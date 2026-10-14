@@ -1,3 +1,4 @@
+using System.Text;
 namespace Tongyin.Domain.Orders;
 
 public enum OrderStatus { AwaitingPayment, Paid, Printing, Shipped, Completed, Canceled, Unknown }
@@ -57,7 +58,7 @@ public sealed class Order
         PaymentStartedAt,CancelReason,history.ToArray());
 
     // Invariant is checked inside the atomic repository transaction.
-    public static void EnsurePlaceable(string owner,bool readyWork,bool hasActiveOrder)
+    public static void EnsurePlaceable(bool readyWork,bool hasActiveOrder)
     {
         if(!readyWork)throw new InvalidOperationException("模型尚未准备好");
         if(hasActiveOrder)throw new InvalidOperationException("该作品已有订单");

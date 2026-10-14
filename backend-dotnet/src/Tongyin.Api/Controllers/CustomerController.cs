@@ -14,5 +14,5 @@ public sealed class CustomerController(CustomerService service) : ControllerBase
     public Task<IResult> GetProfile() => service.GetProfile(HttpContext);
 
     [HttpGet("/media/{file}")]
-    public IResult ServeMedia([FromRoute] string file) => service.ServeMedia(file, HttpContext);
+    public Task<IResult> ServeMedia([FromRoute] string file) => service.ServeMedia(file, HttpContext);
 }

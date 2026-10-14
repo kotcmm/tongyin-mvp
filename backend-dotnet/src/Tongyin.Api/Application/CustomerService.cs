@@ -62,7 +62,7 @@ public sealed class CustomerService(Settings cfg, IStore store, CompatAuth auth,
             return Ok(result);
     }
 
-    public IResult ServeMedia(string file, HttpContext ctx) =>
+    public Task<IResult> ServeMedia(string file, HttpContext ctx) =>
         media.Serve(file, ctx.Request.Query["expires"], ctx.Request.Query["signature"]);
 
 }

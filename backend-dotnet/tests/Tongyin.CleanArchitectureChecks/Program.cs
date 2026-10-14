@@ -2,6 +2,8 @@ using System.Text.Json.Nodes;
 using Tongyin.Api.Core;
 using Tongyin.Application.Works;
 using Tongyin.Domain.Works;
+using Tongyin.Application.Orders;
+using Tongyin.Domain.Orders;
 using Tongyin.Infrastructure.Persistence;
 
 static void Must(bool ok,string name)
@@ -50,6 +52,30 @@ await backing.Read(s=>{
     Must(Doc.Str(s.Works[created.Id],"custom_go_field")=="keep-me","unknown field on select");
     return true;
 });
+await backing.Update(s=>{
+    s.Works[created.Id]["status"]="model_ready";
+    s.Works[created.Id]["model"]="model.glb";
+    return true;
+});
+var orderCases=new OrderUseCases(new LegacyOrderRepository(backing),new GoCompatibleOrderIdsAndTime());
+var command=new PlaceOrderCommand("u1",created.Id,"Tester Parent","13800138000","Guangzhou Tianhe district number 100",12900);
+var placed=await orderCases.PlaceAsync(command);
+Must(placed.Status==OrderStatus.AwaitingPayment && placed.Recipient.Name=="Tester Parent","order placed");
+await Expect<InvalidOperationException>(async()=>{await orderCases.PlaceAsync(command);},"duplicate open order");
+await Expect<KeyNotFoundException>(async()=>{await orderCases.CancelAsync("u2",placed.Id,"invalid owner");},"cancel cross owner");
+await backing.Update(s=>{s.Orders[placed.Id]["unknown_legacy_order_field"]="keep";return true;});
+await orderCases.CancelAsync("u1",placed.Id,"changed mind");
+await backing.Read(s=>{
+    Must(Doc.Str(s.Orders[placed.Id],"status")=="canceled","persist cancelled");
+    Must(Doc.Str(s.Orders[placed.Id],"unknown_legacy_order_field")=="keep","preserve old order keys");
+    Must(s.Audit.Values.Any(v=>Doc.Str(v,"target")==placed.Id),"audit cancellation");
+    return true;
+});
+var second=await orderCases.PlaceAsync(command);
+Must(second.Id!=placed.Id,"new order permitted after cancel");
+await backing.Update(s=>{s.Orders[second.Id]["payment_started_at"]="2026-10-14T20:00:00+08:00";return true;});
+await Expect<InvalidOperationException>(async()=>{await orderCases.CancelAsync("u1",second.Id,"too late");},"payment cancellation guard");
+await Expect<ArgumentException>(async()=>{await orderCases.PlaceAsync(command with { Name="X" });},"invalid shipping address");
 Console.WriteLine("PASS: Domain Work invariants, Application use cases, Repository adapter and Go JSON compatibility.");
 
 sealed class TestStore : IStore

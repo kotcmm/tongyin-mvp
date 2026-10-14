@@ -17,7 +17,7 @@ public sealed class LegacyOrderRepository(IStore store) : IOrderRepository
         var active=s.Orders.Values.Any(x=>
             Doc.Str(x,"owner")==state.Owner && Doc.Str(x,"work_id")==state.WorkId
             && Doc.Str(x,"status")!="canceled");
-        Order.EnsurePlaceable(state.Owner,readyWork,active);
+        Order.EnsurePlaceable(readyWork,active);
         if(s.Orders.ContainsKey(state.Id))
             throw new InvalidOperationException("订单编号重复");
         s.Orders[state.Id]=LegacyOrderDocument.ToDocument(state);
