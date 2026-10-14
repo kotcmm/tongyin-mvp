@@ -24,6 +24,7 @@ Environment.SetEnvironmentVariable("PUBLIC_URL","http://localhost:18081");
 Environment.SetEnvironmentVariable("SESSION_SECRET","dotnet-compat-tests-a-long-secret-123");
 Environment.SetEnvironmentVariable("ADMIN_BOOTSTRAP_USER","admin");
 Environment.SetEnvironmentVariable("ADMIN_BOOTSTRAP_PASSWORD","local-test-password-123456");
+Environment.SetEnvironmentVariable("AI_WEBHOOK_TOKEN","integration-webhook-secret");
 try
 {
     await using var app=new LocalApiFactory();
@@ -51,6 +52,38 @@ try
     Must(login.StatusCode==HttpStatusCode.OK,"admin login");
     var adminToken=Doc.Str(Parse(await login.Content.ReadAsStringAsync()),"token");
     Must(adminToken.StartsWith("admin1."),"legacy token contract");
+    var permissionDb=app.Services.GetRequiredService<IStore>();
+    var actorTokens=await permissionDb.Update(s=>
+    {
+        var roles=new Dictionary<string,string>();
+        foreach(var role in new[]{"service","operator","production","shipping"})
+        {
+            var person=CompatAuth.NewAdmin("role-"+role,"role-test-password-123456",role);
+            s.Admins[Doc.Str(person,"owner")]=person;
+            roles[role]=app.Services.GetRequiredService<CompatAuth>().AdminToken(person);
+        }
+        return roles;
+    });
+    foreach(var role in new[]{"service","operator","production","shipping"})
+    {
+        using var staff=app.CreateClient();
+        staff.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",actorTokens[role]);
+        var users=await staff.GetAsync("/api/admin/users");
+        Must(users.StatusCode==(role is "service" or "operator" ? HttpStatusCode.OK : HttpStatusCode.Forbidden),
+            "Go admin read permission "+role);
+        var aiConfig=await staff.GetAsync("/api/admin/ai/config");
+        Must(aiConfig.StatusCode==HttpStatusCode.Forbidden,"non-owner cannot read secrets "+role);
+        var userStatus=await staff.PostAsJsonAsync("/api/admin/users/unknown/status",new{disabled=true});
+        Must(userStatus.StatusCode==HttpStatusCode.Forbidden,"non-owner cannot disable user "+role);
+        var worksView=await staff.GetAsync("/api/admin/works");
+        Must(worksView.StatusCode==HttpStatusCode.OK,"staff works list permission "+role);
+    }
+    client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",adminToken);
+    var invalidPage=await client.GetAsync("/api/admin/search/works?page_size=999");
+    Must(invalidPage.StatusCode==HttpStatusCode.BadRequest,"Go search page-size validation");
+    var badStatus=await client.GetAsync("/api/admin/search/orders?status=made_up");
+    Must(badStatus.StatusCode==HttpStatusCode.BadRequest,"Go search status validation");
+
 
     var userLogin=await client.PostAsJsonAsync("/api/auth/wechat",new{code="DEV_LOGIN"});
     Must(userLogin.StatusCode==HttpStatusCode.OK,"wechat dev login");
@@ -75,6 +108,8 @@ try
     var original=await client.GetAsync(url.PathAndQuery);
     Must(original.StatusCode==HttpStatusCode.OK,"signed original media");
     Must((await original.Content.ReadAsByteArrayAsync()).SequenceEqual(png),"media bytes");
+    var invalidMedia=await client.GetAsync(url.AbsolutePath+"?expires=4102444800&signature=fake");
+    Must(invalidMedia.StatusCode==HttpStatusCode.NotFound,"signed media cannot be tampered with");
 
     var other=(CompatAuth)app.Services.GetRequiredService<CompatAuth>();
     client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",other.CustomerToken("another-user"));
@@ -122,6 +157,10 @@ try
     Must(cancel.StatusCode==HttpStatusCode.OK,"cancel unpaid order");
     var canceled=Parse(await cancel.Content.ReadAsStringAsync());
     Must(Doc.Str(canceled,"status")=="canceled","canceled order state");
+    var notify=await client.PostAsJsonAsync("/api/internal/ai-result",new {
+        work_id=wid,stage="image",generation_id="old-generation",urls=new[]{"https://example.com/result.png"}
+    });
+    Must(notify.StatusCode==HttpStatusCode.Unauthorized,"AI callback secret required");
 
     // Verify manager screens never expose OpenID or encrypted credentials.
     client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",adminToken);
