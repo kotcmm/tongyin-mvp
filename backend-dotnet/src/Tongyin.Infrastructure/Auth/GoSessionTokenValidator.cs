@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -9,6 +10,7 @@ namespace Tongyin.Infrastructure.Auth;
 /// </summary>
 public sealed class GoSessionTokenValidator
 {
+    private static readonly UTF8Encoding _strictUtf8 = new(false, true);
     private readonly byte[] _secret;
 
     /// <summary>
@@ -30,70 +32,80 @@ public sealed class GoSessionTokenValidator
     public bool TryValidate(string token, DateTimeOffset now, out string openId)
     {
         openId = string.Empty;
-        if (string.IsNullOrEmpty(token))
+        if (string.IsNullOrEmpty(token) || token.Split('.') is not [var payload, var signature])
         {
             return false;
         }
 
-        var dot = token.IndexOf('.');
-        if (dot <= 0 || dot != token.LastIndexOf('.') || dot == token.Length - 1)
+        if (!HasValidSignature(payload, signature)
+            || !TryParseSession(payload, out var owner, out var expiresAt)
+            || now.ToUnixTimeSeconds() > expiresAt)
         {
             return false;
         }
 
-        var encodedPayload = token[..dot];
-        if (!TryBase64UrlDecode(token[(dot + 1)..], out var signature))
+        openId = owner;
+        return true;
+    }
+
+    private bool HasValidSignature(string payload, string signature)
+    {
+        if (!TryDecodeBase64Url(signature, out var actual))
         {
             return false;
         }
 
-        var expected = HMACSHA256.HashData(_secret, Encoding.UTF8.GetBytes(encodedPayload));
-        if (!CryptographicOperations.FixedTimeEquals(expected, signature)
-            || !TryBase64UrlDecode(encodedPayload, out var payload))
+        var expected = HMACSHA256.HashData(_secret, Encoding.UTF8.GetBytes(payload));
+        return CryptographicOperations.FixedTimeEquals(expected, actual);
+    }
+
+    private static bool TryParseSession(string payload, out string owner, out long expiresAt)
+    {
+        owner = string.Empty;
+        expiresAt = 0;
+        if (!TryDecodeBase64Url(payload, out var data))
         {
             return false;
         }
 
-        string value;
+        string text;
         try
         {
-            value = new UTF8Encoding(false, true).GetString(payload);
+            text = _strictUtf8.GetString(data);
         }
         catch (DecoderFallbackException)
         {
             return false;
         }
 
-        var separator = value.IndexOf('|');
-        if (separator <= 0 || separator != value.LastIndexOf('|'))
+        var fields = text.Split('|');
+        if (fields.Length != 2 || fields[0].Length == 0
+            || !long.TryParse(fields[1], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out expiresAt))
         {
             return false;
         }
 
-        if (!long.TryParse(value[(separator + 1)..], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var expiresAt)
-            || now.ToUnixTimeSeconds() > expiresAt)
-        {
-            return false;
-        }
-
-        openId = value[..separator];
+        owner = fields[0];
         return true;
     }
 
-    private static bool TryBase64UrlDecode(string encoded, out byte[] bytes)
+    private static bool TryDecodeBase64Url(string encoded, out byte[] decoded)
     {
-        bytes = Array.Empty<byte>();
-        if (encoded.Length == 0 || encoded.Length % 4 == 1
-            || encoded.IndexOfAny(['+', '/', '=']) >= 0)
+        decoded = Array.Empty<byte>();
+        if (encoded.Length == 0 || encoded.Any(c => !(char.IsAsciiLetterOrDigit(c) || c == '-' || c == '_')))
         {
             return false;
         }
 
-        var base64 = encoded.Replace('-', '+').Replace('_', '/');
-        base64 = base64.PadRight(base64.Length + (4 - base64.Length % 4) % 4, '=');
+        var buffer = new byte[encoded.Length];
         try
         {
-            bytes = Convert.FromBase64String(base64);
+            if (!Base64Url.TryDecodeFromChars(encoded, buffer, out var length))
+            {
+                return false;
+            }
+
+            decoded = buffer[..length];
             return true;
         }
         catch (FormatException)
