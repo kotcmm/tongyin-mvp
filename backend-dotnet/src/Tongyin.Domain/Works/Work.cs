@@ -54,6 +54,11 @@ public sealed class Work
     public IReadOnlyList<string> Candidates { get; private set; } = Array.Empty<string>();
 
     /// <summary>
+    /// 已生成的三维模型 GLB 文件存储路径，未生成时为空。
+    /// </summary>
+    public string Model { get; private set; } = string.Empty;
+
+    /// <summary>
     /// 模型预览图路径。
     /// </summary>
     public IReadOnlyList<string> Preview { get; } = Array.Empty<string>();
@@ -130,6 +135,25 @@ public sealed class Work
 
         Selected = index;
         Status = WorkStatus.ModelPending;
+    }
+
+    /// <summary>
+    /// 当前三维模型生成任务完成后保存 GLB 文件路径，并进入模型就绪状态。
+    /// </summary>
+    public void CompleteModelGeneration(string generationId, string modelPath)
+    {
+        if (Status != WorkStatus.ModelPending || GenerationId.Length == 0 || GenerationId != generationId)
+        {
+            throw new InvalidOperationException("模型生成任务已失效，无法保存结果");
+        }
+
+        if (string.IsNullOrEmpty(modelPath))
+        {
+            throw new ArgumentException("模型文件路径不能为空", nameof(modelPath));
+        }
+
+        Model = modelPath;
+        Status = WorkStatus.ModelReady;
     }
 
     /// <summary>
