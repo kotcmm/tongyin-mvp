@@ -11,6 +11,8 @@ namespace Tongyin.Infrastructure.Media;
 public sealed class LocalMediaStore
 {
     private const long MaxImageBytes = 10L << 20;
+    private static readonly byte[] _pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+    private static readonly byte[] _jpegSignature = [0xFF, 0xD8, 0xFF];
     private readonly string _directory;
     private readonly string _publicUrl;
     private readonly byte[] _secret;
@@ -122,12 +124,12 @@ public sealed class LocalMediaStore
 
     private static string? DetectImageExtension(ReadOnlySpan<byte> header)
     {
-        if (header.StartsWith([137, 80, 78, 71, 13, 10, 26, 10]))
+        if (header.StartsWith(_pngSignature))
         {
             return ".png";
         }
 
-        if (header.StartsWith([0xFF, 0xD8, 0xFF]))
+        if (header.StartsWith(_jpegSignature))
         {
             return ".jpg";
         }
