@@ -39,17 +39,21 @@ public sealed class WorksController : ControllerBase
     [HttpPost]
     [RequestSizeLimit(MaxRequestBytes)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxRequestBytes)]
-    public async Task<ActionResult<WorkResponse>> CreateAsync(CancellationToken cancellationToken)
+    public async Task<ActionResult<WorkResponse>> CreateAsync([FromForm] IFormFile? file, CancellationToken cancellationToken)
     {
-        var (file, error) = await ReadUploadAsync(cancellationToken);
-        if (error is not null)
+        if (file is null || file.Length == 0)
         {
-            return error;
+            return BadRequest(new { error = "未找到上传文件或上传文件为空" });
+        }
+
+        if (file.Length > OriginalImageLimits.MaxBytes)
+        {
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "图片最多 10 MiB" });
         }
 
         try
         {
-            await using var image = file!.OpenReadStream();
+            await using var image = file.OpenReadStream();
             var owner = User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
             var work = await _createWork.ExecuteFromImageAsync(owner, image, file.Length, cancellationToken);
             return StatusCode(StatusCodes.Status201Created, WorkResponse.FromCreated(work, _media.SignUrl(work.Original)));
@@ -80,44 +84,5 @@ public sealed class WorksController : ControllerBase
         return Ok(works.Select(work => WorkResponse.FromSnapshot(work, _media.SignUrl)).ToArray());
     }
 
-    private async Task<(IFormFile? File, ObjectResult? Error)> ReadUploadAsync(CancellationToken cancellationToken)
-    {
-        if (Request.ContentLength > MaxRequestBytes)
-        {
-            return (null, StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "上传文件超过允许大小" }));
-        }
 
-        if (!Request.HasFormContentType)
-        {
-            return (null, BadRequest(new { error = "需要上传图片" }));
-        }
-
-        IFormCollection form;
-        try
-        {
-            form = await Request.ReadFormAsync(cancellationToken);
-        }
-        catch (BadHttpRequestException exception)
-        {
-            var status = exception.StatusCode == 413 ? 413 : 400;
-            return (null, StatusCode(status, new { error = "解析上传请求失败" }));
-        }
-        catch (InvalidDataException)
-        {
-            return (null, BadRequest(new { error = "解析上传请求失败" }));
-        }
-
-        var file = form.Files.GetFile("file");
-        if (file is null || file.Length == 0)
-        {
-            return (null, BadRequest(new { error = "未找到上传文件或上传文件为空" }));
-        }
-
-        if (file.Length > OriginalImageLimits.MaxBytes)
-        {
-            return (null, StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "图片最多 10 MiB" }));
-        }
-
-        return (file, null);
-    }
 }

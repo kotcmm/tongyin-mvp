@@ -50,7 +50,7 @@ Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.
 
 API 层代码分类：`Controllers/` 放置业务控制器，不为微信用户额外创建 `Customer` 目录；`ViewModels/Works/WorkResponse.cs` 放置面向小程序的响应 DTO（数据传输对象），避免将响应模型与领域实体混放；`Auth/WechatAuthorizeAttribute.cs` 封装微信登录的授权特性。将来管理员可以拥有独立 `[AdminAuthorize]` 和认证方案，但此阶段不预先实现。
 
-现有 HTTP API 统一采用 ASP.NET Core Web API Controller，`Program.cs` 用 `AddControllers()` 和 `MapControllers()` 注册。微信小程序作品接口由 `Controllers/WorksController.cs` 提供，通过 `[WechatAuthorize]` 复用专属认证授权；`Controllers/MediaController.cs` 仅验证媒体 URL 的签名，不强制微信登录。各操作使用 ControllerBase 的 `User`、`Request` 和 `Response` 属性、构造函数依赖注入及取消令牌参数。上传动作保留明确的 multipart 格式解析，用于维持旧接口 400/413 的错误语义；其它查询动作直接使用模型绑定和标准 `ActionResult<T>`。今后后台登录应采用独立的 Admin 认证方案及授权策略。
+现有 HTTP API 统一采用 ASP.NET Core Web API Controller，`Program.cs` 用 `AddControllers()` 和 `MapControllers()` 注册。微信小程序作品接口由 `Controllers/WorksController.cs` 提供，通过 `[WechatAuthorize]` 复用专属认证授权；`Controllers/MediaController.cs` 仅验证媒体 URL 的签名，不强制微信登录。各操作使用 ControllerBase 的 `User`、`Request` 和 `Response` 属性、构造函数依赖注入及取消令牌参数。上传动作通过 `[FromForm] IFormFile? file` 由 MVC 自动绑定文件；Controller 不再手工调用 `Request.ReadFormAsync()`。它只检查空文件和 10 MiB 业务限额，其他格式识别与持久化交给应用服务。保留 `[RequestSizeLimit]` / `[RequestFormLimits]` 约束 HTTP 请求；为维持旧小程序对非 multipart 的 HTTP 400（而非 MVC 默认的 415），配置 `SuppressConsumesConstraintForFormFileParameters = true`。文件解析错误在模型绑定阶段由 MVC 处理，可能返回框架标准错误体；查询动作继续使用模型绑定和 `ActionResult<T>`。今后后台登录应采用独立的 Admin 认证方案及授权策略。
 
 ## HTTP 创建作品与原画访问
 

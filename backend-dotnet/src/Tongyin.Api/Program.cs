@@ -10,7 +10,12 @@ using Tongyin.Infrastructure.Media;
 using Tongyin.Infrastructure.Works;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // 旧小程序对错误 Content-Type 预期返回 400，而不是 MVC 推断的 415。
+        options.SuppressConsumesConstraintForFormFileParameters = true;
+    });
 
 builder.Services.AddSingleton<Func<DbConnection>>(services =>
 {
