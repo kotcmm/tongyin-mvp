@@ -67,6 +67,11 @@ class ArchitectureSkeletonTests(unittest.TestCase):
         self.assertNotIn("[Authorize(Policy =", works)
         self.assertIn("[HttpPost]", works)
         self.assertIn("[HttpGet]", works)
+        self.assertIn("[FromForm] IFormFile? file", works)
+        self.assertNotIn("ReadUploadAsync", works)
+        self.assertNotIn("Request.", works)
+        self.assertNotIn("IFormCollection", works)
+        self.assertNotIn("ReadFormAsync", works)
         self.assertNotIn("HttpContext context", works)
         self.assertNotIn("TryValidate(", works)
 

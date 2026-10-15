@@ -171,6 +171,22 @@ public sealed class CreateWorkEndpointTests
     }
 
     /// <summary>
+    /// 空文件被绑定到 IFormFile 后也不能创建作品。
+    /// </summary>
+    [Fact]
+    public async Task PostWork_EmptyImage_ReturnsBadRequest()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        using var client = app.CreateClient();
+
+        using var response = await client.SendAsync(Upload("openid-001", Array.Empty<byte>(), "drawing.png"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(0, app.WorkCount());
+    }
+
+    /// <summary>
     /// 已停用的微信账号，即使令牌签名合法，也不得创建作品。
     /// </summary>
     [Fact]
