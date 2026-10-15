@@ -40,9 +40,21 @@ class ArchitectureSkeletonTests(unittest.TestCase):
         api = ROOT / "src/Tongyin.Api"
         self.assertTrue((api / "Program.cs").is_file())
         sources = {p.name for p in api.rglob("*.cs") if not set(p.parts).intersection({"obj", "bin"})}
-        self.assertEqual({"Program.cs", "WorkEndpoints.cs"}, sources)
+        self.assertEqual({
+            "Program.cs",
+            "WorkEndpoints.cs",
+            "WechatSessionAuthenticationHandler.cs",
+            "EnabledWechatUserAuthorizationHandler.cs",
+            "EnabledWechatUserRequirement.cs",
+        }, sources)
         source = (api / "WorkEndpoints.cs").read_text(encoding="utf-8")
         self.assertIn('MapPost("/api/works"', source)
+        self.assertIn('.RequireAuthorization("EnabledWechatUser")', source)
+        self.assertNotIn("Headers.Authorization", source)
+        self.assertNotIn("TryValidate(", source)
+        program = (api / "Program.cs").read_text(encoding="utf-8")
+        self.assertIn("UseAuthentication()", program)
+        self.assertIn("UseAuthorization()", program)
         self.assertNotIn("MapControllers", source)
         self.assertNotIn('MapPost("/api/works/{id}/generate"', source)
 

@@ -72,6 +72,41 @@ public sealed class CreateWorkEndpointTests
     }
 
     /// <summary>
+    /// 无效的 Bearer 令牌应由统一身份认证流程拒绝，不能创建作品。
+    /// </summary>
+    [Fact]
+    public async Task PostWork_InvalidToken_RejectsWithoutSaving()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        using var client = app.CreateClient();
+        using var request = Upload("openid-001", Image(), "drawing.png");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "invalid-token");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(0, app.WorkCount());
+    }
+
+    /// <summary>
+    /// 签名正确但已过期的会话令牌应由统一身份认证流程拒绝。
+    /// </summary>
+    [Fact]
+    public async Task PostWork_ExpiredToken_RejectsWithoutSaving()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        using var client = app.CreateClient();
+        using var request = Upload("openid-001", Image(), "drawing.png", DateTimeOffset.UtcNow.AddHours(-1).ToUnixTimeSeconds());
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(0, app.WorkCount());
+    }
+
+    /// <summary>
     /// 已停用的微信账号，即使令牌签名合法，也不得创建作品。
     /// </summary>
     [Fact]
@@ -174,14 +209,14 @@ public sealed class CreateWorkEndpointTests
     private static readonly byte[] _image = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0];
     private static byte[] Image() => _image;
 
-    private static HttpRequestMessage Upload(string owner, byte[] bytes, string filename)
+    private static HttpRequestMessage Upload(string owner, byte[] bytes, string filename, long? expiresAt = null)
     {
         using var file = new ByteArrayContent(bytes);
         file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         var content = new MultipartFormDataContent();
         content.Add(new ByteArrayContent(bytes), "file", filename);
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/works") { Content = content };
-        var exp = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
+        var exp = expiresAt ?? DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
         var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{owner}|{exp}")).TrimEnd('=').Replace('+', '-').Replace('/', '_');
         var sig = HMACSHA256.HashData(Encoding.UTF8.GetBytes(WorkApiFactory.Secret), Encoding.UTF8.GetBytes(payload));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", payload + "." + Convert.ToBase64String(sig).TrimEnd('=').Replace('+', '-').Replace('/', '_'));
