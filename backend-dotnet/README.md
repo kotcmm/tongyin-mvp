@@ -24,8 +24,7 @@
 
 模型生成失败时调用 `FailModelGeneration(generationId, errorMessage)`：仅当前 `ModelPending` 任务可进入 `Failed` 并记录 `Note`；保留原先确认的单张图片和 `Selected`，拒绝旧任务、重复或迟到失败回调。该阶段暂未实现模型重试入口。
 
-上述初始行为来自原 Go 后端 `backend/work_handlers.go` 的 `createWork`，
-其他业务（上传文件、生成任务、持久化、接口、支付等）尚未迁移。
+上述初始行为来自原 Go 后端 `backend/work_handlers.go` 的 `createWork`；目前已迁移原画上传、作品创建和 SQL 持久化，后续图片生成任务、模型业务、支付等尚未迁移。
 
 ## Application 层第一个用例
 
@@ -37,7 +36,7 @@
 
 它写入 Go 后端使用的 `ty_works(id, owner_id, created_at, payload)`，`payload` 保留旧版 JSON 字段名（如 `image_pending`、`image_attempts`），而 Domain 内部继续使用 `WorkStatus` 枚举。表结构由现有数据库管理，适配器不会自动建表，也不会修改旧服务。
 
-基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键、缺表错误和特殊字符的参数化保存。Dapper 使用 `@参数` 绑定；外围连接工厂可提供 PostgreSQL 或 MySQL 驱动。目前尚未接入 API 入口、数据库连接配置或生产环境，也尚未验证与 Go 服务并发写入的行为。
+基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键、缺表错误和特殊字符的参数化保存。Dapper 使用 `@参数` 绑定；通过 API 组合根接入 PostgreSQL 或 MySQL 连接工厂。尚未接入生产环境，也尚未验证与 Go 服务并发写入的行为。
 
 ## 现有小程序登录态兼容
 
@@ -49,7 +48,7 @@ Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.
 
 ## HTTP 创建作品与原画访问
 
-`POST /api/works` 接收微信小程序原有 `Authorization: Bearer` 会话令牌及 `multipart/form-data` 的 `file` 原画字段。服务通过 ASP.NET Core Authentication/Authorization 管线验证旧版 Go HMAC 会话，再以微信客户专用策略 `AuthorizationPolicies.Customer` 查询 `ty_users` 拒绝停用或缺失用户；`CreateAsync` 仅从 `HttpContext.User` 读取当前 OpenID，限制原画 10 MiB、接受 JPG/PNG/WebP 文件头。原画保存到 `DATA_DIR/media` 后调用 `CreateWork` 写入 `ty_works`，出错时清理已上传文件；响应为 201，保留旧小程序的 JSON 字段，且不返回用户 OpenID。原画通过带 48 小时签名的 `GET /media/{file}` 地址访问。
+`POST /api/works` 接收微信小程序原有 `Authorization: Bearer` 会话令牌及 `multipart/form-data` 的 `file` 原画字段。服务通过 ASP.NET Core Authentication/Authorization 管线验证旧版 Go HMAC 会话，再以微信客户专用策略 `AuthorizationPolicies.Customer` 查询 `ty_users` 拒绝停用或缺失用户；`CreateAsync` 仅从 `HttpContext.User` 读取当前 OpenID，限制原画 10 MiB、接受 JPG/PNG/WebP 文件头。API 将原画流交给 `CreateWork.ExecuteFromImageAsync`，由应用用例协调 `DATA_DIR/media` 文件保存和 `ty_works` 持久化，只有作品保存失败才回收原画；响应为 201，保留旧小程序的 JSON 字段，且不返回用户 OpenID。原画通过带 48 小时签名的 `GET /media/{file}` 地址访问。
 
 启动需要显式配置 `SESSION_SECRET`（至少 24 位）、`DB_CONNECTION_STRING`，以及 `DB_DRIVER=postgres|mysql`。数据库连接字符串采用 .NET ADO.NET 驱动格式，不能直接使用 Go `DATABASE_URL` 的 URL/DSN。示例：
 
