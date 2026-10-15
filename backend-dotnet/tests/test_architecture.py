@@ -35,6 +35,14 @@ class ArchitectureSkeletonTests(unittest.TestCase):
                 }
                 self.assertEqual(refs, should_reference)
 
+    def test_works_controller_uses_primary_constructor_instead_of_duplicate_fields(self):
+        """作品控制器的注入依赖由主构造函数声明，业务响应行为保持不变。"""
+        works = (ROOT / "src/Tongyin.Api/Controllers/WorksController.cs").read_text(encoding="utf-8")
+        self.assertIn("public sealed class WorksController(CreateWork createWork, ListWorks listWorks, LocalMediaStore media, ILogger<WorksController> logger) : ControllerBase", works)
+        self.assertNotIn("public WorksController(", works)
+        for field in ("_createWork", "_listWorks", "_media", "_logger"):
+            self.assertNotIn(field, works)
+
     def test_existing_http_routes_use_controllers(self):
         """现有作品及媒体接口统一采用 ASP.NET Core Controller 路由，禁止旧 Minimal API 并存。"""
         api = ROOT / "src/Tongyin.Api"
