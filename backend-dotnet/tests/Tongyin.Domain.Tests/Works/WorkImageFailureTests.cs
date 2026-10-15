@@ -19,7 +19,7 @@ public sealed class WorkImageFailureTests
 
         work.FailImageGeneration("generation-001", "上游生成失败");
 
-        Assert.Equal("failed", work.Status);
+        Assert.Equal(WorkStatus.Failed, work.Status);
         Assert.Equal("上游生成失败", work.Note);
         Assert.Equal(1, work.ImageAttempts);
     }
@@ -35,7 +35,7 @@ public sealed class WorkImageFailureTests
 
         Assert.Throws<InvalidOperationException>(() => work.FailImageGeneration("generation-old", "旧任务失败"));
 
-        Assert.Equal("image_pending", work.Status);
+        Assert.Equal(WorkStatus.ImagePending, work.Status);
         Assert.Equal(string.Empty, work.Note);
         Assert.Equal("generation-new", work.GenerationId);
     }
@@ -52,7 +52,7 @@ public sealed class WorkImageFailureTests
 
         Assert.Throws<InvalidOperationException>(() => work.FailImageGeneration("generation-001", "迟到的失败消息"));
 
-        Assert.Equal("image_ready", work.Status);
+        Assert.Equal(WorkStatus.ImageReady, work.Status);
         Assert.Equal("result.png", Assert.Single(work.Candidates));
     }
 
@@ -81,7 +81,7 @@ public sealed class WorkImageFailureTests
 
         Assert.Throws<InvalidOperationException>(() => work.FailImageGeneration("", "未发起的任务"));
 
-        Assert.Equal("image_pending", work.Status);
+        Assert.Equal(WorkStatus.ImagePending, work.Status);
         Assert.Equal(0, work.ImageAttempts);
     }
 
@@ -97,7 +97,7 @@ public sealed class WorkImageFailureTests
 
         work.RequestImageGeneration("generation-002", 2);
 
-        Assert.Equal("image_pending", work.Status);
+        Assert.Equal(WorkStatus.ImagePending, work.Status);
         Assert.Equal("generation-002", work.GenerationId);
         Assert.Equal(2, work.ImageAttempts);
         Assert.Equal(string.Empty, work.Note);
@@ -116,7 +116,7 @@ public sealed class WorkImageFailureTests
 
         Assert.Throws<InvalidOperationException>(() => work.RequestImageGeneration("generation-002", 1));
 
-        Assert.Equal("failed", work.Status);
+        Assert.Equal(WorkStatus.Failed, work.Status);
         Assert.Equal("generation-001", work.GenerationId);
         Assert.Equal("上游异常", work.Note);
         Assert.Equal(1, work.ImageAttempts);

@@ -32,7 +32,9 @@ public sealed class WorkCreationTests
     {
         var work = Work.Create("work-001", "openid-001", DateTimeOffset.UtcNow, "media/drawing.png");
 
-        Assert.Equal("image_pending", work.Status);
+        WorkStatus status = work.Status;
+
+        Assert.Equal(WorkStatus.ImagePending, status);
     }
 
     /// <summary>

@@ -18,7 +18,7 @@ public sealed class WorkImageGenerationTests
 
         work.RequestImageGeneration("generation-001");
 
-        Assert.Equal("image_pending", work.Status);
+        Assert.Equal(WorkStatus.ImagePending, work.Status);
         Assert.Equal(1, work.ImageAttempts);
         Assert.Equal("generation-001", work.GenerationId);
     }

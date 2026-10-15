@@ -19,7 +19,7 @@ public sealed class WorkImageCompletionTests
 
         work.CompleteImageGeneration("generation-001", "media/generated.png");
 
-        Assert.Equal("image_ready", work.Status);
+        Assert.Equal(WorkStatus.ImageReady, work.Status);
         Assert.Equal("media/generated.png", Assert.Single(work.Candidates));
         Assert.Equal(1, work.ImageAttempts);
     }
@@ -35,7 +35,7 @@ public sealed class WorkImageCompletionTests
 
         Assert.Throws<InvalidOperationException>(() => work.CompleteImageGeneration("generation-old", "media/old.png"));
 
-        Assert.Equal("image_pending", work.Status);
+        Assert.Equal(WorkStatus.ImagePending, work.Status);
         Assert.Empty(work.Candidates);
         Assert.Equal("generation-new", work.GenerationId);
     }
@@ -52,7 +52,7 @@ public sealed class WorkImageCompletionTests
 
         Assert.Throws<InvalidOperationException>(() => work.CompleteImageGeneration("generation-001", "media/duplicate.png"));
 
-        Assert.Equal("image_ready", work.Status);
+        Assert.Equal(WorkStatus.ImageReady, work.Status);
         Assert.Equal("media/first.png", Assert.Single(work.Candidates));
     }
 
@@ -66,7 +66,7 @@ public sealed class WorkImageCompletionTests
 
         Assert.Throws<InvalidOperationException>(() => work.CompleteImageGeneration("", "media/unsolicited.png"));
 
-        Assert.Equal("image_pending", work.Status);
+        Assert.Equal(WorkStatus.ImagePending, work.Status);
         Assert.Empty(work.Candidates);
     }
 }
