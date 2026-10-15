@@ -25,14 +25,14 @@ public sealed class SeedreamImageGeneratorTests
     [Fact]
     public async Task GenerateAsync_Png_SendsGoCompatibleBodyAndReturnsSingleUrl()
     {
-        var handler = new StubHandler(async (request, _) =>
+        var handler = new StubHandler(async (request, cancellationToken) =>
         {
             Assert.Equal(HttpMethod.Post, request.Method);
             Assert.Equal(OfficialEndpoint, request.RequestUri?.ToString());
             Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
             Assert.Equal(ApiKey, request.Headers.Authorization?.Parameter);
             Assert.Equal("application/json", request.Content?.Headers.ContentType?.MediaType);
-            using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
             var body = json.RootElement;
             Assert.Equal("seedream-test-v1", body.GetProperty("model").GetString());
             Assert.Equal("保留原画主体", body.GetProperty("prompt").GetString());
