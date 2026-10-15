@@ -4,9 +4,11 @@ using Microsoft.AspNetCore.Authorization;
 using Tongyin.Api.Auth;
 using MySqlConnector;
 using Npgsql;
+using Tongyin.Application.Ai;
 using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Auth;
 using Tongyin.Infrastructure.Media;
+using Tongyin.Infrastructure.Ai;
 using Tongyin.Infrastructure.Works;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,6 +46,7 @@ builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<ListWorks>();
 builder.Services.AddScoped<GetWork>();
+builder.Services.AddScoped<IAiGenerationSettingsReader, SqlAiGenerationSettingsReader>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
