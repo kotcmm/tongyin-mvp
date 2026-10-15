@@ -32,6 +32,9 @@ public sealed class ListWorksTests
         public Task AddAsync(Work work, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<WorkSnapshot?> GetByIdForOwnerAsync(string id, string owner, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("列表用例测试不读取详情");
+
         public Task<IReadOnlyList<WorkSnapshot>> ListByOwnerAsync(string owner, CancellationToken cancellationToken = default)
         {
             RequestedOwner = owner;

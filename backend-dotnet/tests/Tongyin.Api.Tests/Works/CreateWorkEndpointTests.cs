@@ -433,8 +433,128 @@ public sealed class CreateWorkEndpointTests
         Assert.IsType<WechatAuthorizeAttribute>(attributes[0]);
     }
 
+    /// <summary>
+    /// 查询本人作品详情时必须保留模型状态，并重新签发原画、候选图、预览和 GLB 地址。
+    /// </summary>
+    [Fact]
+    public async Task GetWork_OwnWork_ReturnsSignedDetail()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        app.SeedWork("work-001", "openid-001", new
+        {
+            id = "work-001",
+            created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png",
+            candidates = new[] { "cartoon.png" },
+            selected = 0,
+            preview = new[] { "angle.png" },
+            model = "figure.glb",
+            status = "model_ready",
+            image_attempts = 2,
+            generation_id = "job-001",
+            note = "已完成"
+        });
+        using var client = app.CreateClient();
+        using var request = WorkDetailRequest("openid-001", "work-001");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var work = json.RootElement;
+        Assert.Equal(JsonValueKind.Object, work.ValueKind);
+        Assert.Equal("work-001", work.GetProperty("id").GetString());
+        Assert.Equal("model_ready", work.GetProperty("status").GetString());
+        Assert.Equal(2, work.GetProperty("image_attempts").GetInt32());
+        Assert.Equal("job-001", work.GetProperty("generation_id").GetString());
+        Assert.False(work.TryGetProperty("owner", out _));
+        Assert.Contains("/media/drawing.png?expires=", work.GetProperty("original").GetString()!);
+        Assert.Contains("/media/cartoon.png?expires=", Assert.Single(work.GetProperty("candidates").EnumerateArray()).GetString()!);
+        Assert.Contains("/media/angle.png?expires=", Assert.Single(work.GetProperty("preview").EnumerateArray()).GetString()!);
+        Assert.Contains("/media/figure.glb?expires=", work.GetProperty("model").GetString()!);
+    }
+
+    /// <summary>
+    /// 作品存在但不属于当前微信用户时，与作品不存在统一返回 404，不泄露作品是否存在。
+    /// </summary>
+    [Fact]
+    public async Task GetWork_OtherOwner_ReturnsNotFound()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-002", disabled: false);
+        app.SeedWork("work-001", "openid-001", new { id = "work-001", original = "private.png", status = "image_pending" });
+        using var client = app.CreateClient();
+        using var request = WorkDetailRequest("openid-002", "work-001");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("作品不存在", json.RootElement.GetProperty("error").GetString());
+        Assert.DoesNotContain("private.png", await response.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>
+    /// 不存在的作品 ID 使用旧 Go API 的 404 JSON 响应。
+    /// </summary>
+    [Fact]
+    public async Task GetWork_MissingId_ReturnsNotFound()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        using var client = app.CreateClient();
+        using var request = WorkDetailRequest("openid-001", "missing");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("作品不存在", json.RootElement.GetProperty("error").GetString());
+    }
+
+    /// <summary>
+    /// 匿名请求不得查询作品详情。
+    /// </summary>
+    [Fact]
+    public async Task GetWork_Anonymous_ReturnsUnauthorized()
+    {
+        using var app = new WorkApiFactory();
+        using var client = app.CreateClient();
+
+        using var response = await client.GetAsync("/api/works/work-001");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// 账号停用后不能读取作品详情。
+    /// </summary>
+    [Fact]
+    public async Task GetWork_DisabledOwner_ReturnsForbidden()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: true);
+        using var client = app.CreateClient();
+        using var request = WorkDetailRequest("openid-001", "work-001");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private static readonly byte[] _image = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0];
     private static byte[] Image() => _image;
+
+    private static HttpRequestMessage WorkDetailRequest(string owner, string id)
+    {
+        var request = Upload(owner, Image(), "drawing.png");
+        request.Method = HttpMethod.Get;
+        request.RequestUri = new Uri($"/api/works/{id}", UriKind.Relative);
+        request.Content?.Dispose();
+        request.Content = null;
+        return request;
+    }
 
     private static HttpRequestMessage ListRequest(string owner)
     {

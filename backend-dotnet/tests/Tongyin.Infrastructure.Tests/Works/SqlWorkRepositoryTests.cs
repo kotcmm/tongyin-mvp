@@ -158,6 +158,71 @@ public sealed class SqlWorkRepositoryTests
         Assert.Empty(works);
     }
 
+    /// <summary>
+    /// 按作品 ID 和 OpenID 双重筛选，返回现有 Go JSON 中的状态和模型文件名。
+    /// </summary>
+    [Fact]
+    public async Task GetByIdForOwnerAsync_OwnWork_RestoresSnapshot()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        using (var connection = db.CreateConnection())
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO ty_works (id,owner_id,created_at,payload) VALUES (@Id,@Owner,@CreatedAt,@Payload)",
+                new { Id = "work-001", Owner = "openid-001", CreatedAt = "2026-10-15T10:00:00+08:00",
+                    Payload = JsonSerializer.Serialize(new
+                    {
+                        id = "work-001", created_at = "2026-10-15T10:00:00+08:00",
+                        original = "drawing.png", status = "model_ready",
+                        model = "figure.glb", image_attempts = 2, generation_id = "job-001"
+                    }) }));
+        }
+
+        var work = await new SqlWorkRepository(db.CreateConnection).GetByIdForOwnerAsync("work-001", "openid-001");
+
+        Assert.NotNull(work);
+        Assert.Equal("work-001", work.Id);
+        Assert.Equal("model_ready", work.Status);
+        Assert.Equal("figure.glb", work.Model);
+        Assert.Equal(2, work.ImageAttempts);
+        Assert.Equal("job-001", work.GenerationId);
+    }
+
+    /// <summary>
+    /// 即使 ID 存在，其他微信用户也不能查询作品详情。
+    /// </summary>
+    [Fact]
+    public async Task GetByIdForOwnerAsync_ForeignOwner_ReturnsNull()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        using (var connection = db.CreateConnection())
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO ty_works (id,owner_id,created_at,payload) VALUES (@Id,@Owner,@CreatedAt,@Payload)",
+                new { Id = "work-001", Owner = "openid-001", CreatedAt = "2026-10-15T10:00:00+08:00",
+                    Payload = JsonSerializer.Serialize(new { id = "work-001", original = "private.png" }) }));
+        }
+
+        var work = await new SqlWorkRepository(db.CreateConnection).GetByIdForOwnerAsync("work-001", "openid-002");
+
+        Assert.Null(work);
+    }
+
+    /// <summary>
+    /// 查询不存在的 ID 返回空值。
+    /// </summary>
+    [Fact]
+    public async Task GetByIdForOwnerAsync_MissingWork_ReturnsNull()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+
+        var work = await new SqlWorkRepository(db.CreateConnection).GetByIdForOwnerAsync("missing", "openid-001");
+
+        Assert.Null(work);
+    }
+
     private sealed class UnusedImageStore : IOriginalImageStore
     {
         public Task<string> SaveImageAsync(Stream image, long length, CancellationToken cancellationToken = default)

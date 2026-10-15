@@ -131,6 +131,9 @@ public sealed class CreateWorkTests
         public Work? SavedWork { get; private set; }
 
 
+        public Task<WorkSnapshot?> GetByIdForOwnerAsync(string id, string owner, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("创建用例测试不读取作品详情");
+
         public Task<IReadOnlyList<WorkSnapshot>> ListByOwnerAsync(string owner, CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException("创建用例测试不读取作品列表");
@@ -144,6 +147,9 @@ public sealed class CreateWorkTests
 
     private sealed class FailingWorkRepository : IWorkRepository
     {
+
+        public Task<WorkSnapshot?> GetByIdForOwnerAsync(string id, string owner, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("创建用例测试不读取作品详情");
 
         public Task<IReadOnlyList<WorkSnapshot>> ListByOwnerAsync(string owner, CancellationToken cancellationToken = default)
         {
