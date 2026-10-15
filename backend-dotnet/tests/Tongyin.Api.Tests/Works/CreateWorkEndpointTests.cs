@@ -134,6 +134,42 @@ public sealed class CreateWorkEndpointTests
     }
 
     /// <summary>
+    /// 非 multipart 请求应保持旧版 API 的 400 错误，而不是在模型绑定阶段变成 415。
+    /// </summary>
+    [Fact]
+    public async Task PostWork_NonMultipartBody_ReturnsBadRequest()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        using var client = app.CreateClient();
+        using var request = Upload("openid-001", Image(), "drawing.png");
+        request.Content = new StringContent("not multipart");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(0, app.WorkCount());
+    }
+
+    /// <summary>
+    /// multipart 表单缺少 file 字段时仍然返回 400，不能创建空作品。
+    /// </summary>
+    [Fact]
+    public async Task PostWork_NoFile_ReturnsBadRequest()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        using var client = app.CreateClient();
+        using var request = Upload("openid-001", Image(), "drawing.png");
+        request.Content = new MultipartFormDataContent();
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(0, app.WorkCount());
+    }
+
+    /// <summary>
     /// 已停用的微信账号，即使令牌签名合法，也不得创建作品。
     /// </summary>
     [Fact]

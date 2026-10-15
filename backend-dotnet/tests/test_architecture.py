@@ -35,36 +35,43 @@ class ArchitectureSkeletonTests(unittest.TestCase):
                 }
                 self.assertEqual(refs, should_reference)
 
-    def test_api_only_exposes_current_work_creation_boundary(self):
-        """API 只能装配当前已经迁移的作品创建入口。"""
+    def test_existing_http_routes_use_controllers(self):
+        """现有作品及媒体接口统一采用 ASP.NET Core Controller 路由，禁止旧 Minimal API 并存。"""
         api = ROOT / "src/Tongyin.Api"
-        self.assertTrue((api / "Program.cs").is_file())
         sources = {p.name for p in api.rglob("*.cs") if not set(p.parts).intersection({"obj", "bin"})}
         self.assertEqual({
             "Program.cs",
-            "WorkEndpoints.cs",
+            "WorksController.cs",
+            "MediaController.cs",
             "WorkResponse.cs",
             "WechatSessionAuthenticationHandler.cs",
             "EnabledWechatUserAuthorizationHandler.cs",
             "EnabledWechatUserRequirement.cs",
             "AuthorizationPolicies.cs",
         }, sources)
-        source = (api / "Works" / "WorkEndpoints.cs").read_text(encoding="utf-8")
-        self.assertIn('MapPost("/api/works"', source)
-        self.assertIn(".RequireAuthorization(AuthorizationPolicies.Customer)", source)
-        self.assertNotIn('.RequireAuthorization()', source)
-        self.assertNotIn("Headers.Authorization", source)
-        self.assertNotIn("TryValidate(", source)
+
         program = (api / "Program.cs").read_text(encoding="utf-8")
+        self.assertIn("AddControllers()", program)
+        self.assertIn("MapControllers()", program)
+        self.assertNotIn("WorkEndpoints.Map", program)
         self.assertIn("UseAuthentication()", program)
         self.assertIn("UseAuthorization()", program)
         self.assertIn("AddPolicy(AuthorizationPolicies.Customer", program)
-        self.assertIn("RequireAuthenticatedUser()", program)
-        self.assertIn("new EnabledWechatUserRequirement()", program)
-        self.assertNotIn("options.DefaultPolicy =", program)
-        self.assertIn("builder.Services.AddAuthentication()", program)
-        self.assertNotIn("MapControllers", source)
-        self.assertNotIn('MapPost("/api/works/{id}/generate"', source)
+
+        works = (api / "Controllers" / "Customer" / "WorksController.cs").read_text(encoding="utf-8")
+        self.assertIn("ControllerBase", works)
+        self.assertIn("[ApiController]", works)
+        self.assertIn('[Route("api/works")]', works)
+        self.assertIn("[Authorize(Policy = AuthorizationPolicies.Customer)]", works)
+        self.assertIn("[HttpPost]", works)
+        self.assertIn("[HttpGet]", works)
+        self.assertNotIn("HttpContext context", works)
+        self.assertNotIn("TryValidate(", works)
+
+        media = (api / "Controllers" / "MediaController.cs").read_text(encoding="utf-8")
+        self.assertIn("ControllerBase", media)
+        self.assertIn('[HttpGet("/media/{file}")]', media)
+        self.assertNotIn("[Authorize", media)
 
 
 if __name__ == "__main__":
