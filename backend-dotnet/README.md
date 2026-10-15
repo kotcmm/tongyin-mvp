@@ -47,7 +47,21 @@ Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.
 
 `POST /api/works` 接收微信小程序原有 `Authorization: Bearer` 会话令牌及 `multipart/form-data` 的 `file` 原画字段。服务先验证旧版 Go HMAC 会话，并查询 `ty_users` 拒绝停用或缺失用户，限制原画 10 MiB、接受 JPG/PNG/WebP 文件头。原画保存到 `DATA_DIR/media` 后调用 `CreateWork` 写入 `ty_works`，出错时清理已上传文件；响应为 201，保留旧小程序的 JSON 字段，且不返回用户 OpenID。原画通过带 48 小时签名的 `GET /media/{file}` 地址访问。
 
-启动需要显式配置 `SESSION_SECRET`（至少 24 位）、`DATABASE_URL`，以及 `DB_DRIVER=postgres|mysql`；服务的 `DATA_DIR` 必须与旧 Go 服务一致才能共用上传媒体。已登录的老用户可复用已存在于 `ty_users` 的账号；此阶段不自动创建新的用户档案、不迁移微信登录接口或 AI 生成流程。Go 与 .NET 共用数据库时的并发安全尚未经验证，不应同时作为正式服务提供写操作。
+启动需要显式配置 `SESSION_SECRET`（至少 24 位）、`DB_CONNECTION_STRING`，以及 `DB_DRIVER=postgres|mysql`。数据库连接字符串采用 .NET ADO.NET 驱动格式，不能直接使用 Go `DATABASE_URL` 的 URL/DSN。示例：
+
+```env
+DB_DRIVER=postgres
+DB_CONNECTION_STRING=Host=127.0.0.1;Port=5432;Database=tongyin;Username=tongyin;Password=YOUR_PASSWORD
+```
+
+或：
+
+```env
+DB_DRIVER=mysql
+DB_CONNECTION_STRING=Server=127.0.0.1;Port=3306;Database=tongyin;User ID=tongyin;Password=YOUR_PASSWORD
+```
+
+`DB_CONNECTION_STRING` 仅供 .NET 使用，原 Go 服务的 `DATABASE_URL` 保持不变。服务的 `DATA_DIR` 必须与旧 Go 服务一致才能共用上传媒体。已登录的老用户可复用已存在于 `ty_users` 的账号；此阶段不自动创建新的用户档案、不迁移微信登录接口或 AI 生成流程。Go 与 .NET 共用数据库时的并发安全尚未经验证，不应同时作为正式服务提供写操作。
 
 ## 验收
 

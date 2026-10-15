@@ -214,7 +214,7 @@ public sealed class CreateWorkEndpointTests
                 ["DATA_DIR"] = _root,
                 ["PUBLIC_URL"] = "http://localhost",
                 ["DB_DRIVER"] = "postgres",
-                ["DATABASE_URL"] = "unused-in-test"
+                ["DB_CONNECTION_STRING"] = "unused-in-test"
             }));
             builder.ConfigureTestServices(services =>
             {

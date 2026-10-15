@@ -15,17 +15,17 @@ if (string.IsNullOrEmpty(sessionSecret) || sessionSecret.Length < 24)
     throw new InvalidOperationException("SESSION_SECRET 至少需要 24 位，不能使用默认密钥");
 }
 
-var databaseUrl = builder.Configuration["DATABASE_URL"];
-if (string.IsNullOrWhiteSpace(databaseUrl))
+var connectionString = builder.Configuration["DB_CONNECTION_STRING"];
+if (string.IsNullOrWhiteSpace(connectionString))
 {
-    throw new InvalidOperationException("DATABASE_URL 未配置");
+    throw new InvalidOperationException("DB_CONNECTION_STRING 未配置（使用 Npgsql / MySqlConnector 格式）");
 }
 
 var driver = builder.Configuration["DB_DRIVER"] ?? "postgres";
 builder.Services.AddSingleton<Func<DbConnection>>(_ => driver switch
 {
-    "postgres" => () => new NpgsqlConnection(databaseUrl),
-    "mysql" => () => new MySqlConnection(databaseUrl),
+    "postgres" => () => new NpgsqlConnection(connectionString),
+    "mysql" => () => new MySqlConnection(connectionString),
     _ => throw new InvalidOperationException("仅支持 postgres 或 mysql 数据库驱动")
 });
 builder.Services.AddSingleton(new GoSessionTokenValidator(sessionSecret));
