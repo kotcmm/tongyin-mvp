@@ -8,6 +8,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Authorization;
 using Tongyin.Api.Auth;
+using Tongyin.Api.Controllers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
@@ -390,6 +391,30 @@ public sealed class CreateWorkEndpointTests
         using var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// 客户专用授权特性必须复用已有微信客户策略，而不能另起认证机制。
+    /// </summary>
+    [Fact]
+    public void CustomerAuthorizeAttribute_UsesCustomerPolicy()
+    {
+        var attribute = new CustomerAuthorizeAttribute();
+
+        Assert.IsAssignableFrom<AuthorizeAttribute>(attribute);
+        Assert.Equal(AuthorizationPolicies.Customer, attribute.Policy);
+    }
+
+    /// <summary>
+    /// 作品控制器应只需一个专用特性即可启用客户授权。
+    /// </summary>
+    [Fact]
+    public void WorksController_DeclaresCustomerAuthorizeAttribute()
+    {
+        var attributes = typeof(WorksController).GetCustomAttributes(typeof(CustomerAuthorizeAttribute), inherit: true);
+
+        Assert.Single(attributes);
+        Assert.IsType<CustomerAuthorizeAttribute>(attributes[0]);
     }
 
     private static readonly byte[] _image = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0];

@@ -48,6 +48,7 @@ class ArchitectureSkeletonTests(unittest.TestCase):
             "EnabledWechatUserAuthorizationHandler.cs",
             "EnabledWechatUserRequirement.cs",
             "AuthorizationPolicies.cs",
+            "CustomerAuthorizeAttribute.cs",
         }, sources)
 
         program = (api / "Program.cs").read_text(encoding="utf-8")
@@ -58,15 +59,26 @@ class ArchitectureSkeletonTests(unittest.TestCase):
         self.assertIn("UseAuthorization()", program)
         self.assertIn("AddPolicy(AuthorizationPolicies.Customer", program)
 
-        works = (api / "Controllers" / "Customer" / "WorksController.cs").read_text(encoding="utf-8")
+        works = (api / "Controllers" / "WorksController.cs").read_text(encoding="utf-8")
         self.assertIn("ControllerBase", works)
         self.assertIn("[ApiController]", works)
         self.assertIn('[Route("api/works")]', works)
-        self.assertIn("[Authorize(Policy = AuthorizationPolicies.Customer)]", works)
+        self.assertIn("[CustomerAuthorize]", works)
+        self.assertNotIn("[Authorize(Policy =", works)
         self.assertIn("[HttpPost]", works)
         self.assertIn("[HttpGet]", works)
         self.assertNotIn("HttpContext context", works)
         self.assertNotIn("TryValidate(", works)
+
+        response = (api / "ViewModels" / "Works" / "WorkResponse.cs").read_text(encoding="utf-8")
+        self.assertIn("namespace Tongyin.Api.ViewModels.Works;", response)
+        self.assertIn("using Tongyin.Api.ViewModels.Works;", works)
+        self.assertFalse((api / "Works" / "WorkResponse.cs").exists())
+        self.assertFalse((api / "Controllers" / "Customer").exists())
+
+        customer_authorize = (api / "Auth" / "CustomerAuthorizeAttribute.cs").read_text(encoding="utf-8")
+        self.assertIn("class CustomerAuthorizeAttribute : AuthorizeAttribute", customer_authorize)
+        self.assertIn("Policy = AuthorizationPolicies.Customer;", customer_authorize)
 
         media = (api / "Controllers" / "MediaController.cs").read_text(encoding="utf-8")
         self.assertIn("ControllerBase", media)
