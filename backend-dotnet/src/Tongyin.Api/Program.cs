@@ -4,13 +4,13 @@ using Microsoft.AspNetCore.Authorization;
 using Tongyin.Api.Auth;
 using MySqlConnector;
 using Npgsql;
-using Tongyin.Api.Works;
 using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Auth;
 using Tongyin.Infrastructure.Media;
 using Tongyin.Infrastructure.Works;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddControllers();
 
 builder.Services.AddSingleton<Func<DbConnection>>(services =>
 {
@@ -72,7 +72,7 @@ if (app.Configuration["DB_DRIVER"] is { } configuredDriver
 app.UseAuthentication();
 app.UseAuthorization();
 
-WorkEndpoints.Map(app);
+app.MapControllers();
 app.Run();
 
 /// <summary>

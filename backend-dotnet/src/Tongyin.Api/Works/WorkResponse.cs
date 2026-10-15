@@ -7,7 +7,7 @@ namespace Tongyin.Api.Works;
 /// <summary>
 /// 向微信小程序返回的作品创建响应，保留原 Go 接口字段名称。
 /// </summary>
-internal sealed class WorkResponse
+public sealed class WorkResponse
 {
     /// <summary>
     /// 作品唯一标识。
