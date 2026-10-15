@@ -45,11 +45,11 @@ Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.
 
 ## HTTP 身份认证与授权
 
-`WechatSessionAuthenticationHandler` 使用 ASP.NET Core 的 `AddAuthentication` 验证原 Go 的 Bearer 令牌，写入 `HttpContext.User` 中的 `ClaimTypes.NameIdentifier`（微信 OpenID）。默认授权策略（`DefaultPolicy`）限定微信会话认证方案，要求用户已登录，并通过 `EnabledWechatUserRequirement` 检查 `ty_users` 中账号存在且未停用。普通用户接口只需声明 `.RequireAuthorization()`，不需要手写或复用策略名称，更不用自行解析令牌。未来管理后台等不同身份类型应配置各自的具名策略，而非默认按微信用户验证。未认证返回 401，令牌有效但无权访问返回 403；签名媒体链接 `GET /media/{file}` 不启用此策略，继续由媒体签名保护。
+`WechatSessionAuthenticationHandler` 使用 ASP.NET Core 的 `AddAuthentication` 验证原 Go 的 Bearer 令牌，写入 `HttpContext.User` 中的 `ClaimTypes.NameIdentifier`（微信 OpenID）。**微信小程序与管理后台是两套独立身份体系**：小程序通过 `WechatSessionAuthenticationHandler`（独立认证方案 `WechatSession`）和具名的 `AuthorizationPolicies.Customer` 策略进行认证授权。该策略要求微信用户已登录，并通过 `EnabledWechatUserRequirement` 校验 `ty_users` 中账号存在且未停用。小程序业务接口显式声明 `.RequireAuthorization(AuthorizationPolicies.Customer)`，不在 Endpoint 内解析 Token。**不把微信认证设置为全局默认授权策略**，避免未来后台登录错误地套用微信账号检查。后台的认证方案、登录接口及管理员专属授权策略须单独实现；目前尚未迁移后台登录。未认证返回 401，令牌有效但无权访问返回 403；签名媒体链接 `GET /media/{file}` 不启用此策略，继续由媒体签名保护。
 
 ## HTTP 创建作品与原画访问
 
-`POST /api/works` 接收微信小程序原有 `Authorization: Bearer` 会话令牌及 `multipart/form-data` 的 `file` 原画字段。服务通过 ASP.NET Core Authentication/Authorization 管线验证旧版 Go HMAC 会话，再以默认授权策略查询 `ty_users` 拒绝停用或缺失用户；`CreateAsync` 仅从 `HttpContext.User` 读取当前 OpenID，限制原画 10 MiB、接受 JPG/PNG/WebP 文件头。原画保存到 `DATA_DIR/media` 后调用 `CreateWork` 写入 `ty_works`，出错时清理已上传文件；响应为 201，保留旧小程序的 JSON 字段，且不返回用户 OpenID。原画通过带 48 小时签名的 `GET /media/{file}` 地址访问。
+`POST /api/works` 接收微信小程序原有 `Authorization: Bearer` 会话令牌及 `multipart/form-data` 的 `file` 原画字段。服务通过 ASP.NET Core Authentication/Authorization 管线验证旧版 Go HMAC 会话，再以微信客户专用策略 `AuthorizationPolicies.Customer` 查询 `ty_users` 拒绝停用或缺失用户；`CreateAsync` 仅从 `HttpContext.User` 读取当前 OpenID，限制原画 10 MiB、接受 JPG/PNG/WebP 文件头。原画保存到 `DATA_DIR/media` 后调用 `CreateWork` 写入 `ty_works`，出错时清理已上传文件；响应为 201，保留旧小程序的 JSON 字段，且不返回用户 OpenID。原画通过带 48 小时签名的 `GET /media/{file}` 地址访问。
 
 启动需要显式配置 `SESSION_SECRET`（至少 24 位）、`DB_CONNECTION_STRING`，以及 `DB_DRIVER=postgres|mysql`。数据库连接字符串采用 .NET ADO.NET 驱动格式，不能直接使用 Go `DATABASE_URL` 的 URL/DSN。示例：
 

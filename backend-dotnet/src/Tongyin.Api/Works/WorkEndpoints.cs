@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Tongyin.Api.Auth;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Application.Works;
@@ -22,7 +23,7 @@ public static class WorkEndpoints
         app.MapPost("/api/works", CreateAsync)
             .WithMetadata(new RequestSizeLimitAttribute(MaxRequestBytes))
             .WithMetadata(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = MaxRequestBytes })
-            .RequireAuthorization();
+            .RequireAuthorization(AuthorizationPolicies.Customer);
         app.MapGet("/media/{file}", GetMedia);
     }
 
