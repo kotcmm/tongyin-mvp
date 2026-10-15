@@ -14,8 +14,8 @@ namespace Tongyin.Infrastructure.Tests.Ai;
 public sealed class SeedreamImageGeneratorTests
 {
     private const string SessionSecret = "local-test-session-secret-with-32bytes";
-    private const string ApiKey = "sk-test-中文-AI-密钥";
-    private const string Ciphertext = "AAECAwQFBgcICQoLFkRZbdrMirsVfEoRLZOOtxWFtmeIMysZKY0/SkPmYje9JP1rZcI8yw";
+    private const string ApiKey = "sk-test-seedream-integration-only";
+    private const string Ciphertext = "AAECAwQFBgcICQoLFkRZbdrMiruCoYKTyXHCm3HBPbxrvcvda+/r93mi6gFxiUpRWmFg0KM6s97ChFWQ3w";
     private const string OfficialEndpoint = "https://ark.cn-beijing.volces.com/api/v3/images/generations";
     private static readonly byte[] Png = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0];
 
@@ -145,7 +145,7 @@ public sealed class SeedreamImageGeneratorTests
     public async Task GenerateAsync_ProviderError_RetainsSafeCodeWithoutSecrets()
     {
         var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.BadRequest,
-            """{"error":{"code":"InvalidParameter.Image","message":"key sk-test-中文-AI-密钥; https://private.example/media/x?signature=secret; data:image/png;base64,aGVsbG8="}}""")));
+            """{"error":{"code":"InvalidParameter.Image","message":"key sk-test-seedream-integration-only; https://private.example/media/x?signature=secret; data:image/png;base64,aGVsbG8="}}""")));
         using var http = new HttpClient(handler);
         var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
 
@@ -196,7 +196,7 @@ public sealed class SeedreamImageGeneratorTests
     [Fact]
     public async Task GenerateAsync_InvalidResponseJson_RejectsWithoutEchoingBody()
     {
-        var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.OK, "NOT JSON sk-test-中文-AI-密钥")));
+        var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.OK, "NOT JSON sk-test-seedream-integration-only")));
         using var http = new HttpClient(handler);
         var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
 
