@@ -1,0 +1,23 @@
+name: .NET Domain TDD
+
+on:
+  push:
+    paths:
+      - "backend-dotnet/**"
+      - ".github/workflows/dotnet-domain-test.yml"
+  pull_request:
+    paths:
+      - "backend-dotnet/**"
+      - ".github/workflows/dotnet-domain-test.yml"
+  workflow_dispatch:
+
+jobs:
+  domain-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Verify Work domain tests
+        run: dotnet test backend-dotnet/tests/Tongyin.Domain.Tests/Tongyin.Domain.Tests.csproj -c Release

@@ -5,4 +5,7 @@
     <Project Path="src/Tongyin.Infrastructure/Tongyin.Infrastructure.csproj" />
     <Project Path="src/Tongyin.Api/Tongyin.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tongyin.Domain.Tests/Tongyin.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
