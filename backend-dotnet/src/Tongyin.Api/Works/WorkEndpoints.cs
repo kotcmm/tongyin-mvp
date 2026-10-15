@@ -1,7 +1,7 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Application.Works;
-using Tongyin.Infrastructure.Auth;
 using Tongyin.Infrastructure.Media;
 
 namespace Tongyin.Api.Works;
@@ -21,24 +21,15 @@ public static class WorkEndpoints
     {
         app.MapPost("/api/works", CreateAsync)
             .WithMetadata(new RequestSizeLimitAttribute(MaxRequestBytes))
-            .WithMetadata(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = MaxRequestBytes });
+            .WithMetadata(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = MaxRequestBytes })
+            .RequireAuthorization("EnabledWechatUser");
         app.MapGet("/media/{file}", GetMedia);
     }
 
-    private static async Task<IResult> CreateAsync(HttpContext context, GoSessionTokenValidator tokens, SqlUserAccess users, LocalMediaStore media, CreateWork create)
+    private static async Task<IResult> CreateAsync(HttpContext context, LocalMediaStore media, CreateWork create)
     {
         var cancellationToken = context.RequestAborted;
-        var auth = context.Request.Headers.Authorization.ToString();
-        if (!auth.StartsWith("Bearer ", StringComparison.Ordinal)
-            || !tokens.TryValidate(auth["Bearer ".Length..], DateTimeOffset.UtcNow, out var owner))
-        {
-            return Failure(401, "请登录");
-        }
-
-        if (!await users.IsEnabledAsync(owner, cancellationToken))
-        {
-            return Failure(403, "账号已停用或用户不存在");
-        }
+        var owner = context.User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
 
         if (context.Request.ContentLength > MaxRequestBytes)
         {

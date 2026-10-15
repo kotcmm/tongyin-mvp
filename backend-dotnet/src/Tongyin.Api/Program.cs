@@ -1,4 +1,7 @@
 using System.Data.Common;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Tongyin.Api.Auth;
 using MySqlConnector;
 using Npgsql;
 using Tongyin.Api.Works;
@@ -34,6 +37,14 @@ builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();
 
+builder.Services.AddAuthentication(WechatSessionAuthenticationHandler.SchemeName)
+    .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
+        WechatSessionAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("EnabledWechatUser", policy =>
+        policy.RequireAuthenticatedUser().AddRequirements(new EnabledWechatUserRequirement())));
+builder.Services.AddScoped<IAuthorizationHandler, EnabledWechatUserAuthorizationHandler>();
+
 var app = builder.Build();
 
 // 测试宿主在 Build 阶段注入配置，此时才能验证最终的环境配置。
@@ -53,6 +64,9 @@ if (app.Configuration["DB_DRIVER"] is { } configuredDriver
 {
     throw new InvalidOperationException("仅支持 postgres 或 mysql 数据库驱动");
 }
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 WorkEndpoints.Map(app);
 app.Run();
