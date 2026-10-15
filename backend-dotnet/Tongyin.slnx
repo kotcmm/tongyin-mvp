@@ -9,5 +9,6 @@
     <Project Path="tests/Tongyin.Domain.Tests/Tongyin.Domain.Tests.csproj" />
     <Project Path="tests/Tongyin.Application.Tests/Tongyin.Application.Tests.csproj" />
     <Project Path="tests/Tongyin.Infrastructure.Tests/Tongyin.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Tongyin.Api.Tests/Tongyin.Api.Tests.csproj" />
   </Folder>
 </Solution>

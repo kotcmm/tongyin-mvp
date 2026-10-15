@@ -35,15 +35,16 @@ class ArchitectureSkeletonTests(unittest.TestCase):
                 }
                 self.assertEqual(refs, should_reference)
 
-    def test_api_starts_empty_without_business_logic(self):
-        """本阶段的 HTTP 宿主不含任何业务入口或业务实现。"""
+    def test_api_only_exposes_current_work_creation_boundary(self):
+        """API 只能装配当前已经迁移的作品创建入口。"""
         api = ROOT / "src/Tongyin.Api"
         self.assertTrue((api / "Program.cs").is_file())
-        self.assertEqual([p.name for p in api.rglob("*.cs")], ["Program.cs"])
-        text = (api / "Program.cs").read_text(encoding="utf-8")
-        self.assertNotIn("MapGet", text)
-        self.assertNotIn("MapPost", text)
-        self.assertNotIn("MapControllers", text)
+        sources = {p.name for p in api.rglob("*.cs")}
+        self.assertEqual({"Program.cs", "WorkEndpoints.cs"}, sources)
+        source = (api / "WorkEndpoints.cs").read_text(encoding="utf-8")
+        self.assertIn('MapPost("/api/works"', source)
+        self.assertNotIn("MapControllers", source)
+        self.assertNotIn('MapPost("/api/works/{id}/generate"', source)
 
 
 if __name__ == "__main__":
