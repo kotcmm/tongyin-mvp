@@ -37,6 +37,7 @@ builder.Services.AddSingleton<IOriginalImageStore>(services => services.GetRequi
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();
+builder.Services.AddScoped<ListWorks>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(

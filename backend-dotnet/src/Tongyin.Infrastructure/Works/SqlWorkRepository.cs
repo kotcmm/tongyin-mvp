@@ -52,4 +52,25 @@ public sealed class SqlWorkRepository : IWorkRepository
             new { Id = work.Id, OwnerId = work.Owner, CreatedAt = createdAt, Payload = payload },
             cancellationToken: cancellationToken));
     }
+    /// <summary>
+    /// 按用户标识读取 Go 兼容作品 JSON，按创建时间及标识倒序返回。
+    /// </summary>
+    public async Task<IReadOnlyList<WorkSnapshot>> ListByOwnerAsync(string owner, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken);
+        var payloads = await connection.QueryAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_works WHERE owner_id = @Owner ORDER BY created_at DESC, id DESC",
+            new { Owner = owner },
+            cancellationToken: cancellationToken));
+        var results = new List<WorkSnapshot>();
+        foreach (var payload in payloads)
+        {
+            results.Add(JsonSerializer.Deserialize<WorkSnapshot>(payload)
+                ?? throw new JsonException("作品记录不是合法的 JSON 对象"));
+        }
+
+        return results;
+    }
+
 }

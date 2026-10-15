@@ -75,6 +75,31 @@ internal sealed class WorkResponse
     [JsonPropertyName("note")]
     public required string Note { get; init; }
 
+    /// <summary>旧版用户内部标识（存在时才输出）。</summary>
+    [JsonPropertyName("owner_user_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? OwnerUserId { get; init; }
+
+    /// <summary>AI 服务商标识（存在时才输出）。</summary>
+    [JsonPropertyName("ai_provider_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AiProviderId { get; init; }
+
+    /// <summary>提示词版本（非零时才输出）。</summary>
+    [JsonPropertyName("ai_prompt_version")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? AiPromptVersion { get; init; }
+
+    /// <summary>当前 AI 任务阶段（存在时才输出）。</summary>
+    [JsonPropertyName("ai_task_stage")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AiTaskStage { get; init; }
+
+    /// <summary>AI 任务开始时间（存在时才输出）。</summary>
+    [JsonPropertyName("ai_started_at")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? AiStartedAt { get; init; }
+
     /// <summary>
     /// 将新创建的作品转换为小程序需要的旧版 JSON 结构，不暴露用户 OpenID。
     /// </summary>
@@ -95,4 +120,33 @@ internal sealed class WorkResponse
             Note = work.Note
         };
     }
+    /// <summary>
+    /// 查询时重签每个媒体文件，保留作品当前状态与已有 AI 任务信息。
+    /// </summary>
+    internal static WorkResponse FromSnapshot(WorkSnapshot work, Func<string, string> signUrl)
+    {
+        static string Signed(string? fileName, Func<string, string> signer)
+            => string.IsNullOrEmpty(fileName) ? string.Empty : signer(fileName);
+
+        return new WorkResponse
+        {
+            Id = work.Id,
+            CreatedAt = work.CreatedAt,
+            Original = Signed(work.Original, signUrl),
+            Candidates = (work.Candidates ?? Array.Empty<string>()).Select(name => Signed(name, signUrl)).ToArray(),
+            Selected = work.Selected,
+            Preview = (work.Preview ?? Array.Empty<string>()).Select(name => Signed(name, signUrl)).ToArray(),
+            Model = Signed(work.Model, signUrl),
+            Status = work.Status,
+            ImageAttempts = work.ImageAttempts,
+            GenerationId = work.GenerationId ?? string.Empty,
+            Note = work.Note ?? string.Empty,
+            OwnerUserId = string.IsNullOrEmpty(work.OwnerUserId) ? null : work.OwnerUserId,
+            AiProviderId = string.IsNullOrEmpty(work.AiProviderId) ? null : work.AiProviderId,
+            AiPromptVersion = work.AiPromptVersion == 0 ? null : work.AiPromptVersion,
+            AiTaskStage = string.IsNullOrEmpty(work.AiTaskStage) ? null : work.AiTaskStage,
+            AiStartedAt = string.IsNullOrEmpty(work.AiStartedAt) ? null : work.AiStartedAt
+        };
+    }
+
 }

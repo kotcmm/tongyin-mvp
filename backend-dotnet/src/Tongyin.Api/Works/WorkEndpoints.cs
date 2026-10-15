@@ -22,6 +22,8 @@ public static class WorkEndpoints
             .WithMetadata(new RequestSizeLimitAttribute(MaxRequestBytes))
             .WithMetadata(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = MaxRequestBytes })
             .RequireAuthorization(AuthorizationPolicies.Customer);
+        app.MapGet("/api/works", ListAsync)
+            .RequireAuthorization(AuthorizationPolicies.Customer);
         app.MapGet("/media/{file}", GetMedia);
     }
 
@@ -94,6 +96,13 @@ public static class WorkEndpoints
         }
 
         return (file, null);
+    }
+
+    private static async Task<IResult> ListAsync(HttpContext context, ListWorks list, LocalMediaStore media)
+    {
+        var owner = context.User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
+        var works = await list.ExecuteAsync(owner, context.RequestAborted);
+        return Results.Json(works.Select(work => WorkResponse.FromSnapshot(work, media.SignUrl)).ToArray());
     }
 
     private static IResult GetMedia(string file, HttpContext context, LocalMediaStore media)
