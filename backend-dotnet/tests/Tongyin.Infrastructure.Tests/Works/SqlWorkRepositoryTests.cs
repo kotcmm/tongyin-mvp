@@ -1,5 +1,6 @@
 using System.Data.Common;
 using System.Text.Json;
+using Dapper;
 using Microsoft.Data.Sqlite;
 using Tongyin.Application.Works;
 using Tongyin.Domain.Works;
@@ -107,6 +108,54 @@ public sealed class SqlWorkRepositoryTests
         var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection), new UnusedImageStore());
 
         await Assert.ThrowsAnyAsync<DbException>(() => useCase.ExecuteAsync("work-001", "openid-001", DateTimeOffset.UtcNow, "drawing.png"));
+    }
+
+    /// <summary>
+    /// 作品列表必须按 owner_id 过滤数据库行，并还原 Go 已有图片状态和媒体文件名。
+    /// </summary>
+    [Fact]
+    public async Task ListByOwnerAsync_ReturnsOnlyOwnedWorkWithStoredState()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        using (var connection = db.CreateConnection())
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(new CommandDefinition(
+                "INSERT INTO ty_works(id,owner_id,created_at,payload) VALUES (@Id,@Owner,@CreatedAt,@Payload)",
+                new[]
+                {
+                    new { Id = "work-001", Owner = "openid-001", CreatedAt = "2026-10-15T10:00:00+08:00",
+                        Payload = JsonSerializer.Serialize(new { id = "work-001", created_at = "2026-10-15T10:00:00+08:00", original = "drawing.png", candidates = new[] { "cartoon.png" }, selected = -1, preview = new[] { "preview.png" }, model = "figure.glb", status = "model_ready", image_attempts = 2, generation_id = "job-001", note = "已完成" }) },
+                    new { Id = "work-002", Owner = "openid-002", CreatedAt = "2026-10-15T11:00:00+08:00",
+                        Payload = JsonSerializer.Serialize(new { id = "work-002", created_at = "2026-10-15T11:00:00+08:00", original = "private.png", status = "image_pending" }) }
+                }));
+        }
+
+        var results = await new SqlWorkRepository(db.CreateConnection).ListByOwnerAsync("openid-001");
+
+        var work = Assert.Single(results);
+        Assert.Equal("work-001", work.Id);
+        Assert.Equal("model_ready", work.Status);
+        Assert.Equal("drawing.png", work.Original);
+        Assert.Equal("cartoon.png", Assert.Single(work.Candidates));
+        Assert.Equal("preview.png", Assert.Single(work.Preview));
+        Assert.Equal("figure.glb", work.Model);
+        Assert.Equal(2, work.ImageAttempts);
+        Assert.Equal("job-001", work.GenerationId);
+        Assert.Equal("已完成", work.Note);
+    }
+
+    /// <summary>
+    /// 无匹配记录时，列表返回空数组而不是空值。
+    /// </summary>
+    [Fact]
+    public async Task ListByOwnerAsync_WithoutWorks_ReturnsEmpty()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+
+        var works = await new SqlWorkRepository(db.CreateConnection).ListByOwnerAsync("openid-none");
+
+        Assert.Empty(works);
     }
 
     private sealed class UnusedImageStore : IOriginalImageStore

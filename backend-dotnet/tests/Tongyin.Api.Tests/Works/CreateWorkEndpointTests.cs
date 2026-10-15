@@ -266,8 +266,106 @@ public sealed class CreateWorkEndpointTests
         Assert.DoesNotContain(WechatSessionAuthenticationHandler.SchemeName, fallback.AuthenticationSchemes);
     }
 
+    /// <summary>
+    /// 作品列表必须只包含当前用户作品，并为所有媒体资源重新生成签名访问地址。
+    /// </summary>
+    [Fact]
+    public async Task GetWorks_UsesCurrentOwnerAndSignsAllMedia()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        app.SeedWork("work-001", "openid-001", new
+        {
+            id = "work-001",
+            created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png",
+            candidates = new[] { "cartoon.png" },
+            selected = 0,
+            preview = new[] { "angle.png" },
+            model = "figure.glb",
+            status = "model_ready",
+            image_attempts = 2,
+            generation_id = "job-001",
+            note = "已完成"
+        });
+        app.SeedWork("work-002", "openid-002", new { id = "work-002", original = "other.png", status = "image_pending" });
+        using var client = app.CreateClient();
+        using var request = ListRequest("openid-001");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var work = Assert.Single(json.RootElement.EnumerateArray());
+        Assert.Equal("work-001", work.GetProperty("id").GetString());
+        Assert.Equal("model_ready", work.GetProperty("status").GetString());
+        Assert.Equal(2, work.GetProperty("image_attempts").GetInt32());
+        Assert.False(work.TryGetProperty("owner", out _));
+        Assert.True(work.GetProperty("original").GetString()!.Contains("/media/drawing.png?expires="));
+        Assert.True(Assert.Single(work.GetProperty("candidates").EnumerateArray()).GetString()!.Contains("/media/cartoon.png?expires="));
+        Assert.True(Assert.Single(work.GetProperty("preview").EnumerateArray()).GetString()!.Contains("/media/angle.png?expires="));
+        Assert.True(work.GetProperty("model").GetString()!.Contains("/media/figure.glb?expires="));
+        Assert.False((await response.Content.ReadAsStringAsync()).Contains("other.png"));
+    }
+
+    /// <summary>
+    /// 已登录用户没有作品时应返回 JSON 空数组。
+    /// </summary>
+    [Fact]
+    public async Task GetWorks_NoWorks_ReturnsEmptyArray()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        using var client = app.CreateClient();
+        using var request = ListRequest("openid-001");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Empty(json.RootElement.EnumerateArray());
+    }
+
+    /// <summary>
+    /// 作品列表需要微信用户登录，不能匿名查询。
+    /// </summary>
+    [Fact]
+    public async Task GetWorks_Anonymous_Rejects()
+    {
+        using var app = new WorkApiFactory();
+        using var client = app.CreateClient();
+
+        using var response = await client.GetAsync("/api/works");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// 被停用的微信用户不能读取作品列表。
+    /// </summary>
+    [Fact]
+    public async Task GetWorks_DisabledOwner_Rejects()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: true);
+        using var client = app.CreateClient();
+        using var request = ListRequest("openid-001");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private static readonly byte[] _image = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0];
     private static byte[] Image() => _image;
+
+    private static HttpRequestMessage ListRequest(string owner)
+    {
+        var request = Upload(owner, Image(), "drawing.png");
+        request.Method = HttpMethod.Get;
+        request.Content = null;
+        return request;
+    }
 
     private static HttpRequestMessage Upload(string owner, byte[] bytes, string filename, long? expiresAt = null)
     {
@@ -329,6 +427,19 @@ public sealed class CreateWorkEndpointTests
             command.Parameters.Add(new SqliteParameter("@owner", owner));
             command.Parameters.Add(new SqliteParameter("@created", "2026-10-15T10:00:00+08:00"));
             command.Parameters.Add(new SqliteParameter("@payload", JsonSerializer.Serialize(new { owner, disabled })));
+            command.ExecuteNonQuery();
+        }
+
+        public void SeedWork(string id, string owner, object payload)
+        {
+            using var db = Connect();
+            db.Open();
+            using var command = db.CreateCommand();
+            command.CommandText = "INSERT INTO ty_works(id,owner_id,created_at,payload) VALUES (@id,@owner,@created,@payload)";
+            command.Parameters.Add(new SqliteParameter("@id", id));
+            command.Parameters.Add(new SqliteParameter("@owner", owner));
+            command.Parameters.Add(new SqliteParameter("@created", "2026-10-15T10:00:00+08:00"));
+            command.Parameters.Add(new SqliteParameter("@payload", JsonSerializer.Serialize(payload)));
             command.ExecuteNonQuery();
         }
 
