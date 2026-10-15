@@ -18,6 +18,8 @@ try {
         }
     }
     # Check repository conventions and project dependency boundaries first.
+    & node "scripts/check-dotnet-conventions.test.cjs"
+    if ($LASTEXITCODE -ne 0) { throw "C# convention regression fixtures failed" }
     & node "scripts/check-dotnet-conventions.cjs"
     if ($LASTEXITCODE -ne 0) { throw "C# conventions check failed" }
     & node "scripts/check-clean-architecture.cjs"
