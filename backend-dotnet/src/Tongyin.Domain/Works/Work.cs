@@ -177,6 +177,23 @@ public sealed class Work
     }
 
     /// <summary>
+    /// 将数据库中已持久化的作品状态恢复为领域对象，复用后续生成准入规则。
+    /// </summary>
+    public static Work Restore(string id, string owner, DateTimeOffset createdAt, string original, WorkStatus status, int selected, int imageAttempts, string generationId, IReadOnlyList<string> candidates, string model, string note)
+    {
+        return new Work(id, owner, createdAt, original)
+        {
+            Status = status,
+            Selected = selected,
+            ImageAttempts = imageAttempts,
+            GenerationId = generationId,
+            Candidates = candidates,
+            Model = model,
+            Note = note
+        };
+    }
+
+    /// <summary>
     /// 使用已上传的原画创建新作品，不触发图片生成。
     /// </summary>
     public static Work Create(string id, string owner, DateTimeOffset createdAt, string original)

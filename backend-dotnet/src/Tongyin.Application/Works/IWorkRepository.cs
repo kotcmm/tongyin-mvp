@@ -21,4 +21,10 @@ public interface IWorkRepository
     /// 同时使用作品 ID 和所属微信用户标识查询详情，未找到或不属于本人时返回空值。
     /// </summary>
     Task<WorkSnapshot?> GetByIdForOwnerAsync(string id, string owner, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 在共享数据库事务锁保护下登记图片生成任务，原子更新次数和状态。
+    /// 作品不存在或不属于当前用户时返回空值；业务规则拒绝时抛出领域异常。
+    /// </summary>
+    Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default);
 }

@@ -90,6 +90,12 @@ DB_CONNECTION_STRING=Server=127.0.0.1;Port=3306;Database=tongyin;User ID=tongyin
 
 `GET /api/works/{id}` 沿用原 Go 协议，使用 `[WechatAuthorize]` 检查微信登录状态和账号是否启用。Controller 通过 `GetWork` 用例读取作品；`SqlWorkRepository.GetByIdForOwnerAsync` 使用参数化 `WHERE id = @Id AND owner_id = @Owner` 同时核对作品标识与所属人。作品不存在或属于其他用户时均返回 `404 {"error":"作品不存在"}`，避免暴露其他人的作品是否存在；匿名返回 401，账号停用返回 403。正常返回现有 `WorkResponse` 单个 JSON 对象，重新签发所有原画、候选图、预览和模型的媒体 URL。
 
+## 图片生成任务原子登记（尚未开放 HTTP 生成接口）
+
+Application 层的 `StartImageGeneration.ExecuteAsync(owner, id, freeImageAttempts)` 生成独立任务标识，交由 `IWorkRepository.RegisterImageGenerationAsync` 原子登记，不直接发送 AI 请求。Dapper 适配器在事务内更新 Go 已有的 `ty_store_lock(id=1)` 行以获取排他写锁，与 Go 的 `SELECT ... FOR UPDATE` 竞争同一行锁，然后以作品 ID 和 owner_id 双重筛选目标记录，恢复 Domain `Work` 并调用既有 `RequestImageGeneration` 进行状态与免费次数校验；通过后原子写入新的 `image_pending`、`image_attempts` 和 `generation_id`，清理过期候选图片/预览/模型字段，其他 Go 兼容 JSON 属性保留。失败时事务回滚，不额外扣次数。
+
+沿用 Go 的 `ty_works.payload TEXT` 和 `ty_store_lock` 数据库结构，不增加数据库表，也不让 Controller 直接访问 Dapper。仅解决任务登记与同一作品并发提交；尚无队列、AI 服务商调用、回调处理和故障恢复，因此不会新增 `POST /api/works/{id}/generate`，不能将“登记成功”误报为“AI 已生成或已提交”。
+
 ## 验收
 
 需要 .NET 10 SDK：
