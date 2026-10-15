@@ -32,14 +32,27 @@ public sealed class GoSessionTokenValidator
     public bool TryValidate(string token, DateTimeOffset now, out string openId)
     {
         openId = string.Empty;
-        if (string.IsNullOrEmpty(token) || token.Split('.') is not [var payload, var signature])
+        if (string.IsNullOrEmpty(token))
         {
             return false;
         }
 
-        if (!HasValidSignature(payload, signature)
-            || !TryParseSession(payload, out var owner, out var expiresAt)
-            || now.ToUnixTimeSeconds() > expiresAt)
+        if (token.Split('.') is not [var payload, var signature])
+        {
+            return false;
+        }
+
+        if (!HasValidSignature(payload, signature))
+        {
+            return false;
+        }
+
+        if (!TryParseSession(payload, out var owner, out var expiresAt))
+        {
+            return false;
+        }
+
+        if (now.ToUnixTimeSeconds() > expiresAt)
         {
             return false;
         }
