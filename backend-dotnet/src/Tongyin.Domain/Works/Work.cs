@@ -41,7 +41,7 @@ public sealed class Work
     /// <summary>
     /// 已选择的候选图索引，负一表示尚未选择。
     /// </summary>
-    public int Selected { get; } = -1;
+    public int Selected { get; private set; } = -1;
 
     /// <summary>
     /// 已消耗的图片生成次数。
@@ -116,6 +116,20 @@ public sealed class Work
 
         Status = WorkStatus.Failed;
         Note = errorMessage;
+    }
+
+    /// <summary>
+    /// 用户确认唯一的候选图片，进入三维模型待生成状态。
+    /// </summary>
+    public void SelectImage(int index)
+    {
+        if (Status != WorkStatus.ImageReady || index != 0)
+        {
+            throw new InvalidOperationException("无法选择此图片");
+        }
+
+        Selected = index;
+        Status = WorkStatus.ModelPending;
     }
 
     /// <summary>
