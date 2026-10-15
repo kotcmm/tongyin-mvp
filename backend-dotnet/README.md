@@ -44,6 +44,10 @@ Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.
 
 ## HTTP 身份认证与授权
 
+业务 Controller 通过 `User.GetWechatOpenId()` 统一读取当前微信用户 OpenID，不再反复调用 `FindFirst(ClaimTypes.NameIdentifier)`，也不需要在 Controller 中注入 `IHttpContextAccessor`。该扩展方法只接受认证方案为 `WechatSession` 且具有非空 OpenID 的身份，不能将管理员或支付宝的 `NameIdentifier` 当成微信身份。未来如果需要在非 Controller 服务中获取当前用户，再按实际用例引入独立的请求身份服务。
+
+
+
 `WechatSessionAuthenticationHandler` 使用 ASP.NET Core 的 `AddAuthentication` 验证原 Go 的 Bearer 令牌，写入 `HttpContext.User` 中的 `ClaimTypes.NameIdentifier`（微信 OpenID）。**微信小程序与管理后台是两套独立身份体系**：小程序通过 `WechatSessionAuthenticationHandler`（独立认证方案 `WechatSession`）和具名的 `AuthorizationPolicies.Wechat` 策略进行认证授权。该策略要求微信用户已登录，并通过 `EnabledWechatUserRequirement` 校验 `ty_users` 中账号存在且未停用。小程序业务 Controller 使用 `[WechatAuthorize]`，不在控制器动作内解析 Token。**`[WechatAuthorize]` 只是对 `AuthorizationPolicies.Wechat` 的强类型封装，不会创建新的 Token 处理逻辑**。**不把微信认证设置为全局默认授权策略**，避免未来后台登录错误地套用微信账号检查。后台的认证方案、登录接口及管理员专属授权策略须单独实现；目前尚未迁移后台登录。未认证返回 401，令牌有效但无权访问返回 403；签名媒体链接 `GET /media/{file}` 不启用此策略，继续由媒体签名保护。
 
 ## API 层 Controller 约定

@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
 using Tongyin.Api.ViewModels.Works;
@@ -38,7 +37,7 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
         try
         {
             await using var image = file.OpenReadStream();
-            var owner = User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
+            var owner = User.GetWechatOpenId();
             var work = await createWork.ExecuteFromImageAsync(owner, image, file.Length, cancellationToken);
             return StatusCode(StatusCodes.Status201Created, WorkResponse.FromCreated(work, media.SignUrl(work.Original)));
         }
@@ -63,7 +62,7 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
     [HttpGet("{id}")]
     public async Task<ActionResult<WorkResponse>> GetAsync([FromRoute] string id, CancellationToken cancellationToken)
     {
-        var owner = User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
+        var owner = User.GetWechatOpenId();
         var work = await getWork.ExecuteAsync(owner, id, cancellationToken);
         if (work is null)
         {
@@ -79,7 +78,7 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
     [HttpGet]
     public async Task<ActionResult<WorkResponse[]>> ListAsync(CancellationToken cancellationToken)
     {
-        var owner = User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
+        var owner = User.GetWechatOpenId();
         var works = await listWorks.ExecuteAsync(owner, cancellationToken);
         return Ok(works.Select(work => WorkResponse.FromSnapshot(work, media.SignUrl)).ToArray());
     }
