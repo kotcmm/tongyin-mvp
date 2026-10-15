@@ -108,6 +108,14 @@ Application 层的 `StartImageGeneration.ExecuteAsync(owner, id, freeImageAttemp
 
 `AiProviderSettings.ApiKeyCipher` 仅保留 Go 的 `api_key_cipher` 加密文本，**此阶段不解密、不记录密钥、不向小程序发送密钥**。读取器通过依赖注入注册，但没有加入微信业务 Controller，也没有启动外部 HTTP 请求；前一步的 `StartImageGeneration` 仍然只登记数据库中的待执行任务。后续步骤需先实现 Go 兼容的密钥解密和安全的真实适配器调用，再实现可靠结果回写、失败处理及任务恢复，最后才可开放 `POST /api/works/{id}/generate`。
 
+## Seedream 单张图片生成 HTTP 适配器
+
+新增 `SeedreamImageGenerator`（Infrastructure），输入为 `AiGenerationSettings` 与原画字节；仅允许已启用的默认 `seedream` 图片服务商和方舟官方 HTTPS 图片生成地址。通过 Go 兼容解密器读取服务商 API Key，原画按 PNG/JPEG/WebP 文件头识别并限制为 10 MiB。请求复用 Go 的协议：`model`、`prompt`、原画 `data:image/...;base64,...`、`size=2K`、`response_format=url`、`watermark=false`，不传本地 localhost 地址或多图参数。只接受 HTTP 200、恰好一张图片及有效 HTTPS 结果 URL。
+
+生产通过 `AddHttpClient<SeedreamImageGenerator>` 注册，超时 190 秒、禁止自动重定向；网络错误不自动重试，以免重复计费。错误响应只提取安全格式的错误代码与 HTTP 状态，不回显未经处理的服务商正文、API Key、签名 URL 或 Base64 图片。基础设施测试全部由模拟 HTTP 处理器截获，不进行真实付费 API 请求。
+
+**当前只提供并注册网络调用适配器；不自动派发已登记的任务、不下载并保存生成文件、不回写作品结果，也不开放 `POST /api/works/{id}/generate`。** 必须先完成结果安全下载和状态回写，再将任务登记、派发、成功失败与超时恢复串成可靠的执行流程。
+
 ## 验收
 
 需要 .NET 10 SDK：

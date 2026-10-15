@@ -49,6 +49,12 @@ builder.Services.AddScoped<GetWork>();
 builder.Services.AddScoped<IAiGenerationSettingsReader, SqlAiGenerationSettingsReader>();
 builder.Services.AddSingleton(services =>
     new GoAiKeyDecryptor(services.GetRequiredService<IConfiguration>()["SESSION_SECRET"]!));
+builder.Services.AddHttpClient<SeedreamImageGenerator>(client => client.Timeout = TimeSpan.FromSeconds(190))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        // 服务商无需重定向，避免跨域跳转时泄漏授权头。
+        AllowAutoRedirect = false
+    });
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
