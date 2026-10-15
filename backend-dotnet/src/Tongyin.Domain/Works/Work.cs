@@ -46,7 +46,7 @@ public sealed class Work
     /// <summary>
     /// 已消耗的图片生成次数。
     /// </summary>
-    public int ImageAttempts { get; }
+    public int ImageAttempts { get; private set; }
 
     /// <summary>
     /// 已生成的候选图路径。
@@ -57,6 +57,25 @@ public sealed class Work
     /// 模型预览图路径。
     /// </summary>
     public IReadOnlyList<string> Preview { get; } = Array.Empty<string>();
+
+    /// <summary>
+    /// 当前形象图片生成任务标识，初始为空。
+    /// </summary>
+    public string GenerationId { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// 首次请求生成形象图片时登记任务并消耗一次生成机会。
+    /// </summary>
+    public void RequestImageGeneration(string generationId)
+    {
+        if (Status == "image_pending" && ImageAttempts > 0)
+        {
+            throw new InvalidOperationException("形象正在生成，请勿重复提交");
+        }
+
+        ImageAttempts++;
+        GenerationId = generationId;
+    }
 
     /// <summary>
     /// 使用已上传的原画创建新作品，不触发图片生成。
