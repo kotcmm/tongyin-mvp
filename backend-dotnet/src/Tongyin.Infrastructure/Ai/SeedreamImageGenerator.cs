@@ -24,7 +24,12 @@ public sealed class SeedreamImageGenerator(HttpClient httpClient, GoAiKeyDecrypt
 
         var provider = RequireProvider(settings);
         var endpoint = RequireOfficialEndpoint(provider.Endpoint);
-        var mime = GetImageMime(originalImage.Span);
+        if (originalImage.Length == 0 || originalImage.Length > MaxImageBytes)
+        {
+            throw new InvalidDataException("原画为空或超出10MiB限制");
+        }
+
+        var mime = DetectMime(originalImage.Span) ?? throw new InvalidDataException("原画必须是 PNG、JPEG 或 WebP");
 
         using var request = CreateRequest(endpoint, provider.Model, settings.PromptTemplate, mime, originalImage.Span, decryptor.Decrypt(provider.ApiKeyCipher));
         using var response = await SendAsync(request, cancellationToken);
@@ -63,13 +68,8 @@ public sealed class SeedreamImageGenerator(HttpClient httpClient, GoAiKeyDecrypt
         return uri;
     }
 
-    private static string GetImageMime(ReadOnlySpan<byte> image)
+    private static string? DetectMime(ReadOnlySpan<byte> image)
     {
-        if (image.Length == 0 || image.Length > MaxImageBytes)
-        {
-            throw new InvalidDataException("原画为空或超出10MiB限制");
-        }
-
         if (image.Length >= 8 && image[..8].SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }))
         {
             return "image/png";
@@ -85,7 +85,7 @@ public sealed class SeedreamImageGenerator(HttpClient httpClient, GoAiKeyDecrypt
             return "image/webp";
         }
 
-        throw new InvalidDataException("原画必须是 PNG、JPEG 或 WebP");
+        return null;
     }
 
     private static HttpRequestMessage CreateRequest(Uri endpoint, string model, string prompt, string mime, ReadOnlySpan<byte> image, string apiKey)
