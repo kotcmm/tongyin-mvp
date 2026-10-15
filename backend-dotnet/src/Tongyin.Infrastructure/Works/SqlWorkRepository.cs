@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Dapper;
 using System.Globalization;
 using System.Text.Json;
 using Tongyin.Application.Works;
@@ -7,7 +8,7 @@ using Tongyin.Domain.Works;
 namespace Tongyin.Infrastructure.Works;
 
 /// <summary>
-/// 使用现有 ty_works 数据表保存儿童画作品的 SQL 适配器。
+/// 基于 Dapper（轻量对象关系映射器）保存现有 ty_works 作品记录的 SQL 适配器。
 /// 数据库连接由外围提供，支持不同 ADO.NET 驱动。
 /// </summary>
 public sealed class SqlWorkRepository : IWorkRepository
@@ -46,29 +47,9 @@ public sealed class SqlWorkRepository : IWorkRepository
 
         await using var connection = _connectionFactory();
         await connection.OpenAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = "INSERT INTO ty_works (id, owner_id, created_at, payload) VALUES (@id, @owner_id, @created_at, @payload)";
-
-        var idParameter = command.CreateParameter();
-        idParameter.ParameterName = "@id";
-        idParameter.Value = work.Id;
-        command.Parameters.Add(idParameter);
-
-        var ownerParameter = command.CreateParameter();
-        ownerParameter.ParameterName = "@owner_id";
-        ownerParameter.Value = work.Owner;
-        command.Parameters.Add(ownerParameter);
-
-        var createdAtParameter = command.CreateParameter();
-        createdAtParameter.ParameterName = "@created_at";
-        createdAtParameter.Value = createdAt;
-        command.Parameters.Add(createdAtParameter);
-
-        var payloadParameter = command.CreateParameter();
-        payloadParameter.ParameterName = "@payload";
-        payloadParameter.Value = payload;
-        command.Parameters.Add(payloadParameter);
-
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        await connection.ExecuteAsync(new CommandDefinition(
+            "INSERT INTO ty_works (id, owner_id, created_at, payload) VALUES (@Id, @OwnerId, @CreatedAt, @Payload)",
+            new { Id = work.Id, OwnerId = work.Owner, CreatedAt = createdAt, Payload = payload },
+            cancellationToken: cancellationToken));
     }
 }

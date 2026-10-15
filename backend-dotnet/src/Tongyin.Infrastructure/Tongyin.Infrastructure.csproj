@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.89" />
     <ProjectReference Include="../Tongyin.Application/Tongyin.Application.csproj" />
   </ItemGroup>
 </Project>

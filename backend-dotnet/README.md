@@ -3,8 +3,8 @@
 项目采用 .NET 10，按 **Domain / Application / Infrastructure / Api** 四层组织。
 
 - `Tongyin.Domain`：领域实体及业务规则；目前实现了作品创建及图片、模型生成阶段的领域状态转换，未接入外部服务。
-- `Tongyin.Application`：已提供 `CreateWork` 应用用例及 `IWorkRepository` 持久化端口，尚无数据库适配器。
-- `Tongyin.Infrastructure`：已实现 `SqlWorkRepository` 创建作品的 SQL 写入适配器，AI 接入未迁移。
+- `Tongyin.Application`：提供 `CreateWork` 应用用例及 `IWorkRepository` 持久化端口，不依赖数据库实现。
+- `Tongyin.Infrastructure`：使用 Dapper 实现 `SqlWorkRepository` 创建作品的 SQL 写入适配器，AI 接入未迁移。
 - `Tongyin.Api`：HTTP 程序宿主；尚未注册业务路由。
 
 ## 已实现的最小领域行为
@@ -29,15 +29,15 @@
 
 ## Application 层第一个用例
 
-`CreateWork.ExecuteAsync(id, owner, createdAt, original)` 调用 `Work.Create` 并通过 `IWorkRepository.AddAsync` 保存作品，保存成功后将相同的作品对象返回给调用方。保存失败时向上抛出错误，不返回假成功。这里尚未实现数据库适配器，也不负责 HTTP 上传、用户鉴权、作品 ID 或时间生成。
+`CreateWork.ExecuteAsync(id, owner, createdAt, original)` 调用 `Work.Create` 并通过 `IWorkRepository.AddAsync` 保存作品，保存成功后将相同的作品对象返回给调用方。保存失败时向上抛出错误，不返回假成功。数据库适配器已由 Infrastructure 层实现；用例不负责 HTTP 上传、用户鉴权、作品 ID 或时间生成。
 
 ## Infrastructure 层第一个 SQL 适配器
 
-`SqlWorkRepository` 实现 `IWorkRepository.AddAsync`，通过 `Func<DbConnection>` 获取连接并执行参数化 INSERT，不在领域层或应用层引用数据库驱动。
+`SqlWorkRepository` 使用 **Dapper 2.1.89** 实现 `IWorkRepository.AddAsync`，通过 `Func<DbConnection>` 获取连接，并使用 `CommandDefinition` 执行参数化 INSERT（支持取消令牌），Domain 和 Application 不依赖 Dapper 或具体数据库驱动。
 
 它写入 Go 后端使用的 `ty_works(id, owner_id, created_at, payload)`，`payload` 保留旧版 JSON 字段名（如 `image_pending`、`image_attempts`），而 Domain 内部继续使用 `WorkStatus` 枚举。表结构由现有数据库管理，适配器不会自动建表，也不会修改旧服务。
 
-基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键和缺表错误。SQL 使用 `@参数` 绑定，可由外围连接工厂提供 PostgreSQL 或 MySQL 驱动；目前尚未接入 API 入口、数据库连接配置或生产环境，也尚未验证与 Go 服务并发写入的行为。
+基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键、缺表错误和特殊字符的参数化保存。Dapper 使用 `@参数` 绑定；外围连接工厂可提供 PostgreSQL 或 MySQL 驱动。目前尚未接入 API 入口、数据库连接配置或生产环境，也尚未验证与 Go 服务并发写入的行为。
 
 ## 验收
 
