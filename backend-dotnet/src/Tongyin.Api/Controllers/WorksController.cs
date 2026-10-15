@@ -1,19 +1,18 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
-using Tongyin.Api.Works;
+using Tongyin.Api.ViewModels.Works;
 using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Media;
 
-namespace Tongyin.Api.Controllers.Customer;
+namespace Tongyin.Api.Controllers;
 
 /// <summary>
 /// 微信小程序作品接口，复用客户授权策略，只负责 HTTP 请求、业务调用及响应转换。
 /// </summary>
 [ApiController]
 [Route("api/works")]
-[Authorize(Policy = AuthorizationPolicies.Customer)]
+[CustomerAuthorize]
 public sealed class WorksController : ControllerBase
 {
     private const long MaxRequestBytes = OriginalImageLimits.MaxBytes + (1L << 20);

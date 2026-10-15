@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using Tongyin.Application.Works;
 using Tongyin.Domain.Works;
 
-namespace Tongyin.Api.Works;
+namespace Tongyin.Api.ViewModels.Works;
 
 /// <summary>
 /// 向微信小程序返回的作品创建响应，保留原 Go 接口字段名称。

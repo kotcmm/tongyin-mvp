@@ -44,11 +44,13 @@ Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.
 
 ## HTTP 身份认证与授权
 
-`WechatSessionAuthenticationHandler` 使用 ASP.NET Core 的 `AddAuthentication` 验证原 Go 的 Bearer 令牌，写入 `HttpContext.User` 中的 `ClaimTypes.NameIdentifier`（微信 OpenID）。**微信小程序与管理后台是两套独立身份体系**：小程序通过 `WechatSessionAuthenticationHandler`（独立认证方案 `WechatSession`）和具名的 `AuthorizationPolicies.Customer` 策略进行认证授权。该策略要求微信用户已登录，并通过 `EnabledWechatUserRequirement` 校验 `ty_users` 中账号存在且未停用。小程序业务 Controller 使用 `[Authorize(Policy = AuthorizationPolicies.Customer)]`，不在控制器动作内解析 Token。**不把微信认证设置为全局默认授权策略**，避免未来后台登录错误地套用微信账号检查。后台的认证方案、登录接口及管理员专属授权策略须单独实现；目前尚未迁移后台登录。未认证返回 401，令牌有效但无权访问返回 403；签名媒体链接 `GET /media/{file}` 不启用此策略，继续由媒体签名保护。
+`WechatSessionAuthenticationHandler` 使用 ASP.NET Core 的 `AddAuthentication` 验证原 Go 的 Bearer 令牌，写入 `HttpContext.User` 中的 `ClaimTypes.NameIdentifier`（微信 OpenID）。**微信小程序与管理后台是两套独立身份体系**：小程序通过 `WechatSessionAuthenticationHandler`（独立认证方案 `WechatSession`）和具名的 `AuthorizationPolicies.Customer` 策略进行认证授权。该策略要求微信用户已登录，并通过 `EnabledWechatUserRequirement` 校验 `ty_users` 中账号存在且未停用。小程序业务 Controller 使用 `[CustomerAuthorize]`，不在控制器动作内解析 Token。**`[CustomerAuthorize]` 只是对 `AuthorizationPolicies.Customer` 的强类型封装，不会创建新的 Token 处理逻辑**。**不把微信认证设置为全局默认授权策略**，避免未来后台登录错误地套用微信账号检查。后台的认证方案、登录接口及管理员专属授权策略须单独实现；目前尚未迁移后台登录。未认证返回 401，令牌有效但无权访问返回 403；签名媒体链接 `GET /media/{file}` 不启用此策略，继续由媒体签名保护。
 
 ## API 层 Controller 约定
 
-现有 HTTP API 统一采用 ASP.NET Core Web API Controller，`Program.cs` 用 `AddControllers()` 和 `MapControllers()` 注册。微信客户作品接口由 `Controllers/Customer/WorksController.cs` 提供，通过 `[Authorize(Policy = AuthorizationPolicies.Customer)]` 复用专属认证授权；`Controllers/MediaController.cs` 仅验证媒体 URL 的签名，不强制微信登录。各操作使用 ControllerBase 的 `User`、`Request` 和 `Response` 属性、构造函数依赖注入及取消令牌参数。上传动作保留明确的 multipart 格式解析，用于维持旧接口 400/413 的错误语义；其它查询动作直接使用模型绑定和标准 `ActionResult<T>`。今后后台登录应采用独立的 Admin 认证方案及授权策略。
+API 层代码分类：`Controllers/` 放置业务控制器，不为微信用户额外创建 `Customer` 目录；`ViewModels/Works/WorkResponse.cs` 放置面向小程序的响应 DTO（数据传输对象），避免将响应模型与领域实体混放；`Auth/CustomerAuthorizeAttribute.cs` 封装微信客户的授权特性。将来管理员可以拥有独立 `[AdminAuthorize]` 和认证方案，但此阶段不预先实现。
+
+现有 HTTP API 统一采用 ASP.NET Core Web API Controller，`Program.cs` 用 `AddControllers()` 和 `MapControllers()` 注册。微信客户作品接口由 `Controllers/WorksController.cs` 提供，通过 `[CustomerAuthorize]` 复用专属认证授权；`Controllers/MediaController.cs` 仅验证媒体 URL 的签名，不强制微信登录。各操作使用 ControllerBase 的 `User`、`Request` 和 `Response` 属性、构造函数依赖注入及取消令牌参数。上传动作保留明确的 multipart 格式解析，用于维持旧接口 400/413 的错误语义；其它查询动作直接使用模型绑定和标准 `ActionResult<T>`。今后后台登录应采用独立的 Admin 认证方案及授权策略。
 
 ## HTTP 创建作品与原画访问
 
