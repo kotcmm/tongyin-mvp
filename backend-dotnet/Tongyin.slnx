@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tongyin.Domain/Tongyin.Domain.csproj" />
+    <Project Path="src/Tongyin.Application/Tongyin.Application.csproj" />
+    <Project Path="src/Tongyin.Infrastructure/Tongyin.Infrastructure.csproj" />
+    <Project Path="src/Tongyin.Api/Tongyin.Api.csproj" />
+  </Folder>
+</Solution>
