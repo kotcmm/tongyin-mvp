@@ -41,12 +41,7 @@ public sealed class SeedreamImageGenerator(HttpClient httpClient, GoAiKeyDecrypt
             throw new InvalidDataException("原画为空或超出10MiB限制");
         }
 
-        var mime = DetectMime(originalImage.Span);
-        if (mime is null)
-        {
-            throw new InvalidDataException("原画必须是 PNG、JPEG 或 WebP");
-        }
-
+        var mime = DetectMime(originalImage.Span) ?? throw new InvalidDataException("原画必须是 PNG、JPEG 或 WebP");
         var token = decryptor.Decrypt(provider.ApiKeyCipher);
         var json = JsonSerializer.Serialize(new
         {
