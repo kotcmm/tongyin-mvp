@@ -48,7 +48,7 @@ class ArchitectureSkeletonTests(unittest.TestCase):
             "EnabledWechatUserAuthorizationHandler.cs",
             "EnabledWechatUserRequirement.cs",
             "AuthorizationPolicies.cs",
-            "CustomerAuthorizeAttribute.cs",
+            "WechatAuthorizeAttribute.cs",
         }, sources)
 
         program = (api / "Program.cs").read_text(encoding="utf-8")
@@ -57,13 +57,13 @@ class ArchitectureSkeletonTests(unittest.TestCase):
         self.assertNotIn("WorkEndpoints.Map", program)
         self.assertIn("UseAuthentication()", program)
         self.assertIn("UseAuthorization()", program)
-        self.assertIn("AddPolicy(AuthorizationPolicies.Customer", program)
+        self.assertIn("AddPolicy(AuthorizationPolicies.Wechat", program)
 
         works = (api / "Controllers" / "WorksController.cs").read_text(encoding="utf-8")
         self.assertIn("ControllerBase", works)
         self.assertIn("[ApiController]", works)
         self.assertIn('[Route("api/works")]', works)
-        self.assertIn("[CustomerAuthorize]", works)
+        self.assertIn("[WechatAuthorize]", works)
         self.assertNotIn("[Authorize(Policy =", works)
         self.assertIn("[HttpPost]", works)
         self.assertIn("[HttpGet]", works)
@@ -76,9 +76,9 @@ class ArchitectureSkeletonTests(unittest.TestCase):
         self.assertFalse((api / "Works" / "WorkResponse.cs").exists())
         self.assertFalse((api / "Controllers" / "Customer").exists())
 
-        customer_authorize = (api / "Auth" / "CustomerAuthorizeAttribute.cs").read_text(encoding="utf-8")
-        self.assertIn("class CustomerAuthorizeAttribute : AuthorizeAttribute", customer_authorize)
-        self.assertIn("Policy = AuthorizationPolicies.Customer;", customer_authorize)
+        wechat_authorize = (api / "Auth" / "WechatAuthorizeAttribute.cs").read_text(encoding="utf-8")
+        self.assertIn("class WechatAuthorizeAttribute : AuthorizeAttribute", wechat_authorize)
+        self.assertIn("Policy = AuthorizationPolicies.Wechat;", wechat_authorize)
 
         media = (api / "Controllers" / "MediaController.cs").read_text(encoding="utf-8")
         self.assertIn("ControllerBase", media)

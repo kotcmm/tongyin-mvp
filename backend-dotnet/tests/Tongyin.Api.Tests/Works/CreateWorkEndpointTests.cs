@@ -274,13 +274,13 @@ public sealed class CreateWorkEndpointTests
     /// 微信客户授权策略必须明确指定微信认证方案和账号启用要求。
     /// </summary>
     [Fact]
-    public async Task CustomerPolicy_RequiresWechatSessionAndEnabledAccount()
+    public async Task WechatPolicy_RequiresWechatSessionAndEnabledAccount()
     {
         using var app = new WorkApiFactory();
         using var client = app.CreateClient();
         var policies = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
 
-        var customer = await policies.GetPolicyAsync(AuthorizationPolicies.Customer);
+        var customer = await policies.GetPolicyAsync(AuthorizationPolicies.Wechat);
 
         Assert.NotNull(customer);
         Assert.Contains(WechatSessionAuthenticationHandler.SchemeName, customer.AuthenticationSchemes);
@@ -397,24 +397,24 @@ public sealed class CreateWorkEndpointTests
     /// 客户专用授权特性必须复用已有微信客户策略，而不能另起认证机制。
     /// </summary>
     [Fact]
-    public void CustomerAuthorizeAttribute_UsesCustomerPolicy()
+    public void WechatAuthorizeAttribute_UsesWechatPolicy()
     {
-        var attribute = new CustomerAuthorizeAttribute();
+        var attribute = new WechatAuthorizeAttribute();
 
         Assert.IsAssignableFrom<AuthorizeAttribute>(attribute);
-        Assert.Equal(AuthorizationPolicies.Customer, attribute.Policy);
+        Assert.Equal(AuthorizationPolicies.Wechat, attribute.Policy);
     }
 
     /// <summary>
     /// 作品控制器应只需一个专用特性即可启用客户授权。
     /// </summary>
     [Fact]
-    public void WorksController_DeclaresCustomerAuthorizeAttribute()
+    public void WorksController_DeclaresWechatAuthorizeAttribute()
     {
-        var attributes = typeof(WorksController).GetCustomAttributes(typeof(CustomerAuthorizeAttribute), inherit: true);
+        var attributes = typeof(WorksController).GetCustomAttributes(typeof(WechatAuthorizeAttribute), inherit: true);
 
         Assert.Single(attributes);
-        Assert.IsType<CustomerAuthorizeAttribute>(attributes[0]);
+        Assert.IsType<WechatAuthorizeAttribute>(attributes[0]);
     }
 
     private static readonly byte[] _image = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0];
