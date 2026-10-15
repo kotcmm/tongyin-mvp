@@ -38,8 +38,9 @@ try
     // All migrated API actions are MVC controllers, not legacy Minimal API routes.
     var controllerActions=app.Services.GetRequiredService<IActionDescriptorCollectionProvider>()
         .ActionDescriptors.Items.OfType<ControllerActionDescriptor>().ToArray();
-    Must(controllerActions.Length==48,
-        $"expected 45 Go APIs + /health + /api/config + /media, got {controllerActions.Length} controller actions");
+    // Go has 45 /api routes, including /api/config. Only /health and /media are additional MVC actions.
+    Must(controllerActions.Length==47,
+        $"expected 45 Go /api routes (including /api/config) + /health + /media = 47, got {controllerActions.Length} controller actions");
     foreach(var (controller,action) in new[] {
         ("Customer","LoginWechat"),("Works","UploadDrawing"),
         ("Orders","CreateOrder"),("AdminQuery","GetDashboard"),
