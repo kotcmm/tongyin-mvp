@@ -59,22 +59,35 @@ public sealed class Work
     public IReadOnlyList<string> Preview { get; } = Array.Empty<string>();
 
     /// <summary>
+    /// 最近一次形象图片生成失败的原因，初始为空。
+    /// </summary>
+    public string Note { get; private set; } = string.Empty;
+
+    /// <summary>
     /// 当前形象图片生成任务标识，初始为空。
     /// </summary>
     public string GenerationId { get; private set; } = string.Empty;
 
     /// <summary>
-    /// 首次请求生成形象图片时登记任务并消耗一次生成机会。
+    /// 请求生成形象图片，失败后可在剩余额度内再次提交。
     /// </summary>
-    public void RequestImageGeneration(string generationId)
+    public void RequestImageGeneration(string generationId, int freeImageAttempts = 2)
     {
         if (Status == "image_pending" && ImageAttempts > 0)
         {
             throw new InvalidOperationException("形象正在生成，请勿重复提交");
         }
 
+        if (ImageAttempts >= freeImageAttempts)
+        {
+            throw new InvalidOperationException("免费生成次数已用完");
+        }
+
         ImageAttempts++;
         GenerationId = generationId;
+        Status = "image_pending";
+        Candidates = Array.Empty<string>();
+        Note = string.Empty;
     }
 
     /// <summary>
@@ -89,6 +102,20 @@ public sealed class Work
 
         Candidates = new[] { imagePath };
         Status = "image_ready";
+    }
+
+    /// <summary>
+    /// 当前形象图片生成任务失败后，记录原因并标记为失败。
+    /// </summary>
+    public void FailImageGeneration(string generationId, string errorMessage)
+    {
+        if (Status != "image_pending" || GenerationId.Length == 0 || GenerationId != generationId)
+        {
+            throw new InvalidOperationException("生成任务已失效，无法记录失败结果");
+        }
+
+        Status = "failed";
+        Note = errorMessage;
     }
 
     /// <summary>

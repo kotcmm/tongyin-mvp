@@ -16,6 +16,8 @@
 图片生成请求由 `RequestImageGeneration` 登记任务与消耗一次次数；`CompleteImageGeneration` 只接受当前任务返回的单张图片，
 将状态改为 `image_ready`，过期任务或重复结果会拒绝，不覆盖现有作品。
 
+失败回调由 `FailImageGeneration` 处理：仅当前待生成任务可转为 `failed` 并记录 `Note` 错误原因；重复或过期回调不覆盖作品。失败后调用 `RequestImageGeneration` 可在额度允许时重新生成，清空旧错误并更新任务 ID；次数用尽则拒绝且不修改已有状态。
+
 上述初始行为来自原 Go 后端 `backend/work_handlers.go` 的 `createWork`，
 其他业务（上传文件、生成任务、持久化、接口、支付等）尚未迁移。
 
