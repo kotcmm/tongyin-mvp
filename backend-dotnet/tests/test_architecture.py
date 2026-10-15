@@ -43,6 +43,7 @@ class ArchitectureSkeletonTests(unittest.TestCase):
         self.assertEqual({
             "Program.cs",
             "WorkEndpoints.cs",
+            "WorkResponse.cs",
             "WechatSessionAuthenticationHandler.cs",
             "EnabledWechatUserAuthorizationHandler.cs",
             "EnabledWechatUserRequirement.cs",

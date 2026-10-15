@@ -2,7 +2,6 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
 using Tongyin.Application.Works;
-using Tongyin.Domain.Works;
 using Tongyin.Infrastructure.Media;
 
 namespace Tongyin.Api.Works;
@@ -26,7 +25,7 @@ public static class WorkEndpoints
         app.MapGet("/media/{file}", GetMedia);
     }
 
-    private static async Task<IResult> CreateAsync(HttpContext context, CreateWork create, LocalMediaStore media, ILogger<WorkEndpoints> logger)
+    private static async Task<IResult> CreateAsync(HttpContext context, CreateWork create, LocalMediaStore media, ILoggerFactory loggerFactory)
     {
         var cancellationToken = context.RequestAborted;
         var (file, error) = await ReadUploadAsync(context.Request, cancellationToken);
@@ -40,7 +39,7 @@ public static class WorkEndpoints
             await using var image = file!.OpenReadStream();
             var owner = context.User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
             var work = await create.ExecuteFromImageAsync(owner, image, file.Length, cancellationToken);
-            return Results.Json(ToResponse(work, media), statusCode: 201);
+            return Results.Json(WorkResponse.FromCreated(work, media.SignUrl(work.Original)), statusCode: 201);
         }
         catch (InvalidDataException)
         {
@@ -52,7 +51,7 @@ public static class WorkEndpoints
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "创建作品失败");
+            loggerFactory.CreateLogger(nameof(WorkEndpoints)).LogError(exception, "创建作品失败");
             return Failure(500, "保存失败");
         }
     }
@@ -95,24 +94,6 @@ public static class WorkEndpoints
         }
 
         return (file, null);
-    }
-
-    private static object ToResponse(Work work, LocalMediaStore media)
-    {
-        return new
-        {
-            id = work.Id,
-            created_at = work.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture),
-            original = media.SignUrl(work.Original),
-            candidates = Array.Empty<string>(),
-            selected = work.Selected,
-            preview = Array.Empty<string>(),
-            model = work.Model,
-            status = "image_pending",
-            image_attempts = work.ImageAttempts,
-            generation_id = work.GenerationId,
-            note = work.Note
-        };
     }
 
     private static IResult GetMedia(string file, HttpContext context, LocalMediaStore media)
