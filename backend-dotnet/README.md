@@ -39,6 +39,10 @@
 
 基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键、缺表错误和特殊字符的参数化保存。Dapper 使用 `@参数` 绑定；外围连接工厂可提供 PostgreSQL 或 MySQL 驱动。目前尚未接入 API 入口、数据库连接配置或生产环境，也尚未验证与 Go 服务并发写入的行为。
 
+## 现有小程序登录态兼容
+
+Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.go` 的格式校验 `base64url(openid|expires).base64url(HMAC-SHA256(payload))`，使用 `SESSION_SECRET`，核实签名与过期秒数后返回 OpenID。无效签名、过期、空用户及非法令牌均拒绝；不接受空密钥。该能力供后续安全接入 `POST /api/works` 使用，当前尚未新增 HTTP 路由，也未接入原 Go 的用户禁用校验。
+
 ## 验收
 
 需要 .NET 10 SDK：
