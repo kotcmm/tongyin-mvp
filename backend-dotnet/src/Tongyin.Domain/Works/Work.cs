@@ -36,7 +36,7 @@ public sealed class Work
     /// <summary>
     /// 当前状态，初始为等待生成形象图片。
     /// </summary>
-    public string Status { get; private set; } = "image_pending";
+    public WorkStatus Status { get; private set; } = WorkStatus.ImagePending;
 
     /// <summary>
     /// 已选择的候选图索引，负一表示尚未选择。
@@ -73,7 +73,7 @@ public sealed class Work
     /// </summary>
     public void RequestImageGeneration(string generationId, int freeImageAttempts = 2)
     {
-        if (Status == "image_pending" && ImageAttempts > 0)
+        if (Status == WorkStatus.ImagePending && ImageAttempts > 0)
         {
             throw new InvalidOperationException("形象正在生成，请勿重复提交");
         }
@@ -85,7 +85,7 @@ public sealed class Work
 
         ImageAttempts++;
         GenerationId = generationId;
-        Status = "image_pending";
+        Status = WorkStatus.ImagePending;
         Candidates = Array.Empty<string>();
         Note = string.Empty;
     }
@@ -95,13 +95,13 @@ public sealed class Work
     /// </summary>
     public void CompleteImageGeneration(string generationId, string imagePath)
     {
-        if (Status != "image_pending" || GenerationId.Length == 0 || GenerationId != generationId)
+        if (Status != WorkStatus.ImagePending || GenerationId.Length == 0 || GenerationId != generationId)
         {
             throw new InvalidOperationException("生成任务已失效，无法保存形象图片");
         }
 
         Candidates = new[] { imagePath };
-        Status = "image_ready";
+        Status = WorkStatus.ImageReady;
     }
 
     /// <summary>
@@ -109,12 +109,12 @@ public sealed class Work
     /// </summary>
     public void FailImageGeneration(string generationId, string errorMessage)
     {
-        if (Status != "image_pending" || GenerationId.Length == 0 || GenerationId != generationId)
+        if (Status != WorkStatus.ImagePending || GenerationId.Length == 0 || GenerationId != generationId)
         {
             throw new InvalidOperationException("生成任务已失效，无法记录失败结果");
         }
 
-        Status = "failed";
+        Status = WorkStatus.Failed;
         Note = errorMessage;
     }
 
