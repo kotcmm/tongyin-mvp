@@ -57,6 +57,7 @@ class ArchitectureSkeletonTests(unittest.TestCase):
             "EnabledWechatUserRequirement.cs",
             "AuthorizationPolicies.cs",
             "WechatAuthorizeAttribute.cs",
+            "WechatUserExtensions.cs",
         }, sources)
 
         program = (api / "Program.cs").read_text(encoding="utf-8")
@@ -82,6 +83,9 @@ class ArchitectureSkeletonTests(unittest.TestCase):
         self.assertNotIn("IFormCollection", works)
         self.assertNotIn("ReadFormAsync", works)
         self.assertNotIn("HttpContext context", works)
+        self.assertEqual(3, works.count("User.GetWechatOpenId()"))
+        self.assertNotIn("ClaimTypes.NameIdentifier", works)
+        self.assertNotIn("IHttpContextAccessor", works)
         self.assertNotIn("TryValidate(", works)
 
         response = (api / "ViewModels" / "Works" / "WorkResponse.cs").read_text(encoding="utf-8")
