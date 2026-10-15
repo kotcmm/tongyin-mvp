@@ -78,6 +78,12 @@ public sealed class Work
     /// </summary>
     public void RequestImageGeneration(string generationId, int freeImageAttempts = 2)
     {
+        if (Status != WorkStatus.ImageReady && Status != WorkStatus.ImagePending
+            && !(Status == WorkStatus.Failed && Selected < 0))
+        {
+            throw new InvalidOperationException("当前作品不能重新生成形象");
+        }
+
         if (Status == WorkStatus.ImagePending && ImageAttempts > 0)
         {
             throw new InvalidOperationException("形象正在生成，请勿重复提交");

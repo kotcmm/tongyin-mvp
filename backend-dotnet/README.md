@@ -26,6 +26,10 @@
 
 上述初始行为来自原 Go 后端 `backend/work_handlers.go` 的 `createWork`；目前已迁移原画上传、作品创建和 SQL 持久化，后续图片生成任务、模型业务、支付等尚未迁移。
 
+## 图片生成请求的领域准入规则
+
+对照原 Go `startImageGeneration`，`Work.RequestImageGeneration` 只允许首次生成、图片已就绪但未选图后的重新生成，以及图片阶段失败后的重新生成；图片任务正在执行、生成次数耗尽、作品进入模型阶段（包括模型生成失败或完成）均必须拒绝，不更改已有图片、模型和任务记录。该规则仅在 Domain 层实施和测试，**尚未迁移 `POST /api/works/{id}/generate`**；原因是 .NET 侧仍缺少可持久化的任务登记、原子更新、服务商及提示词配置、异步派发和结果处理。不能在未实际派发任务时对小程序返回“AI 已提交”的成功响应。
+
 ## Application 层第一个用例
 
 `CreateWork.ExecuteFromImageAsync(owner, image, length)` 通过应用层 `IOriginalImageStore` 端口保存原画，生成作品 ID 和创建时间，然后调用既有 `ExecuteAsync(id, owner, createdAt, original)` 持久化作品。**只有作品保存失败时才回收本次原画**，成功保存后 HTTP 响应签名或格式化错误不会触发删除。Controller 仍负责 multipart 请求格式和响应，应用层不依赖 ASP.NET Core。`OriginalImageLimits.MaxBytes`（10 MiB）由 API 和存储适配器共同引用。
