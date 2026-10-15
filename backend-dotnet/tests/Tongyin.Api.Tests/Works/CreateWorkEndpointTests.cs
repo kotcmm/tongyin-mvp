@@ -354,11 +354,11 @@ public sealed class CreateWorkEndpointTests
         Assert.Equal("model_ready", work.GetProperty("status").GetString());
         Assert.Equal(2, work.GetProperty("image_attempts").GetInt32());
         Assert.False(work.TryGetProperty("owner", out _));
-        Assert.True(work.GetProperty("original").GetString()!.Contains("/media/drawing.png?expires="));
-        Assert.True(Assert.Single(work.GetProperty("candidates").EnumerateArray()).GetString()!.Contains("/media/cartoon.png?expires="));
-        Assert.True(Assert.Single(work.GetProperty("preview").EnumerateArray()).GetString()!.Contains("/media/angle.png?expires="));
-        Assert.True(work.GetProperty("model").GetString()!.Contains("/media/figure.glb?expires="));
-        Assert.False((await response.Content.ReadAsStringAsync()).Contains("other.png"));
+        Assert.Contains("/media/drawing.png?expires=", work.GetProperty("original").GetString()!);
+        Assert.Contains("/media/cartoon.png?expires=", Assert.Single(work.GetProperty("candidates").EnumerateArray()).GetString()!);
+        Assert.Contains("/media/angle.png?expires=", Assert.Single(work.GetProperty("preview").EnumerateArray()).GetString()!);
+        Assert.Contains("/media/figure.glb?expires=", work.GetProperty("model").GetString()!);
+        Assert.DoesNotContain("other.png", await response.Content.ReadAsStringAsync());
     }
 
     /// <summary>
