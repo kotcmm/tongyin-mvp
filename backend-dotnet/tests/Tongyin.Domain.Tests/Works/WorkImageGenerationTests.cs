@@ -16,7 +16,7 @@ public sealed class WorkImageGenerationTests
     {
         var work = Work.Create("work-001", "openid-001", DateTimeOffset.UtcNow, "media/drawing.png");
 
-        work.RequestImageGeneration("generation-001", 2);
+        work.RequestImageGeneration("generation-001");
 
         Assert.Equal("image_pending", work.Status);
         Assert.Equal(1, work.ImageAttempts);
@@ -30,9 +30,9 @@ public sealed class WorkImageGenerationTests
     public void RequestImageGeneration_WhilePending_RejectsDuplicate()
     {
         var work = Work.Create("work-001", "openid-001", DateTimeOffset.UtcNow, "media/drawing.png");
-        work.RequestImageGeneration("generation-001", 2);
+        work.RequestImageGeneration("generation-001");
 
-        Assert.Throws<InvalidOperationException>(() => work.RequestImageGeneration("generation-002", 2));
+        Assert.Throws<InvalidOperationException>(() => work.RequestImageGeneration("generation-002"));
 
         Assert.Equal(1, work.ImageAttempts);
         Assert.Equal("generation-001", work.GenerationId);
