@@ -8,5 +8,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Tongyin.Domain.Tests/Tongyin.Domain.Tests.csproj" />
     <Project Path="tests/Tongyin.Application.Tests/Tongyin.Application.Tests.csproj" />
+    <Project Path="tests/Tongyin.Infrastructure.Tests/Tongyin.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>
