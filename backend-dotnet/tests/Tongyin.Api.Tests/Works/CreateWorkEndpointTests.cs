@@ -6,6 +6,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Authorization;
+using Tongyin.Api.Auth;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
@@ -204,6 +206,39 @@ public sealed class CreateWorkEndpointTests
         using var response = await client.GetAsync(uri.AbsolutePath + "?expires=1&signature=invalid");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>
+    /// 微信客户授权策略必须明确指定微信认证方案和账号启用要求。
+    /// </summary>
+    [Fact]
+    public async Task CustomerPolicy_RequiresWechatSessionAndEnabledAccount()
+    {
+        using var app = new WorkApiFactory();
+        using var client = app.CreateClient();
+        var policies = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
+
+        var customer = await policies.GetPolicyAsync(AuthorizationPolicies.Customer);
+
+        Assert.NotNull(customer);
+        Assert.Contains(WechatSessionAuthenticationHandler.SchemeName, customer.AuthenticationSchemes);
+        Assert.Contains(customer.Requirements, requirement => requirement is EnabledWechatUserRequirement);
+    }
+
+    /// <summary>
+    /// 通用默认策略不得绑定微信账号，以免未来管理员认证被误套用客户权限。
+    /// </summary>
+    [Fact]
+    public async Task DefaultPolicy_DoesNotRequireEnabledWechatAccount()
+    {
+        using var app = new WorkApiFactory();
+        using var client = app.CreateClient();
+        var policies = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
+
+        var fallback = await policies.GetDefaultPolicyAsync();
+
+        Assert.DoesNotContain(fallback.Requirements, requirement => requirement is EnabledWechatUserRequirement);
+        Assert.DoesNotContain(WechatSessionAuthenticationHandler.SchemeName, fallback.AuthenticationSchemes);
     }
 
     private static readonly byte[] _image = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0];

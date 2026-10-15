@@ -46,20 +46,22 @@ class ArchitectureSkeletonTests(unittest.TestCase):
             "WechatSessionAuthenticationHandler.cs",
             "EnabledWechatUserAuthorizationHandler.cs",
             "EnabledWechatUserRequirement.cs",
+            "AuthorizationPolicies.cs",
         }, sources)
         source = (api / "Works" / "WorkEndpoints.cs").read_text(encoding="utf-8")
         self.assertIn('MapPost("/api/works"', source)
-        self.assertIn(".RequireAuthorization()", source)
-        self.assertNotIn('RequireAuthorization("EnabledWechatUser")', source)
+        self.assertIn(".RequireAuthorization(AuthorizationPolicies.Customer)", source)
+        self.assertNotIn('.RequireAuthorization()', source)
         self.assertNotIn("Headers.Authorization", source)
         self.assertNotIn("TryValidate(", source)
         program = (api / "Program.cs").read_text(encoding="utf-8")
         self.assertIn("UseAuthentication()", program)
         self.assertIn("UseAuthorization()", program)
-        self.assertIn("options.DefaultPolicy =", program)
+        self.assertIn("AddPolicy(AuthorizationPolicies.Customer", program)
         self.assertIn("RequireAuthenticatedUser()", program)
         self.assertIn("new EnabledWechatUserRequirement()", program)
-        self.assertNotIn('AddPolicy("EnabledWechatUser"', program)
+        self.assertNotIn("options.DefaultPolicy =", program)
+        self.assertIn("builder.Services.AddAuthentication()", program)
         self.assertNotIn("MapControllers", source)
         self.assertNotIn('MapPost("/api/works/{id}/generate"', source)
 
