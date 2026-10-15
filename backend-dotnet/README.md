@@ -29,7 +29,7 @@
 
 ## Application 层第一个用例
 
-`CreateWork.ExecuteAsync(id, owner, createdAt, original)` 调用 `Work.Create` 并通过 `IWorkRepository.AddAsync` 保存作品，保存成功后将相同的作品对象返回给调用方。保存失败时向上抛出错误，不返回假成功。数据库适配器已由 Infrastructure 层实现；用例不负责 HTTP 上传、用户鉴权、作品 ID 或时间生成。
+`CreateWork.ExecuteFromImageAsync(owner, image, length)` 通过应用层 `IOriginalImageStore` 端口保存原画，生成作品 ID 和创建时间，然后调用既有 `ExecuteAsync(id, owner, createdAt, original)` 持久化作品。**只有作品保存失败时才回收本次原画**，成功保存后 HTTP 响应签名或格式化错误不会触发删除。API 仍负责 multipart 请求格式和响应，应用层不依赖 ASP.NET Core。`OriginalImageLimits.MaxBytes`（10 MiB）由 API 和存储适配器共同引用。
 
 ## Infrastructure 层第一个 SQL 适配器
 

@@ -1,22 +1,21 @@
 using System.Security.Claims;
-using Tongyin.Api.Auth;
-using System.Security.Cryptography;
 using Microsoft.AspNetCore.Mvc;
+using Tongyin.Api.Auth;
 using Tongyin.Application.Works;
+using Tongyin.Domain.Works;
 using Tongyin.Infrastructure.Media;
 
 namespace Tongyin.Api.Works;
 
 /// <summary>
-/// 兼容微信小程序旧版作品上传协议的 HTTP 入口。
+/// 兼容微信小程序上传协议的 HTTP 入口，仅处理请求解析和响应转换。
 /// </summary>
 public static class WorkEndpoints
 {
-    private const long MaxImageBytes = 10L << 20;
-    private const long MaxRequestBytes = MaxImageBytes + (1L << 20);
+    private const long MaxRequestBytes = OriginalImageLimits.MaxBytes + (1L << 20);
 
     /// <summary>
-    /// 注册作品创建和经过媒体签名校验的原画下载端点。
+    /// 注册作品创建和签名原画下载端点。
     /// </summary>
     public static void Map(WebApplication app)
     {
@@ -27,81 +26,93 @@ public static class WorkEndpoints
         app.MapGet("/media/{file}", GetMedia);
     }
 
-    private static async Task<IResult> CreateAsync(HttpContext context, LocalMediaStore media, CreateWork create)
+    private static async Task<IResult> CreateAsync(HttpContext context, CreateWork create, LocalMediaStore media, ILogger<WorkEndpoints> logger)
     {
         var cancellationToken = context.RequestAborted;
-        var owner = context.User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
-
-        if (context.Request.ContentLength > MaxRequestBytes)
+        var (file, error) = await ReadUploadAsync(context.Request, cancellationToken);
+        if (error is not null)
         {
-            return Failure(413, "上传文件超过允许大小");
+            return error;
         }
 
-        if (!context.Request.HasFormContentType)
-        {
-            return Failure(400, "需要上传图片");
-        }
-
-        IFormCollection form;
         try
         {
-            form = await context.Request.ReadFormAsync(cancellationToken);
-        }
-        catch (InvalidDataException)
-        {
-            return Failure(413, "上传文件超过允许大小");
-        }
-        catch (BadHttpRequestException ex) when (ex.StatusCode == 413)
-        {
-            return Failure(413, "上传文件超过允许大小");
-        }
-
-        var file = form.Files.GetFile("file");
-        if (file is null || file.Length == 0)
-        {
-            return Failure(400, "未找到上传文件或上传文件为空");
-        }
-
-        if (file.Length > MaxImageBytes)
-        {
-            return Failure(413, "图片最多 10 MiB");
-        }
-
-        string fileName;
-        try
-        {
-            await using var input = file.OpenReadStream();
-            fileName = await media.SaveImageAsync(input, file.Length, cancellationToken);
+            await using var image = file!.OpenReadStream();
+            var owner = context.User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
+            var work = await create.ExecuteFromImageAsync(owner, image, file.Length, cancellationToken);
+            return Results.Json(ToResponse(work, media), statusCode: 201);
         }
         catch (InvalidDataException)
         {
             return Failure(400, "仅支持 JPG、PNG、WebP 图片");
         }
-
-        try
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            var workId = Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
-            var work = await create.ExecuteAsync(workId, owner, DateTimeOffset.UtcNow, fileName, cancellationToken);
-            return Results.Json(new
-            {
-                id = work.Id,
-                created_at = work.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture),
-                original = media.SignUrl(fileName),
-                candidates = Array.Empty<string>(),
-                selected = work.Selected,
-                preview = Array.Empty<string>(),
-                model = work.Model,
-                status = "image_pending",
-                image_attempts = work.ImageAttempts,
-                generation_id = work.GenerationId,
-                note = work.Note
-            }, statusCode: 201);
+            throw;
         }
-        catch
+        catch (Exception exception)
         {
-            media.Delete(fileName);
+            logger.LogError(exception, "创建作品失败");
             return Failure(500, "保存失败");
         }
+    }
+
+    private static async Task<(IFormFile? File, IResult? Error)> ReadUploadAsync(HttpRequest request, CancellationToken cancellationToken)
+    {
+        if (request.ContentLength > MaxRequestBytes)
+        {
+            return (null, Failure(413, "上传文件超过允许大小"));
+        }
+
+        if (!request.HasFormContentType)
+        {
+            return (null, Failure(400, "需要上传图片"));
+        }
+
+        IFormCollection form;
+        try
+        {
+            form = await request.ReadFormAsync(cancellationToken);
+        }
+        catch (BadHttpRequestException exception)
+        {
+            return (null, Failure(exception.StatusCode == 413 ? 413 : 400, "解析上传请求失败"));
+        }
+        catch (InvalidDataException)
+        {
+            return (null, Failure(400, "解析上传请求失败"));
+        }
+
+        var file = form.Files.GetFile("file");
+        if (file is null || file.Length == 0)
+        {
+            return (null, Failure(400, "未找到上传文件或上传文件为空"));
+        }
+
+        if (file.Length > OriginalImageLimits.MaxBytes)
+        {
+            return (null, Failure(413, "图片最多 10 MiB"));
+        }
+
+        return (file, null);
+    }
+
+    private static object ToResponse(Work work, LocalMediaStore media)
+    {
+        return new
+        {
+            id = work.Id,
+            created_at = work.CreatedAt.ToString("yyyy-MM-dd'T'HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture),
+            original = media.SignUrl(work.Original),
+            candidates = Array.Empty<string>(),
+            selected = work.Selected,
+            preview = Array.Empty<string>(),
+            model = work.Model,
+            status = "image_pending",
+            image_attempts = work.ImageAttempts,
+            generation_id = work.GenerationId,
+            note = work.Note
+        };
     }
 
     private static IResult GetMedia(string file, HttpContext context, LocalMediaStore media)

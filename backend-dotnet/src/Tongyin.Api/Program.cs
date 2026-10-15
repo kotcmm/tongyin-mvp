@@ -33,6 +33,7 @@ builder.Services.AddSingleton(services =>
         configuration["PUBLIC_URL"] ?? "http://localhost:8080",
         configuration["SESSION_SECRET"]!);
 });
+builder.Services.AddSingleton<IOriginalImageStore>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();

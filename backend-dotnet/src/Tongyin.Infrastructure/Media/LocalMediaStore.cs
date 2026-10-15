@@ -1,4 +1,5 @@
 using System.Buffers.Text;
+using Tongyin.Application.Works;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,9 +9,8 @@ namespace Tongyin.Infrastructure.Media;
 /// <summary>
 /// 管理本地原画上传以及兼容 Go 服务的媒体访问签名。
 /// </summary>
-public sealed class LocalMediaStore
+public sealed class LocalMediaStore : IOriginalImageStore
 {
-    private const long MaxImageBytes = 10L << 20;
     private static readonly byte[] _pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
     private static readonly byte[] _jpegSignature = [0xFF, 0xD8, 0xFF];
     private readonly string _directory;
@@ -32,7 +32,7 @@ public sealed class LocalMediaStore
     /// </summary>
     public async Task<string> SaveImageAsync(Stream source, long length, CancellationToken cancellationToken = default)
     {
-        if (length == 0 || length > MaxImageBytes)
+        if (length == 0 || length > OriginalImageLimits.MaxBytes)
         {
             throw new InvalidDataException("图片为空或超过 10 MiB");
         }
