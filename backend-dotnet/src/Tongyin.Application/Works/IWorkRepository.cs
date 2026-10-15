@@ -16,4 +16,9 @@ public interface IWorkRepository
     /// 仅查询指定微信用户自己的作品快照，避免跨账号泄露。
     /// </summary>
     Task<IReadOnlyList<WorkSnapshot>> ListByOwnerAsync(string owner, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 同时使用作品 ID 和所属微信用户标识查询详情，未找到或不属于本人时返回空值。
+    /// </summary>
+    Task<WorkSnapshot?> GetByIdForOwnerAsync(string id, string owner, CancellationToken cancellationToken = default);
 }

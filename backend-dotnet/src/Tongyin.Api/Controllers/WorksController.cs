@@ -13,7 +13,7 @@ namespace Tongyin.Api.Controllers;
 [ApiController]
 [Route("api/works")]
 [WechatAuthorize]
-public sealed class WorksController(CreateWork createWork, ListWorks listWorks, LocalMediaStore media, ILogger<WorksController> logger) : ControllerBase
+public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, LocalMediaStore media, ILogger<WorksController> logger) : ControllerBase
 {
     private const long MaxRequestBytes = OriginalImageLimits.MaxBytes + (1L << 20);
 
@@ -55,6 +55,22 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
             logger.LogError(exception, "创建作品失败");
             return StatusCode(StatusCodes.Status500InternalServerError, new { error = "保存失败" });
         }
+    }
+
+    /// <summary>
+    /// 查询指定作品详情，只返回当前微信用户本人的作品；每次生成新的媒体访问签名。
+    /// </summary>
+    [HttpGet("{id}")]
+    public async Task<ActionResult<WorkResponse>> GetAsync([FromRoute] string id, CancellationToken cancellationToken)
+    {
+        var owner = User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
+        var work = await getWork.ExecuteAsync(owner, id, cancellationToken);
+        if (work is null)
+        {
+            return NotFound(new { error = "作品不存在" });
+        }
+
+        return Ok(WorkResponse.FromSnapshot(work, media.SignUrl));
     }
 
     /// <summary>

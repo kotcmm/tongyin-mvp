@@ -43,6 +43,7 @@ builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<ListWorks>();
+builder.Services.AddScoped<GetWork>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(

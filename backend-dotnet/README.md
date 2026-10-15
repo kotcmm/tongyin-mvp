@@ -78,6 +78,10 @@ DB_CONNECTION_STRING=Server=127.0.0.1;Port=3306;Database=tongyin;User ID=tongyin
 
 `GET /api/works` 沿用旧 Go 接口，使用 `AuthorizationPolicies.Wechat` 校验当前微信用户，返回 JSON 数组（无作品为 `[]`），而不是分页包装对象。Application 层的 `ListWorks` 查询用例经由 `IWorkRepository.ListByOwnerAsync` 获取 `WorkSnapshot`，Infrastructure 用 Dapper 按 `ty_works.owner_id` 筛选，保留既有 JSON 的生成状态、候选图、预览图、模型及 AI 任务元数据。API 统一通过 `WorkResponse.FromSnapshot` 为每次查询重新生成 48 小时有效的媒体 URL，不将原始 OpenID 返回给小程序。查询不会更改数据库内容，也不依赖文件当前存在与否。
 
+## 我的作品详情查询
+
+`GET /api/works/{id}` 沿用原 Go 协议，使用 `[WechatAuthorize]` 检查微信登录状态和账号是否启用。Controller 通过 `GetWork` 用例读取作品；`SqlWorkRepository.GetByIdForOwnerAsync` 使用参数化 `WHERE id = @Id AND owner_id = @Owner` 同时核对作品标识与所属人。作品不存在或属于其他用户时均返回 `404 {"error":"作品不存在"}`，避免暴露其他人的作品是否存在；匿名返回 401，账号停用返回 403。正常返回现有 `WorkResponse` 单个 JSON 对象，重新签发所有原画、候选图、预览和模型的媒体 URL。
+
 ## 验收
 
 需要 .NET 10 SDK：

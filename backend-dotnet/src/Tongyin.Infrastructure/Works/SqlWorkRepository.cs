@@ -53,6 +53,24 @@ public sealed class SqlWorkRepository : IWorkRepository
             cancellationToken: cancellationToken));
     }
     /// <summary>
+    /// 通过参数化的作品 ID 与微信用户标识联合查询，防止其他用户读取作品详情。
+    /// </summary>
+    public async Task<WorkSnapshot?> GetByIdForOwnerAsync(string id, string owner, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken);
+        var payload = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_works WHERE id = @Id AND owner_id = @Owner",
+            new { Id = id, Owner = owner },
+            cancellationToken: cancellationToken));
+
+        return payload is null
+            ? null
+            : JsonSerializer.Deserialize<WorkSnapshot>(payload)
+                ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+    }
+
+    /// <summary>
     /// 按用户标识读取 Go 兼容作品 JSON，按创建时间及标识倒序返回。
     /// </summary>
     public async Task<IReadOnlyList<WorkSnapshot>> ListByOwnerAsync(string owner, CancellationToken cancellationToken = default)
