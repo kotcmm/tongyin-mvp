@@ -17,6 +17,11 @@ try {
             throw ("dotnet returned error code " + $LASTEXITCODE)
         }
     }
+    # Check repository conventions and project dependency boundaries first.
+    & node "scripts/check-dotnet-conventions.cjs"
+    if ($LASTEXITCODE -ne 0) { throw "C# conventions check failed" }
+    & node "scripts/check-clean-architecture.cjs"
+    if ($LASTEXITCODE -ne 0) { throw "Clean Architecture boundary check failed" }
     Run-Dotnet -Arguments @("build","backend-dotnet/Tongyin.slnx","--configuration","Release")
     Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.CleanArchitectureChecks/Tongyin.CleanArchitectureChecks.csproj","--configuration","Release")
     Run-Dotnet -Arguments @("run","--project","backend-dotnet/tests/Tongyin.CompatChecks/Tongyin.CompatChecks.csproj","--configuration","Release")

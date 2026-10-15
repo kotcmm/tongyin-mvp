@@ -5,10 +5,10 @@ const root=path.join(__dirname,'../backend-dotnet/src');
 const domain=path.join(root,'Tongyin.Domain');
 const app=path.join(root,'Tongyin.Application');
 const banned=[
-  /\\bHttpContext\\b/,/\\bIFormFile\\b/,/\\bIResult\\b/,
-  /\\bJsonObject\\b/,/\\bIStore\\b/,/\\bSqlConnection\\b/,
-  /\\bNpgsql\\b/,/\\bMySqlConnector\\b/,
-  /Microsoft\\.AspNetCore/,/Tongyin\\.Api/,/Tongyin\\.Infrastructure/
+  /\bHttpContext\b/,/\bIFormFile\b/,/\bIResult\b/,
+  /\bJsonObject\b/,/\bIStore\b/,/\bSqlConnection\b/,
+  /\bNpgsql\b/,/\bMySqlConnector\b/,
+  /Microsoft\.AspNetCore/,/Tongyin\.Api/,/Tongyin\.Infrastructure/
 ];
 let bad=[];
 for(const folder of [domain,app]){

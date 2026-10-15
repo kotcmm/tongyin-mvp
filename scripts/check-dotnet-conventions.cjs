@@ -11,6 +11,11 @@ function walk(dir){
     return entry.name.endsWith('.cs')?[name]:[];
   });
 }
+// Reject generated placeholder summaries: XML markup alone is not meaningful documentation.
+const placeholderDocs=[
+  /业务参数/, /执行(?:new|undefined)业务操作/,
+  /提供[A-Za-z_]\w*(?:所需的数据或操作|对应的业务操作)/
+];
 const cn=/[\u3400-\u9fff]/;
 function hasXml(lines,index){
   let at=index-1;
@@ -48,6 +53,13 @@ for(const file of walk(root)){
         errors.push(relative+':'+(i+1)+': public/internal member must be PascalCase: '+name);
       if(/\\b(public|internal)\\b/.test(trim) && /\\w+\\s*\\($/.test(trim))
         errors.push(relative+':'+(i+1)+': keep method parameters on the declaration line');
+    }
+    if(trim.startsWith('///') && placeholderDocs.some(pattern=>pattern.test(trim)))
+      errors.push(relative+':'+(i+1)+': non-descriptive XML comment: '+trim);
+    if(enumMember){
+      const member=trim.match(/^([A-Za-z_]\w*)/)[1];
+      if(!/^[A-Z][A-Za-z0-9]*$/.test(member))
+        errors.push(relative+':'+(i+1)+': enum member must be PascalCase: '+member);
     }
     if((decl||interfaceMember||enumMember) && !hasXml(lines,i))
       errors.push(relative+':'+(i+1)+': missing Chinese XML <summary> for '+trim.slice(0,80));
