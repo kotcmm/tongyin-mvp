@@ -3,7 +3,7 @@
 项目采用 .NET 10，按 **Domain / Application / Infrastructure / Api** 四层组织。
 
 - `Tongyin.Domain`：领域实体及业务规则；目前实现了作品创建及图片、模型生成阶段的领域状态转换，未接入外部服务。
-- `Tongyin.Application`：应用用例及外部端口；尚未迁移业务。
+- `Tongyin.Application`：已提供 `CreateWork` 应用用例及 `IWorkRepository` 持久化端口，尚无数据库适配器。
 - `Tongyin.Infrastructure`：数据库及 AI 等外部接入；尚未迁移业务。
 - `Tongyin.Api`：HTTP 程序宿主；尚未注册业务路由。
 
@@ -27,13 +27,17 @@
 上述初始行为来自原 Go 后端 `backend/work_handlers.go` 的 `createWork`，
 其他业务（上传文件、生成任务、持久化、接口、支付等）尚未迁移。
 
+## Application 层第一个用例
+
+`CreateWork.ExecuteAsync(id, owner, createdAt, original)` 调用 `Work.Create` 并通过 `IWorkRepository.AddAsync` 保存作品，保存成功后将相同的作品对象返回给调用方。保存失败时向上抛出错误，不返回假成功。这里尚未实现数据库适配器，也不负责 HTTP 上传、用户鉴权、作品 ID 或时间生成。
+
 ## 验收
 
 需要 .NET 10 SDK：
 
 ```powershell
 dotnet build backend-dotnet/Tongyin.slnx -c Release
-dotnet test backend-dotnet/tests/Tongyin.Domain.Tests/Tongyin.Domain.Tests.csproj -c Release
+dotnet test backend-dotnet/Tongyin.slnx -c Release
 ```
 
 仅检查骨架结构：
