@@ -44,14 +44,14 @@ for(const file of walk(root)){
     const enumMember=isEnum && /^\s+[A-Z]\w*(?:\s*=\s*\d+)?\s*,?\s*$/.test(line) && !/^\s+(?:public|internal)/.test(line);
     // Public C# members use PascalCase. Record positional parameter names
     // are constructor inputs rather than public symbol declarations.
-    if(decl && !/\\b(?:class|interface|record|enum|struct)\\s+\\w+/.test(trim)){
-      const names=[...trim.matchAll(/([A-Za-z_]\\w*)(?:<[^()]*>)?\\s*\\(/g)];
+    if(decl && !/\b(?:class|interface|record|enum|struct)\s+\w+/.test(trim)){
+      const names=[...trim.matchAll(/([A-Za-z_]\w*)(?:<[^()]*>)?\s*\(/g)];
       const methodName=names.length ? names[names.length-1][1] : null;
-      const propertyName=trim.match(/\\b([A-Za-z_]\\w*)\\s*(?:\\{|=>)/)?.[1];
+      const propertyName=trim.match(/\b([A-Za-z_]\w*)\s*(?:\{|=>)/)?.[1];
       const name=propertyName||methodName;
       if(name && !/^[A-Z][A-Za-z0-9]*$/.test(name))
         errors.push(relative+':'+(i+1)+': public/internal member must be PascalCase: '+name);
-      if(/\\b(public|internal)\\b/.test(trim) && /\\w+\\s*\\($/.test(trim))
+      if(/\b(public|internal)\b/.test(trim) && /\w+\s*\($/.test(trim))
         errors.push(relative+':'+(i+1)+': keep method parameters on the declaration line');
     }
     if(trim.startsWith('///') && placeholderDocs.some(pattern=>pattern.test(trim)))
