@@ -121,11 +121,74 @@ public sealed class GoSessionTokenValidatorTests
         Assert.Throws<ArgumentException>(() => new GoSessionTokenValidator(string.Empty));
     }
 
+    /// <summary>
+    /// 原 Go 的 RawURLEncoding 不接受 Base64Url 中的空格，即使解码结果本身相同。
+    /// </summary>
+    [Fact]
+    public void TryValidate_SignatureContainsWhitespace_Rejects()
+    {
+        var validator = new GoSessionTokenValidator(Secret);
+        var token = Issue("openid-001", Now.AddHours(1).ToUnixTimeSeconds());
+        var separator = token.IndexOf('.');
+        var tokenWithWhitespace = token.Insert(separator + 4, " ");
+
+        Assert.False(validator.TryValidate(tokenWithWhitespace, Now, out var openId));
+        Assert.Equal(string.Empty, openId);
+    }
+
+    /// <summary>
+    /// 签名正确也不能绕过载荷字段及过期秒数字段的格式校验。
+    /// </summary>
+    [Theory]
+    [InlineData("openid-001")]
+    [InlineData("|1792070000")]
+    [InlineData("openid-001|invalid")]
+    [InlineData("openid-001|1792070000|extra")]
+    public void TryValidate_SignedMalformedPayload_Rejects(string payload)
+    {
+        var validator = new GoSessionTokenValidator(Secret);
+        var token = SignPayload(Base64Url(Encoding.UTF8.GetBytes(payload)));
+
+        Assert.False(validator.TryValidate(token, Now, out var openId));
+        Assert.Equal(string.Empty, openId);
+    }
+
+    /// <summary>
+    /// 不合法的 UTF-8 编码即使签名正确，也不能生成有效的微信用户标识。
+    /// </summary>
+    [Fact]
+    public void TryValidate_SignedInvalidUtf8Payload_Rejects()
+    {
+        var validator = new GoSessionTokenValidator(Secret);
+        var token = SignPayload(Base64Url([0xFF, 0xFE, 0xFD]));
+
+        Assert.False(validator.TryValidate(token, Now, out var openId));
+        Assert.Equal(string.Empty, openId);
+    }
+
+    /// <summary>
+    /// 原 Go 使用无填充的 Base64Url，不能接收带填充符的签名。
+    /// </summary>
+    [Fact]
+    public void TryValidate_PaddedSignature_Rejects()
+    {
+        var validator = new GoSessionTokenValidator(Secret);
+        var token = Issue("openid-001", Now.AddHours(1).ToUnixTimeSeconds()) + "=";
+
+        Assert.False(validator.TryValidate(token, Now, out var openId));
+        Assert.Equal(string.Empty, openId);
+    }
+
     private static string Issue(string openId, long expiresAt)
     {
         var payload = Base64Url(Encoding.UTF8.GetBytes($"{openId}|{expiresAt}"));
-        var signature = HMACSHA256.HashData(Encoding.UTF8.GetBytes(Secret), Encoding.UTF8.GetBytes(payload));
-        return payload + "." + Base64Url(signature);
+        return SignPayload(payload);
+    }
+
+    private static string SignPayload(string encodedPayload)
+    {
+        var signature = HMACSHA256.HashData(Encoding.UTF8.GetBytes(Secret), Encoding.UTF8.GetBytes(encodedPayload));
+        return encodedPayload + "." + Base64Url(signature);
     }
 
     private static string Base64Url(byte[] bytes)
