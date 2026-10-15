@@ -138,6 +138,9 @@ public sealed class CreateWorkTests
         {
             throw new NotSupportedException("创建用例测试不读取作品列表");
         }
+        public Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("当前测试不登记图片生成任务");
+
         public Task AddAsync(Work work, CancellationToken cancellationToken = default)
         {
             SavedWork = work;
@@ -155,6 +158,9 @@ public sealed class CreateWorkTests
         {
             throw new NotSupportedException("创建用例测试不读取作品列表");
         }
+        public Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("当前测试不登记图片生成任务");
+
         public Task AddAsync(Work work, CancellationToken cancellationToken = default)
         {
             throw new IOException("保存失败");

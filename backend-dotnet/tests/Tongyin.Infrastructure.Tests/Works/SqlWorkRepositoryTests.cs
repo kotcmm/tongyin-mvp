@@ -223,6 +223,207 @@ public sealed class SqlWorkRepositoryTests
         Assert.Null(work);
     }
 
+    /// <summary>
+    /// 登记任务必须同时持久化次数、生成编号和状态，并保留未触碰的 Go JSON 元数据。
+    /// </summary>
+    [Fact]
+    public async Task RegisterImageGenerationAsync_FirstRequest_PersistsTaskAndPreservesMetadata()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "image_pending", selected = -1,
+            image_attempts = 0, generation_id = "", note = "", ai_provider_id = "previous-config",
+            candidates = Array.Empty<string>(), preview = Array.Empty<string>(), model = ""
+        });
+
+        var saved = await new SqlWorkRepository(db.CreateConnection).RegisterImageGenerationAsync(
+            "work-001", "openid-001", "generation-001", 2);
+
+        Assert.NotNull(saved);
+        Assert.Equal("image_pending", saved.Status);
+        Assert.Equal("generation-001", saved.GenerationId);
+        Assert.Equal(1, saved.ImageAttempts);
+
+        using var json = JsonDocument.Parse(await ReadWorkPayloadAsync(db, "work-001"));
+        Assert.Equal("generation-001", json.RootElement.GetProperty("generation_id").GetString());
+        Assert.Equal(1, json.RootElement.GetProperty("image_attempts").GetInt32());
+        Assert.Equal("previous-config", json.RootElement.GetProperty("ai_provider_id").GetString());
+        Assert.Equal("drawing.png", json.RootElement.GetProperty("original").GetString());
+    }
+
+    /// <summary>
+    /// 两个调用者同时登记同一作品，只能有一个成功，另一个必须被领域规则拒绝。
+    /// </summary>
+    [Fact]
+    public async Task RegisterImageGenerationAsync_ConcurrentRequests_OnlyOneConsumesAttempt()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", selected = -1, status = "image_pending", image_attempts = 0
+        });
+
+        async Task<bool> TryRegisterAsync(string task)
+        {
+            try
+            {
+                await new SqlWorkRepository(db.CreateConnection).RegisterImageGenerationAsync(
+                    "work-001", "openid-001", task, 2);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        var results = await Task.WhenAll(TryRegisterAsync("generation-a"), TryRegisterAsync("generation-b"));
+
+        Assert.Equal(1, results.Count(success => success));
+        using var json = JsonDocument.Parse(await ReadWorkPayloadAsync(db, "work-001"));
+        Assert.Equal(1, json.RootElement.GetProperty("image_attempts").GetInt32());
+        Assert.Contains(json.RootElement.GetProperty("generation_id").GetString(), new[] { "generation-a", "generation-b" });
+    }
+
+    /// <summary>
+    /// 跨用户请求与不存在的 ID 返回空值，且不修改原作品。
+    /// </summary>
+    [Fact]
+    public async Task RegisterImageGenerationAsync_ForeignOrMissingWork_DoesNotChangeStoredPayload()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", selected = -1, status = "image_pending", image_attempts = 0
+        });
+        var before = await ReadWorkPayloadAsync(db, "work-001");
+        var repository = new SqlWorkRepository(db.CreateConnection);
+
+        Assert.Null(await repository.RegisterImageGenerationAsync("work-001", "openid-002", "generation-a", 2));
+        Assert.Null(await repository.RegisterImageGenerationAsync("missing", "openid-001", "generation-b", 2));
+        Assert.Equal(before, await ReadWorkPayloadAsync(db, "work-001"));
+    }
+
+    /// <summary>
+    /// 图片生成失败后允许最后一次重试，清除上一轮错误而保留其他 JSON 信息。
+    /// </summary>
+    [Fact]
+    public async Task RegisterImageGenerationAsync_FailedImage_RetriesWithinQuota()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "failed", selected = -1, image_attempts = 1,
+            generation_id = "generation-001", note = "上游失败",
+            candidates = Array.Empty<string>(), preview = Array.Empty<string>(), model = ""
+        });
+
+        var updated = await new SqlWorkRepository(db.CreateConnection).RegisterImageGenerationAsync(
+            "work-001", "openid-001", "generation-002", 2);
+
+        Assert.NotNull(updated);
+        Assert.Equal("image_pending", updated.Status);
+        Assert.Equal(2, updated.ImageAttempts);
+        Assert.Equal("generation-002", updated.GenerationId);
+        Assert.Equal("", updated.Note);
+        using var json = JsonDocument.Parse(await ReadWorkPayloadAsync(db, "work-001"));
+        Assert.Equal("", json.RootElement.GetProperty("note").GetString());
+    }
+
+    /// <summary>
+    /// 图片重新生成必须清除上一张候选图，不得破坏未触碰的其他属性。
+    /// </summary>
+    [Fact]
+    public async Task RegisterImageGenerationAsync_ImageReady_ClearsOldCandidates()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "image_ready", selected = -1, image_attempts = 1,
+            generation_id = "generation-001", note = "旧提示",
+            candidates = new[] { "old.png" }, preview = Array.Empty<string>(), model = ""
+        });
+
+        var updated = await new SqlWorkRepository(db.CreateConnection).RegisterImageGenerationAsync(
+            "work-001", "openid-001", "generation-002", 2);
+
+        Assert.NotNull(updated);
+        Assert.Empty(updated.Candidates);
+        Assert.Equal(2, updated.ImageAttempts);
+        using var json = JsonDocument.Parse(await ReadWorkPayloadAsync(db, "work-001"));
+        Assert.Empty(json.RootElement.GetProperty("candidates").EnumerateArray());
+        Assert.Equal("", json.RootElement.GetProperty("note").GetString());
+    }
+
+    /// <summary>
+    /// 已经进入模型阶段时拒绝图片生成登记，数据库字段完全不变。
+    /// </summary>
+    [Fact]
+    public async Task RegisterImageGenerationAsync_ModelPending_RejectsWithoutMutation()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "model_pending", selected = 0, image_attempts = 1,
+            generation_id = "generation-001", note = "",
+            candidates = new[] { "cartoon.png" }, preview = Array.Empty<string>(), model = ""
+        });
+        var before = await ReadWorkPayloadAsync(db, "work-001");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new SqlWorkRepository(db.CreateConnection).RegisterImageGenerationAsync(
+                "work-001", "openid-001", "generation-002", 2));
+
+        Assert.Equal(before, await ReadWorkPayloadAsync(db, "work-001"));
+    }
+
+    /// <summary>
+    /// 免费次数不足时应拒绝登记，不额外消耗次数。
+    /// </summary>
+    [Fact]
+    public async Task RegisterImageGenerationAsync_QuotaExhausted_RejectsWithoutMutation()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "failed", selected = -1, image_attempts = 2,
+            generation_id = "generation-002", note = "失败"
+        });
+        var before = await ReadWorkPayloadAsync(db, "work-001");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new SqlWorkRepository(db.CreateConnection).RegisterImageGenerationAsync(
+                "work-001", "openid-001", "generation-003", 2));
+
+        Assert.Equal(before, await ReadWorkPayloadAsync(db, "work-001"));
+    }
+
+    private static async Task SeedImageWorkAsync(TestWorkDatabase db, string id, string owner, object payload)
+    {
+        using var connection = db.CreateConnection();
+        await connection.OpenAsync();
+        await connection.ExecuteAsync(new CommandDefinition(
+            "INSERT INTO ty_works (id,owner_id,created_at,payload) VALUES (@Id,@Owner,@CreatedAt,@Payload)",
+            new { Id = id, Owner = owner, CreatedAt = "2026-10-15T10:00:00+08:00",
+                Payload = JsonSerializer.Serialize(payload) }));
+    }
+
+    private static async Task<string> ReadWorkPayloadAsync(TestWorkDatabase db, string id)
+    {
+        using var connection = db.CreateConnection();
+        await connection.OpenAsync();
+        return (await connection.QuerySingleAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_works WHERE id = @Id", new { Id = id })))!;
+    }
+
     private sealed class UnusedImageStore : IOriginalImageStore
     {
         public Task<string> SaveImageAsync(Stream image, long length, CancellationToken cancellationToken = default)
@@ -242,7 +443,7 @@ public sealed class SqlWorkRepositoryTests
             using var connection = CreateConnection();
             connection.Open();
             using var command = connection.CreateCommand();
-            command.CommandText = "CREATE TABLE ty_works (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL)";
+            command.CommandText = "CREATE TABLE ty_works (id VARCHAR(32) PRIMARY KEY, owner_id VARCHAR(128) NOT NULL, created_at VARCHAR(40) NOT NULL, payload TEXT NOT NULL); CREATE TABLE ty_store_lock (id INTEGER PRIMARY KEY); INSERT INTO ty_store_lock (id) VALUES (1)";
             command.ExecuteNonQuery();
         }
 

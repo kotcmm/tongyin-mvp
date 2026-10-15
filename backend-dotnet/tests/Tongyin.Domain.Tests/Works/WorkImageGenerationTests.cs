@@ -124,6 +124,24 @@ public sealed class WorkImageGenerationTests
         Assert.Equal(string.Empty, work.GenerationId);
     }
 
+    /// <summary>
+    /// 从已有持久化图片状态恢复领域实体后，新的请求应沿用原有次数和候选图片。
+    /// </summary>
+    [Fact]
+    public void Restore_ImageReady_PreservesAttemptsBeforeRetry()
+    {
+        var work = Work.Restore(
+            "work-001", "openid-001", DateTimeOffset.UtcNow, "drawing.png",
+            WorkStatus.ImageReady, -1, 1, "generation-001",
+            ["old.png"], "", "旧错误");
+
+        work.RequestImageGeneration("generation-002", 2);
+
+        Assert.Equal(2, work.ImageAttempts);
+        Assert.Equal("generation-002", work.GenerationId);
+        Assert.Empty(work.Candidates);
+    }
+
     private static Work CreateModelPendingWork()
     {
         var work = Work.Create("work-001", "openid-001", DateTimeOffset.UtcNow, "drawing.png");
