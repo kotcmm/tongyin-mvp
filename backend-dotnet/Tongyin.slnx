@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Tongyin.Domain.Tests/Tongyin.Domain.Tests.csproj" />
+    <Project Path="tests/Tongyin.Application.Tests/Tongyin.Application.Tests.csproj" />
   </Folder>
 </Solution>
