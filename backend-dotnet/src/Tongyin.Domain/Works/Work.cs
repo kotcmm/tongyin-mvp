@@ -36,7 +36,7 @@ public sealed class Work
     /// <summary>
     /// 当前状态，初始为等待生成形象图片。
     /// </summary>
-    public string Status { get; } = "image_pending";
+    public string Status { get; private set; } = "image_pending";
 
     /// <summary>
     /// 已选择的候选图索引，负一表示尚未选择。
@@ -51,7 +51,7 @@ public sealed class Work
     /// <summary>
     /// 已生成的候选图路径。
     /// </summary>
-    public IReadOnlyList<string> Candidates { get; } = Array.Empty<string>();
+    public IReadOnlyList<string> Candidates { get; private set; } = Array.Empty<string>();
 
     /// <summary>
     /// 模型预览图路径。
@@ -75,6 +75,20 @@ public sealed class Work
 
         ImageAttempts++;
         GenerationId = generationId;
+    }
+
+    /// <summary>
+    /// 接受当前生成任务完成后的单张形象图片，拒绝过期或重复结果。
+    /// </summary>
+    public void CompleteImageGeneration(string generationId, string imagePath)
+    {
+        if (Status != "image_pending" || GenerationId.Length == 0 || GenerationId != generationId)
+        {
+            throw new InvalidOperationException("生成任务已失效，无法保存形象图片");
+        }
+
+        Candidates = new[] { imagePath };
+        Status = "image_ready";
     }
 
     /// <summary>
