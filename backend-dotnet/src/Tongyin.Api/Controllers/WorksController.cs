@@ -8,11 +8,11 @@ using Tongyin.Infrastructure.Media;
 namespace Tongyin.Api.Controllers;
 
 /// <summary>
-/// 微信小程序作品接口，复用客户授权策略，只负责 HTTP 请求、业务调用及响应转换。
+/// 微信小程序作品接口，复用微信授权策略，只负责 HTTP 请求、业务调用及响应转换。
 /// </summary>
 [ApiController]
 [Route("api/works")]
-[CustomerAuthorize]
+[WechatAuthorize]
 public sealed class WorksController : ControllerBase
 {
     private const long MaxRequestBytes = OriginalImageLimits.MaxBytes + (1L << 20);

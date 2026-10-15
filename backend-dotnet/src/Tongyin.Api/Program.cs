@@ -43,7 +43,7 @@ builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
         WechatSessionAuthenticationHandler.SchemeName, _ => { });
 builder.Services.AddAuthorization(options =>
-    options.AddPolicy(AuthorizationPolicies.Customer, new AuthorizationPolicyBuilder(WechatSessionAuthenticationHandler.SchemeName)
+    options.AddPolicy(AuthorizationPolicies.Wechat, new AuthorizationPolicyBuilder(WechatSessionAuthenticationHandler.SchemeName)
         .RequireAuthenticatedUser()
         .AddRequirements(new EnabledWechatUserRequirement())
         .Build()));
