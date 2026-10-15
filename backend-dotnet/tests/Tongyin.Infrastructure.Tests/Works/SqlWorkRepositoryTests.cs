@@ -49,6 +49,31 @@ public sealed class SqlWorkRepositoryTests
     }
 
     /// <summary>
+    /// 包含引号、分号和非 ASCII 字符的原画路径必须按数据保存，不得解释为 SQL。
+    /// </summary>
+    [Fact]
+    public async Task CreateWork_WithSpecialCharacters_PreservesValuesAndTable()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection));
+        const string original = "儿童画'; DROP TABLE ty_works; --.png";
+
+        await useCase.ExecuteAsync("work-001", "openid-001", DateTimeOffset.UtcNow, original);
+
+        using var connection = db.CreateConnection();
+        await connection.OpenAsync();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT payload FROM ty_works WHERE id='work-001'";
+        var payload = (string?)await command.ExecuteScalarAsync();
+        Assert.NotNull(payload);
+        using var json = JsonDocument.Parse(payload);
+        Assert.Equal(original, json.RootElement.GetProperty("original").GetString());
+
+        command.CommandText = "SELECT COUNT(*) FROM ty_works";
+        Assert.Equal(1L, (long)(await command.ExecuteScalarAsync())!);
+    }
+
+    /// <summary>
     /// 主键冲突必须使创建用例失败，且不能覆盖已有作品。
     /// </summary>
     [Fact]
