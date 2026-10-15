@@ -13,25 +13,9 @@ namespace Tongyin.Api.Controllers;
 [ApiController]
 [Route("api/works")]
 [WechatAuthorize]
-public sealed class WorksController : ControllerBase
+public sealed class WorksController(CreateWork createWork, ListWorks listWorks, LocalMediaStore media, ILogger<WorksController> logger) : ControllerBase
 {
     private const long MaxRequestBytes = OriginalImageLimits.MaxBytes + (1L << 20);
-
-    private readonly CreateWork _createWork;
-    private readonly ListWorks _listWorks;
-    private readonly LocalMediaStore _media;
-    private readonly ILogger<WorksController> _logger;
-
-    /// <summary>
-    /// 通过依赖注入获得创建和查询用例、媒体访问服务及日志。
-    /// </summary>
-    public WorksController(CreateWork createWork, ListWorks listWorks, LocalMediaStore media, ILogger<WorksController> logger)
-    {
-        _createWork = createWork;
-        _listWorks = listWorks;
-        _media = media;
-        _logger = logger;
-    }
 
     /// <summary>
     /// 上传一张儿童原画并创建作品，保持原小程序的响应字段及 HTTP 状态码。
@@ -55,8 +39,8 @@ public sealed class WorksController : ControllerBase
         {
             await using var image = file.OpenReadStream();
             var owner = User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
-            var work = await _createWork.ExecuteFromImageAsync(owner, image, file.Length, cancellationToken);
-            return StatusCode(StatusCodes.Status201Created, WorkResponse.FromCreated(work, _media.SignUrl(work.Original)));
+            var work = await createWork.ExecuteFromImageAsync(owner, image, file.Length, cancellationToken);
+            return StatusCode(StatusCodes.Status201Created, WorkResponse.FromCreated(work, media.SignUrl(work.Original)));
         }
         catch (InvalidDataException)
         {
@@ -68,7 +52,7 @@ public sealed class WorksController : ControllerBase
         }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "创建作品失败");
+            logger.LogError(exception, "创建作品失败");
             return StatusCode(StatusCodes.Status500InternalServerError, new { error = "保存失败" });
         }
     }
@@ -80,8 +64,8 @@ public sealed class WorksController : ControllerBase
     public async Task<ActionResult<WorkResponse[]>> ListAsync(CancellationToken cancellationToken)
     {
         var owner = User.FindFirst(ClaimTypes.NameIdentifier)!.Value;
-        var works = await _listWorks.ExecuteAsync(owner, cancellationToken);
-        return Ok(works.Select(work => WorkResponse.FromSnapshot(work, _media.SignUrl)).ToArray());
+        var works = await listWorks.ExecuteAsync(owner, cancellationToken);
+        return Ok(works.Select(work => WorkResponse.FromSnapshot(work, media.SignUrl)).ToArray());
     }
 
 
