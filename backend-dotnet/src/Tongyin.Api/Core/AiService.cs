@@ -221,7 +221,7 @@ public sealed class AiService(Settings cfg,IStore store,MediaService media,IHttp
     /// </summary>
     public string ResultPath(string file) => media.Absolute(file);
     /// <summary>
-    /// 提供Download所需的数据或操作。
+    /// 下载远端图像或模型资源，供作品生成流程保存与处理。
     /// </summary>
     public async Task<string> Download(string url,bool image)
     {

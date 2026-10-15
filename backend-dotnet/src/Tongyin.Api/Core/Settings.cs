@@ -164,7 +164,7 @@ public sealed record Settings
     /// </summary>
     public string ListenUrl() => "http://0.0.0.0:" + ListenAddr[(ListenAddr.LastIndexOf(':') + 1)..];
     /// <summary>
-    /// 提供IsNullOrEmpty所需的数据或操作。
+    /// 判断微信支付商户号、证书与应用配置是否齐备。
     /// </summary>
     public bool PayReady => !string.IsNullOrEmpty(WxAppId) && !string.IsNullOrEmpty(WxMchId) &&
                             !string.IsNullOrEmpty(WxMchSerial) && !string.IsNullOrEmpty(WxMchPrivateKeyPath) &&

@@ -60,7 +60,7 @@ public sealed class Work
     /// </summary>
     public string Note { get; private set; }
     /// <summary>
-    /// 提供AsReadOnly对应的业务操作。
+    /// 返回不能由调用方直接修改的候选形象资源列表。
     /// </summary>
     public IReadOnlyList<string> Candidates => _candidates.AsReadOnly();
 
