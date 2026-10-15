@@ -96,6 +96,12 @@ Application 层的 `StartImageGeneration.ExecuteAsync(owner, id, freeImageAttemp
 
 沿用 Go 的 `ty_works.payload TEXT` 和 `ty_store_lock` 数据库结构，不增加数据库表，也不让 Controller 直接访问 Dapper。仅解决任务登记与同一作品并发提交；尚无队列、AI 服务商调用、回调处理和故障恢复，因此不会新增 `POST /api/works/{id}/generate`，不能将“登记成功”误报为“AI 已生成或已提交”。
 
+## Go API Key 加密格式兼容
+
+`GoAiKeyDecryptor` 位于 Infrastructure 层，直接解密原 Go 运营后台 `aiEncrypt` 写入 `api_key_cipher` 的数据。密钥是 `SHA-256(UTF8("tongyin-ai-api-key-v1:" + SESSION_SECRET))`，密文格式为 `nonce(12B) | ciphertext | GCM tag(16B)`，采用标准 Base64 **不带等号填充**存储。使用 .NET `AesGcm` 完整验证认证标签，密钥错误、密文损坏等均拒绝且不打印 Key 或密文。解密后的 API Key 仅供后续基础设施适配器发送授权请求使用，不能返回给小程序或写入普通日志。
+
+通过 Go 标准库用固定 nonce 生成跨语言测试密文，测试含中文 UTF-8 及篡改检测。配置读取器仍只读取密文，解密器由 API 组合根注册供下一阶段真实执行适配器使用。**本阶段没有发起或计费任何真实模型请求，也没有开放生成接口。**
+
 ## AI 服务商及提示词配置读取
 
 .NET 的 `IAiGenerationSettingsReader`（Application 端口）由 `SqlAiGenerationSettingsReader`（Infrastructure 的 Dapper 实现）提供，通过相同的连接工厂读取旧 Go 后台的 `ty_ai_providers`、`ty_ai_prompts` 两张表。按 `image` / `model` 阶段读取已启用的默认服务商（`enabled=true` 且 `default=true`），以及管理员保存的 `template` 和 `version`。当没有自定义提示词时，回退到 Go `defaultPrompt(stage)` 相同的内置提示词和版本 1；未配置默认服务商时 `Provider` 为空，不伪造可执行的 AI 模型。

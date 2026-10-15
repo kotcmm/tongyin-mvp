@@ -47,6 +47,8 @@ builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<ListWorks>();
 builder.Services.AddScoped<GetWork>();
 builder.Services.AddScoped<IAiGenerationSettingsReader, SqlAiGenerationSettingsReader>();
+builder.Services.AddSingleton(services =>
+    new GoAiKeyDecryptor(services.GetRequiredService<IConfiguration>()["SESSION_SECRET"]!));
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
