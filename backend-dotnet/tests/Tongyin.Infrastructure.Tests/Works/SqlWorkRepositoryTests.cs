@@ -20,7 +20,7 @@ public sealed class SqlWorkRepositoryTests
     public async Task CreateWork_StoresGoCompatibleWorkDocument()
     {
         using var db = new TestWorkDatabase(createTable: true);
-        var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection));
+        var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection), new UnusedImageStore());
         var createdAt = new DateTimeOffset(2026, 10, 15, 10, 30, 0, TimeSpan.FromHours(8));
 
         await useCase.ExecuteAsync("work-001", "openid-001", createdAt, "drawing.png");
@@ -55,7 +55,7 @@ public sealed class SqlWorkRepositoryTests
     public async Task CreateWork_WithSpecialCharacters_PreservesValuesAndTable()
     {
         using var db = new TestWorkDatabase(createTable: true);
-        var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection));
+        var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection), new UnusedImageStore());
         const string original = "儿童画'; DROP TABLE ty_works; --.png";
 
         await useCase.ExecuteAsync("work-001", "openid-001", DateTimeOffset.UtcNow, original);
@@ -80,7 +80,7 @@ public sealed class SqlWorkRepositoryTests
     public async Task CreateWork_DuplicateId_ThrowsWithoutOverwriting()
     {
         using var db = new TestWorkDatabase(createTable: true);
-        var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection));
+        var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection), new UnusedImageStore());
         var createdAt = DateTimeOffset.UtcNow;
         await useCase.ExecuteAsync("work-001", "openid-001", createdAt, "first.png");
 
@@ -104,9 +104,17 @@ public sealed class SqlWorkRepositoryTests
     public async Task CreateWork_TableMissing_PropagatesDatabaseFailure()
     {
         using var db = new TestWorkDatabase(createTable: false);
-        var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection));
+        var useCase = new CreateWork(new SqlWorkRepository(db.CreateConnection), new UnusedImageStore());
 
         await Assert.ThrowsAnyAsync<DbException>(() => useCase.ExecuteAsync("work-001", "openid-001", DateTimeOffset.UtcNow, "drawing.png"));
+    }
+
+    private sealed class UnusedImageStore : IOriginalImageStore
+    {
+        public Task<string> SaveImageAsync(Stream image, long length, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("这些测试验证已有原画的数据库持久化");
+
+        public void Delete(string fileName) => throw new NotSupportedException();
     }
 
     private sealed class TestWorkDatabase : IDisposable
