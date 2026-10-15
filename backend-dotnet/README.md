@@ -96,6 +96,12 @@ Application 层的 `StartImageGeneration.ExecuteAsync(owner, id, freeImageAttemp
 
 沿用 Go 的 `ty_works.payload TEXT` 和 `ty_store_lock` 数据库结构，不增加数据库表，也不让 Controller 直接访问 Dapper。仅解决任务登记与同一作品并发提交；尚无队列、AI 服务商调用、回调处理和故障恢复，因此不会新增 `POST /api/works/{id}/generate`，不能将“登记成功”误报为“AI 已生成或已提交”。
 
+## AI 服务商及提示词配置读取
+
+.NET 的 `IAiGenerationSettingsReader`（Application 端口）由 `SqlAiGenerationSettingsReader`（Infrastructure 的 Dapper 实现）提供，通过相同的连接工厂读取旧 Go 后台的 `ty_ai_providers`、`ty_ai_prompts` 两张表。按 `image` / `model` 阶段读取已启用的默认服务商（`enabled=true` 且 `default=true`），以及管理员保存的 `template` 和 `version`。当没有自定义提示词时，回退到 Go `defaultPrompt(stage)` 相同的内置提示词和版本 1；未配置默认服务商时 `Provider` 为空，不伪造可执行的 AI 模型。
+
+`AiProviderSettings.ApiKeyCipher` 仅保留 Go 的 `api_key_cipher` 加密文本，**此阶段不解密、不记录密钥、不向小程序发送密钥**。读取器通过依赖注入注册，但没有加入微信业务 Controller，也没有启动外部 HTTP 请求；前一步的 `StartImageGeneration` 仍然只登记数据库中的待执行任务。后续步骤需先实现 Go 兼容的密钥解密和安全的真实适配器调用，再实现可靠结果回写、失败处理及任务恢复，最后才可开放 `POST /api/works/{id}/generate`。
+
 ## 验收
 
 需要 .NET 10 SDK：
