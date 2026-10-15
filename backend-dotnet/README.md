@@ -5,7 +5,7 @@
 - `Tongyin.Domain`：领域实体及业务规则；目前实现了作品创建及图片、模型生成阶段的领域状态转换，未接入外部服务。
 - `Tongyin.Application`：提供 `CreateWork` 应用用例及 `IWorkRepository` 持久化端口，不依赖数据库实现。
 - `Tongyin.Infrastructure`：使用 Dapper 实现 `SqlWorkRepository` 创建作品的 SQL 写入适配器，AI 接入未迁移。
-- `Tongyin.Api`：HTTP 程序宿主；尚未注册业务路由。
+- `Tongyin.Api`：已注册兼容小程序的作品原画上传端点 `POST /api/works` 和签名媒体访问 `GET /media/{file}`，其他业务尚未迁移。
 
 ## 已实现的最小领域行为
 
@@ -42,6 +42,12 @@
 ## 现有小程序登录态兼容
 
 Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.go` 的格式校验 `base64url(openid|expires).base64url(HMAC-SHA256(payload))`，使用 `SESSION_SECRET`，核实签名与过期秒数后返回 OpenID。无效签名、过期、空用户及非法令牌均拒绝；不接受空密钥。该能力供后续安全接入 `POST /api/works` 使用，当前尚未新增 HTTP 路由，也未接入原 Go 的用户禁用校验。
+
+## HTTP 创建作品与原画访问
+
+`POST /api/works` 接收微信小程序原有 `Authorization: Bearer` 会话令牌及 `multipart/form-data` 的 `file` 原画字段。服务先验证旧版 Go HMAC 会话，并查询 `ty_users` 拒绝停用或缺失用户，限制原画 10 MiB、接受 JPG/PNG/WebP 文件头。原画保存到 `DATA_DIR/media` 后调用 `CreateWork` 写入 `ty_works`，出错时清理已上传文件；响应为 201，保留旧小程序的 JSON 字段，且不返回用户 OpenID。原画通过带 48 小时签名的 `GET /media/{file}` 地址访问。
+
+启动需要显式配置 `SESSION_SECRET`（至少 24 位）、`DATABASE_URL`，以及 `DB_DRIVER=postgres|mysql`；服务的 `DATA_DIR` 必须与旧 Go 服务一致才能共用上传媒体。已登录的老用户可复用已存在于 `ty_users` 的账号；此阶段不自动创建新的用户档案、不迁移微信登录接口或 AI 生成流程。Go 与 .NET 共用数据库时的并发安全尚未经验证，不应同时作为正式服务提供写操作。
 
 ## 验收
 

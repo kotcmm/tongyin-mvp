@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Npgsql" Version="9.0.4" />
+    <PackageReference Include="MySqlConnector" Version="2.4.0" />
     <ProjectReference Include="../Tongyin.Application/Tongyin.Application.csproj" />
     <ProjectReference Include="../Tongyin.Infrastructure/Tongyin.Infrastructure.csproj" />
   </ItemGroup>
