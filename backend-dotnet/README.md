@@ -116,6 +116,14 @@ Application 层的 `StartImageGeneration.ExecuteAsync(owner, id, freeImageAttemp
 
 **当前只提供并注册网络调用适配器；不自动派发已登记的任务、不下载并保存生成文件、不回写作品结果，也不开放 `POST /api/works/{id}/generate`。** 必须先完成结果安全下载和状态回写，再将任务登记、派发、成功失败与超时恢复串成可靠的执行流程。
 
+## AI 生成图片的安全下载与本地保存
+
+`GeneratedImageDownloader.DownloadAsync(imageUrl)` 仅接受公开 DNS 域名的 HTTPS 结果地址（标准 443 端口，不含账号信息/锚点），使用 60 秒超时的专用 `HttpClient`；禁止自动重定向、代理及对内网地址的连接。通过 `SocketsHttpHandler.ConnectCallback` 在每次实际建立 TCP 连接时解析 DNS，并过滤回环、RFC1918、链路本地、云元数据等非公网目标，避免仅校验 URL 后遭遇 DNS 重绑定。即使上游未声明 Content-Length，也按流式实际接收字节数严格限制单张图片 **10 MiB**。
+
+成功下载的内容重新交给现有 `LocalMediaStore.SaveImageAsync`，按真实图片头识别 PNG/JPEG/WebP，生成随机本地文件名并保存到共享 `DATA_DIR/media`；只返回本地文件名，不保留临时外链。非 200、空文件、非图片和超大文件均拒绝，不向外暴露带签名的下载地址；文件保存失败依赖原媒体存储逻辑清理部分文件。下载网络策略主要通过本地单元测试验证，公网 DNS、IPv4/IPv6 网络和代理环境仍需部署环境集成测试。
+
+**本步骤没有启动任务调度，也不将结果写入 `ty_works`，不开放 `POST /api/works/{id}/generate`。** 下一步需要保证下载后的文件仅在对应 `generation_id` 仍有效时写入作品，过期结果要清理文件；之后才可完整衔接 AI 派发和失败处理。
+
 ## 验收
 
 需要 .NET 10 SDK：

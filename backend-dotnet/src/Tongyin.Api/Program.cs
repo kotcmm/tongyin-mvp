@@ -55,6 +55,15 @@ builder.Services.AddHttpClient<SeedreamImageGenerator>(client => client.Timeout 
         // 服务商无需重定向，避免跨域跳转时泄漏授权头。
         AllowAutoRedirect = false
     });
+builder.Services.AddHttpClient<GeneratedImageDownloader>(client => client.Timeout = TimeSpan.FromSeconds(60))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        // 结果链接不可信：禁止自动重定向、环境代理和 DNS 重绑定到内网。
+        AllowAutoRedirect = false,
+        UseProxy = false,
+        ConnectCallback = PublicImageNetworkPolicy.ConnectAsync,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+    });
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
