@@ -57,6 +57,31 @@ public sealed class CreateWorkEndpointTests
     }
 
     /// <summary>
+    /// 作品创建响应必须保留原 Go 小程序依赖的全部初始化字段。
+    /// </summary>
+    [Fact]
+    public async Task PostWork_Success_PreservesLegacyResponseFields()
+    {
+        using var app = new WorkApiFactory();
+        app.SeedUser("openid-001", disabled: false);
+        using var client = app.CreateClient();
+
+        using var response = await client.SendAsync(Upload("openid-001", Image(), "drawing.png"));
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var payload = json.RootElement;
+        Assert.Equal(JsonValueKind.String, payload.GetProperty("created_at").ValueKind);
+        Assert.Empty(payload.GetProperty("candidates").EnumerateArray());
+        Assert.Empty(payload.GetProperty("preview").EnumerateArray());
+        Assert.Equal(string.Empty, payload.GetProperty("model").GetString());
+        Assert.Equal(string.Empty, payload.GetProperty("generation_id").GetString());
+        Assert.Equal(string.Empty, payload.GetProperty("note").GetString());
+        Assert.Equal("image_pending", payload.GetProperty("status").GetString());
+        Assert.False(payload.TryGetProperty("owner", out _));
+    }
+
+    /// <summary>
     /// 未携带有效登录信息时，不能上传原画或创建作品。
     /// </summary>
     [Fact]
