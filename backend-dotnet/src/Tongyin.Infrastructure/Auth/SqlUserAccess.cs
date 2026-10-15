@@ -36,6 +36,6 @@ public sealed class SqlUserAccess
 
         using var document = JsonDocument.Parse(payload);
         return !document.RootElement.TryGetProperty("disabled", out var disabled)
-            || disabled.ValueKind != JsonValueKind.True;
+            || disabled.ValueKind == JsonValueKind.False;
     }
 }

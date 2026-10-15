@@ -5,6 +5,7 @@ using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Auth;
 using Tongyin.Infrastructure.Works;
 using Tongyin.Api.Works;
+using Tongyin.Infrastructure.Media;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +29,10 @@ builder.Services.AddSingleton<Func<DbConnection>>(_ => driver switch
     _ => throw new InvalidOperationException("仅支持 postgres 或 mysql 数据库驱动")
 });
 builder.Services.AddSingleton(new GoSessionTokenValidator(sessionSecret));
+builder.Services.AddSingleton(new LocalMediaStore(
+    builder.Configuration["DATA_DIR"] ?? "./data",
+    builder.Configuration["PUBLIC_URL"] ?? "http://localhost:8080",
+    sessionSecret));
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();

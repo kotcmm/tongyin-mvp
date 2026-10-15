@@ -39,7 +39,7 @@ class ArchitectureSkeletonTests(unittest.TestCase):
         """API 只能装配当前已经迁移的作品创建入口。"""
         api = ROOT / "src/Tongyin.Api"
         self.assertTrue((api / "Program.cs").is_file())
-        sources = {p.name for p in api.rglob("*.cs")}
+        sources = {p.name for p in api.rglob("*.cs") if not set(p.parts).intersection({"obj", "bin"})}
         self.assertEqual({"Program.cs", "WorkEndpoints.cs"}, sources)
         source = (api / "WorkEndpoints.cs").read_text(encoding="utf-8")
         self.assertIn('MapPost("/api/works"', source)
