@@ -64,7 +64,7 @@ public sealed class Work
     public IReadOnlyList<string> Preview { get; } = Array.Empty<string>();
 
     /// <summary>
-    /// 最近一次形象图片生成失败的原因，初始为空。
+    /// 当前阶段的生成失败原因，初始为空。
     /// </summary>
     public string Note { get; private set; } = string.Empty;
 
@@ -154,6 +154,20 @@ public sealed class Work
 
         Model = modelPath;
         Status = WorkStatus.ModelReady;
+    }
+
+    /// <summary>
+    /// 当前三维模型生成任务失败时记录原因，并保留用户已经确认的图片。
+    /// </summary>
+    public void FailModelGeneration(string generationId, string errorMessage)
+    {
+        if (Status != WorkStatus.ModelPending || GenerationId.Length == 0 || GenerationId != generationId)
+        {
+            throw new InvalidOperationException("模型生成任务已失效，无法记录失败结果");
+        }
+
+        Status = WorkStatus.Failed;
+        Note = errorMessage;
     }
 
     /// <summary>

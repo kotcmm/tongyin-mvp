@@ -2,7 +2,7 @@
 
 项目采用 .NET 10，按 **Domain / Application / Infrastructure / Api** 四层组织。
 
-- `Tongyin.Domain`：领域实体及业务规则；目前仅实现了 **创建儿童画作品的初始状态**。
+- `Tongyin.Domain`：领域实体及业务规则；目前实现了作品创建及图片、模型生成阶段的领域状态转换，未接入外部服务。
 - `Tongyin.Application`：应用用例及外部端口；尚未迁移业务。
 - `Tongyin.Infrastructure`：数据库及 AI 等外部接入；尚未迁移业务。
 - `Tongyin.Api`：HTTP 程序宿主；尚未注册业务路由。
@@ -21,6 +21,8 @@
 确认图片时调用 `SelectImage(0)`，要求作品处于 `ImageReady`，且只能确认单张候选图的第 0 张。成功后记录 `Selected = 0` 并进入 `ModelPending`；失败、待生成、重复确认或传入其他索引均拒绝。此处只实现 Domain 状态转换，不触发外部 3D 服务。
 
 三维模型完成时调用 `CompleteModelGeneration(generationId, modelPath)`：仅已确认图片且仍处于 `ModelPending` 的当前任务可保存 GLB 文件路径并进入 `ModelReady`。旧任务、重复回调、未确认图片和空路径均不能改变作品。文件下载与 GLB 内容校验属于外围适配层，当前未实现。
+
+模型生成失败时调用 `FailModelGeneration(generationId, errorMessage)`：仅当前 `ModelPending` 任务可进入 `Failed` 并记录 `Note`；保留原先确认的单张图片和 `Selected`，拒绝旧任务、重复或迟到失败回调。该阶段暂未实现模型重试入口。
 
 上述初始行为来自原 Go 后端 `backend/work_handlers.go` 的 `createWork`，
 其他业务（上传文件、生成任务、持久化、接口、支付等）尚未迁移。
