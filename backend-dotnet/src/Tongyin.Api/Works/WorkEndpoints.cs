@@ -22,7 +22,7 @@ public static class WorkEndpoints
         app.MapPost("/api/works", CreateAsync)
             .WithMetadata(new RequestSizeLimitAttribute(MaxRequestBytes))
             .WithMetadata(new RequestFormLimitsAttribute { MultipartBodyLengthLimit = MaxRequestBytes })
-            .RequireAuthorization("EnabledWechatUser");
+            .RequireAuthorization();
         app.MapGet("/media/{file}", GetMedia);
     }
 
