@@ -1,10 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
 using Tongyin.Application.Works;
+using Tongyin.Application.Ai;
 
 namespace Tongyin.Api.Services;
 
 /// <summary>
-/// 图片生成后台轮询宿主；默认关闭，必须显式授权启动，异常任务不自动解除认领或重试。
+/// 图片生成后台轮询宿主；按数据库服务商启用状态动态控制派发，不自动解除认领或重试。
 /// </summary>
 public sealed class ImageGenerationPollingService(IServiceScopeFactory scopeFactory, IConfiguration configuration, ILogger<ImageGenerationPollingService> logger) : BackgroundService
 {
@@ -13,11 +14,6 @@ public sealed class ImageGenerationPollingService(IServiceScopeFactory scopeFact
     /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!configuration.GetValue<bool>("AI_IMAGE_DISPATCH_ENABLED"))
-        {
-            return;
-        }
-
         var pollSeconds = Math.Clamp(configuration.GetValue("AI_IMAGE_DISPATCH_POLL_SECONDS", 5), 1, 60);
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(pollSeconds));
         try
@@ -27,6 +23,13 @@ public sealed class ImageGenerationPollingService(IServiceScopeFactory scopeFact
                 try
                 {
                     await using var scope = scopeFactory.CreateAsyncScope();
+                    var aiSettingsReader = scope.ServiceProvider.GetRequiredService<IAiGenerationSettingsReader>();
+                    var settings = await aiSettingsReader.GetAsync("image", stoppingToken);
+                    if (!settings.CanGenerateImage())
+                    {
+                        continue;
+                    }
+
                     var dispatcher = scope.ServiceProvider.GetRequiredService<DispatchQueuedImageGeneration>();
                     await dispatcher.DispatchNextAsync(stoppingToken);
                 }

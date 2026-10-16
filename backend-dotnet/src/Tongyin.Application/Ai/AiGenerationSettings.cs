@@ -16,4 +16,17 @@ public sealed class AiGenerationSettings
 
     /// <summary>当前提示词版本。</summary>
     public required int PromptVersion { get; init; }
+
+    /// <summary>
+    /// 判断数据库中是否有可用的默认图片生成服务商；后台停用后即禁止新任务与轮询派发。
+    /// </summary>
+    public bool CanGenerateImage()
+    {
+        return Stage == "image"
+            && Provider is { Stage: "image", Adapter: "seedream", Enabled: true, Default: true }
+            && !string.IsNullOrWhiteSpace(Provider.Endpoint)
+            && !string.IsNullOrWhiteSpace(Provider.Model)
+            && !string.IsNullOrWhiteSpace(Provider.ApiKeyCipher)
+            && !string.IsNullOrWhiteSpace(PromptTemplate);
+    }
 }

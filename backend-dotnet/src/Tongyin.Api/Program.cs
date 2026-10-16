@@ -79,7 +79,7 @@ builder.Services.AddScoped<SaveImageGenerationResult>();
 builder.Services.AddScoped<ExecuteImageGeneration>();
 builder.Services.AddScoped<IQueuedImageGenerationReader, SqlQueuedImageGenerationReader>();
 builder.Services.AddScoped<DispatchQueuedImageGeneration>();
-// 服务实际读取已构建宿主的最终配置；默认关闭，避免测试和迁移时意外生成、计费。
+// 图片任务是否可派发由数据库中的默认服务商启用状态控制；没有可用服务商时不派发或计费。
 builder.Services.AddHostedService<ImageGenerationPollingService>();
 
 builder.Services.AddAuthentication()

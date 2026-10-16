@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
 using Tongyin.Api.Http;
+using Tongyin.Application.Ai;
 using Tongyin.Api.ViewModels.Works;
 using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Media;
@@ -13,7 +14,7 @@ namespace Tongyin.Api.Controllers;
 [ApiController]
 [Route("api/works")]
 [WechatAuthorize]
-public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, StartImageGeneration startImageGeneration, LocalMediaStore media, IConfiguration configuration, ILogger<WorksController> logger) : ControllerBase
+public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, StartImageGeneration startImageGeneration, LocalMediaStore media, IAiGenerationSettingsReader aiSettingsReader, ILogger<WorksController> logger) : ControllerBase
 {
     /// <summary>
     /// 上传一张儿童原画并创建作品，保持原小程序的响应字段及 HTTP 状态码。
@@ -61,7 +62,8 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
     [HttpPost("{id}/generate")]
     public async Task<ActionResult<WorkResponse>> GenerateAsync([FromRoute] string id, CancellationToken cancellationToken)
     {
-        if (!configuration.GetValue<bool>("AI_IMAGE_DISPATCH_ENABLED"))
+        var settings = await aiSettingsReader.GetAsync("image", cancellationToken);
+        if (!settings.CanGenerateImage())
         {
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "图片生成服务暂不可用" });
         }
