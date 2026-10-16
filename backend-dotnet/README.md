@@ -140,6 +140,14 @@ SQL 仓储使用与 Go 共用的 `ty_store_lock` 事务锁；在锁内读取作�
 
 本阶段只支持 Seedream 的图片执行流程，不支持 Go 的 worker 适配器或模型生成；没有后台队列、单任务执行占用权、主动重试、启动恢复，也**没有开放 `POST /api/works/{id}/generate`**。尤其注意：即使已有 `generation_id`，如果未来调度器重复并发执行同一个任务，仍可能产生重复调用和计费。下一步必须先加持久化任务认领及超时核查机制，再允许后台自动执行。
 
+## 图片任务持久化认领（防重复 Seedream 计费）
+
+`IWorkRepository.ClaimImageGenerationAsync(id, owner, generationId, startedAt)` 在与 Go 共用的 `ty_store_lock` 事务锁下，仅首次认领当前用户的 `image_pending` 且 `generation_id` 一致的任务。使用同一 `ty_works.payload` JSON 存储 `ai_execution_claim_id`（当前认领编号），并更新 `ai_task_stage=image` 和 `ai_started_at`；不增加数据库表。重复投递、过期编号、其他用户和已结束任务不会被重新认领。旧 Go 后台已经为图片阶段记录 `ai_started_at` 的任务也不会被 .NET 重复认领。
+
+`ExecuteImageGeneration` 必须先成功认领再读取模型配置、原画或调用 Seedream。模型超时、网络中断、结果下载失败时认领**不自动过期或释放**，以免再次生成和重复计费。允许用户按既有次数规则登记新的图片生成尝试时，清空旧认领标记及上一任务开始时间。
+
+**重要限制：**该标记目前只约束 .NET 的图片执行器。旧 Go 代码不识别新增的 `ai_execution_claim_id`，因此不能让 Go 与 .NET 同时派发同一作品的 Seedream 任务；必须切换到单一调度入口。当前也尚未实现任务队列、人工核查、超时结果恢复或自动启动执行，不能将持久化认领等同于整套调度系统已完成。下一步应先补待核查任务的读取与人工处理规则，再开放小程序生成入口。
+
 ## 验收
 
 需要 .NET 10 SDK：
