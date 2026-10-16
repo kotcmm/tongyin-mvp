@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using Tongyin.Api.ViewModels.Auth;
 using Tongyin.Application.Auth;
 
@@ -36,6 +37,14 @@ public sealed class WechatAuthController(LoginWechat loginWechat) : ControllerBa
             return StatusCode(StatusCodes.Status403Forbidden, new { error = "账户已停用" });
         }
         catch (HttpRequestException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "微信登录服务暂不可用" });
+        }
+        catch (JsonException)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "微信登录服务暂不可用" });
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "微信登录服务暂不可用" });
         }

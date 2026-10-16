@@ -6,7 +6,7 @@ using Tongyin.Application.Auth;
 namespace Tongyin.Infrastructure.Auth;
 
 /// <summary>
-/// 从现有 Go 服务的 ty_users 表检查用户身份及账号禁用状态。
+/// 在 ty_users 表中管理微信用户注册及账号禁用状态。
 /// </summary>
 public sealed class SqlUserAccess : IWechatUserRepository
 {

@@ -194,7 +194,7 @@ public sealed class WechatLoginEndpointTests
                 if (_fakeWechat)
                 {
                     services.RemoveAll<IWechatCodeExchanger>();
-                    services.AddScoped<IWechatCodeExchanger, FakeWechatCodeExchanger>();
+                    services.AddScoped<IWechatCodeExchanger>(_ => new FakeWechatCodeExchanger());
                 }
             });
         }

@@ -66,6 +66,17 @@ public sealed class WechatCodeExchangerTests
         Assert.Null(handler.RequestUri);
     }
 
+    /// <summary>微信返回不合法的 JSON 时应按上游故障处理，不能当成成功的 OpenID。</summary>
+    [Fact]
+    public async Task ExchangeAsync_InvalidJson_Rejects()
+    {
+        using var handler = new WxHttpHandler("not-json");
+        using var client = new HttpClient(handler);
+        using var exchanger = NewExchanger(client);
+
+        await Assert.ThrowsAsync<System.Text.Json.JsonException>(() => exchanger.ExchangeAsync("one-time-code"));
+    }
+
     private static WechatCodeExchanger NewExchanger(HttpClient httpClient, bool development = false, bool devMode = false)
     {
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
