@@ -62,7 +62,7 @@ public sealed class SqlUserAccess : IWechatUserRepository
         else
         {
             var id = Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant();
-            var payload = JsonSerializer.Serialize(new
+            var userPayload = JsonSerializer.Serialize(new
             {
                 id,
                 owner = openId,
@@ -72,7 +72,7 @@ public sealed class SqlUserAccess : IWechatUserRepository
             });
             await db.ExecuteAsync(new CommandDefinition(
                 "INSERT INTO ty_users (id, owner_id, created_at, payload) VALUES (@OpenId, @OpenId, @Timestamp, @Payload)",
-                new { OpenId = openId, Timestamp = timestamp, Payload = payload },
+                new { OpenId = openId, Timestamp = timestamp, Payload = userPayload },
                 transaction: transaction, cancellationToken: cancellationToken));
         }
 
