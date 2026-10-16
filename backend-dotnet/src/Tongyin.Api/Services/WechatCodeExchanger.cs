@@ -42,7 +42,7 @@ public sealed class WechatCodeExchanger(HttpClient httpClient, IConfiguration co
 
     private static string BuildSessionUrl(WechatAppSettings? settings, string code)
     {
-        if (string.IsNullOrWhiteSpace(settings?.AppId) || string.IsNullOrWhiteSpace(settings.AppSecret))
+        if (settings is null || string.IsNullOrWhiteSpace(settings.AppId) || string.IsNullOrWhiteSpace(settings.AppSecret))
         {
             throw new InvalidOperationException("微信登录所需的服务端应用凭据尚未配置");
         }
