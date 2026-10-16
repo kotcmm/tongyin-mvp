@@ -47,6 +47,8 @@ builder.Services.AddSingleton<IOriginalImageReader>(services => services.GetRequ
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<IStalledImageTasksReader, SqlStalledImageTasksReader>();
 builder.Services.AddScoped<ListStalledImageTasks>();
+builder.Services.AddScoped<IAdminImageReviewRepository, SqlAdminImageReviewRepository>();
+builder.Services.AddScoped<ReviewStalledImageTask>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<ListWorks>();
