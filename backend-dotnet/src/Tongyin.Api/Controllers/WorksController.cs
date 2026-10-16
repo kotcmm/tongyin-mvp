@@ -13,7 +13,7 @@ namespace Tongyin.Api.Controllers;
 [ApiController]
 [Route("api/works")]
 [WechatAuthorize]
-public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, LocalMediaStore media, ILogger<WorksController> logger) : ControllerBase
+public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, StartImageGeneration startImageGeneration, LocalMediaStore media, IConfiguration configuration, ILogger<WorksController> logger) : ControllerBase
 {
     /// <summary>
     /// 上传一张儿童原画并创建作品，保持原小程序的响应字段及 HTTP 状态码。
@@ -52,6 +52,34 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
         {
             logger.LogError(exception, "创建作品失败");
             return StatusCode(StatusCodes.Status500InternalServerError, new { error = "保存失败" });
+        }
+    }
+
+    /// <summary>
+    /// 为当前微信用户的作品登记图片生成任务；实际生成由已启用的后台执行器异步完成。
+    /// </summary>
+    [HttpPost("{id}/generate")]
+    public async Task<ActionResult<WorkResponse>> GenerateAsync([FromRoute] string id, CancellationToken cancellationToken)
+    {
+        if (!configuration.GetValue<bool>("AI_IMAGE_DISPATCH_ENABLED"))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "图片生成服务暂不可用" });
+        }
+
+        try
+        {
+            var owner = User.GetWechatOpenId();
+            var work = await startImageGeneration.ExecuteAsync(owner, id, cancellationToken: cancellationToken);
+            if (work is null)
+            {
+                return NotFound(new { error = "作品不存在" });
+            }
+
+            return StatusCode(StatusCodes.Status202Accepted, WorkResponse.FromSnapshot(work, media.SignUrl));
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { error = exception.Message });
         }
     }
 

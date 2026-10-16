@@ -52,6 +52,7 @@ builder.Services.AddScoped<IAdminImageReviewRepository, SqlAdminImageReviewRepos
 builder.Services.AddScoped<ReviewStalledImageTask>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();
+builder.Services.AddScoped<StartImageGeneration>();
 builder.Services.AddScoped<ListWorks>();
 builder.Services.AddScoped<GetWork>();
 builder.Services.AddScoped<IAiGenerationSettingsReader, SqlAiGenerationSettingsReader>();
