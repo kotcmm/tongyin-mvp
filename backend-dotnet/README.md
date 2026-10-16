@@ -42,6 +42,21 @@
 
 基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键、缺表错误和特殊字符的参数化保存。Dapper 使用 `@参数` 绑定；通过 API 组合根接入 PostgreSQL 或 MySQL 连接工厂。尚未接入生产环境，也尚未验证与 Go 服务并发写入的行为。
 
+## 小程序公开配置（.NET）
+
+`GET /api/config` 允许小程序不带登录态读取四个字段，与旧 Go 响应一致：
+
+```json
+{"price_fen":12900,"dev":false,"ai_auto_enabled":false,"free_image_attempts":2}
+```
+
+- `price_fen`：来自 `PRODUCT_PRICE_FEN`（单位为分，未设置或无效时为 12900）。
+- `free_image_attempts`：来自 `FREE_IMAGE_ATTEMPTS`（正整数，未设置或无效时为 2）；`POST /api/works/{id}/generate` 也执行**同一服务端限制**，不能只限制小程序界面。
+- `dev`：仅在 ASP.NET Core 环境为 Development 且 `DEV_MODE=true` 时为 true，与模拟微信登录实际准入规则保持一致。
+- `ai_auto_enabled`：每次请求重新检查数据库中的已启用默认图片服务商，以及 .NET 图片派发实际支持的配置；不把旧 Go 的未迁移 worker 误当成可用能力。
+
+这些配置不包含微信 AppSecret、AI Key 或其他服务器秘密。本轮只迁移公开读取和生成次数约束；价格与免费次数的运营后台编辑界面另行开发。
+
 ## 微信小程序登录与账号注册（.NET 原生）
 
 小程序调用 `wx.login()` 获取一次性 `code`，请求 `POST /api/auth/wechat`，正文为 `{"code":"..."}`。后端 `WechatCodeExchanger` 每次从数据库 `ty_system_settings` 加载当前 AppID、AppSecret，再调用微信官方 HTTPS `code2Session` 获取 OpenID。微信 `session_key`、AppSecret 和 OpenID 都不返回小程序。
