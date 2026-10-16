@@ -37,7 +37,7 @@ public sealed class SqlStalledImageTasksReader(Func<DbConnection> connectionFact
                 || string.IsNullOrEmpty(work.GenerationId)
                 || (!string.IsNullOrEmpty(work.AiExecutionClaimId)
                     && work.AiExecutionClaimId != work.GenerationId)
-                || !DateTimeOffset.TryParse(work.AiStartedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var startedAt)
+                || !DateTimeOffset.TryParse(work.AiStartedAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var startedAt)
                 || startedAt > startedBefore)
             {
                 continue;

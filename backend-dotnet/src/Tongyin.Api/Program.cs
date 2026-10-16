@@ -33,6 +33,8 @@ builder.Services.AddSingleton<Func<DbConnection>>(services =>
 builder.Services.AddSingleton(services =>
     new GoSessionTokenValidator(services.GetRequiredService<IConfiguration>()["SESSION_SECRET"]!));
 builder.Services.AddSingleton(services =>
+    new AdminTokenValidator(services.GetRequiredService<IConfiguration>()["ADMIN_TOKEN"]));
+builder.Services.AddSingleton(services =>
 {
     var configuration = services.GetRequiredService<IConfiguration>();
     return new LocalMediaStore(
@@ -43,6 +45,8 @@ builder.Services.AddSingleton(services =>
 builder.Services.AddSingleton<IOriginalImageStore>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddSingleton<IOriginalImageReader>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
+builder.Services.AddScoped<IStalledImageTasksReader, SqlStalledImageTasksReader>();
+builder.Services.AddScoped<ListStalledImageTasks>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<ListWorks>();

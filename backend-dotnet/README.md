@@ -148,6 +148,23 @@ SQL 仓储使用与 Go 共用的 `ty_store_lock` 事务锁；在锁内读取作�
 
 **重要限制：**该标记目前只约束 .NET 的图片执行器。旧 Go 代码不识别新增的 `ai_execution_claim_id`，因此不能让 Go 与 .NET 同时派发同一作品的 Seedream 任务；必须切换到单一调度入口。当前也尚未实现任务队列、人工核查、超时结果恢复或自动启动执行，不能将持久化认领等同于整套调度系统已完成。下一步应先补待核查任务的读取与人工处理规则，再开放小程序生成入口。
 
+## 超时 AI 图片任务只读核查入口
+
+.NET 已提供 **`GET /api/admin/ai/stalled-image-tasks`**，只读列出开始时间至少超过 **15 分钟**、状态仍为 `image_pending` 的已认领图片任务（最多 100 条，最早开始的排在前面）。兼容 .NET 的 `ai_execution_claim_id` 和旧 Go 的 `ai_task_stage=image` / `ai_started_at`；任务必须有非空 `generation_id`、有效时间、匹配的认领编号（或旧 Go 空认领编号）才会出现。时间按含时区的实际时刻比较，不允许因为异常文本把任务自动判失败或重新调用模型。
+
+请求必须携带与现有 Go 后台相同的 `X-Admin-Token: <ADMIN_TOKEN>` 请求头。若 .NET 未配置非空 `ADMIN_TOKEN`，或令牌不匹配，一律返回 401，且不会查询任务数据。仅迁移了旧 Go 的令牌认证模式，**暂不支持 Go 的管理员账号/密码登录会话，也未修改后台 Web UI**。不要将此令牌放进微信小程序、浏览器公开脚本或 Git 仓库；建议只从受控管理终端通过 HTTPS 访问。
+
+示例（在已配置 `ADMIN_TOKEN` 的受控管理环境）：
+
+```powershell
+$headers = @{ "X-Admin-Token" = $env:ADMIN_TOKEN }
+Invoke-RestMethod -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks" -Headers $headers
+```
+
+每条任务只返回 `work_id`、`generation_id`、`started_at`、`image_attempts`、`provider_id`、`is_legacy_go`。不返回微信 OpenID、密钥或图片签名链接；查询不修改数据库、不解除认领、不自动重试。底层为了兼容 PostgreSQL/MySQL/SQLite 的旧 `payload TEXT` JSON，当前采用只读扫描并在内存中筛选，适合 MVP 数据量；作品大规模增长后应考虑数据库索引或独立任务表。
+
+当前尚无人工结果确认/恢复操作、管理员 Web 页面、队列启动机制，也没有开放小程序的生成接口。发现超时任务应先核对上游实际执行与计费结果，不能直接清除认领标记。
+
 ## 验收
 
 需要 .NET 10 SDK：
