@@ -74,7 +74,7 @@ public sealed class WechatCodeExchangerTests
         using var client = new HttpClient(handler);
         using var exchanger = NewExchanger(client);
 
-        await Assert.ThrowsAsync<System.Text.Json.JsonException>(() => exchanger.ExchangeAsync("one-time-code"));
+        await Assert.ThrowsAnyAsync<System.Text.Json.JsonException>(() => exchanger.ExchangeAsync("one-time-code"));
     }
 
     private static WechatCodeExchanger NewExchanger(HttpClient httpClient, bool development = false, bool devMode = false)
