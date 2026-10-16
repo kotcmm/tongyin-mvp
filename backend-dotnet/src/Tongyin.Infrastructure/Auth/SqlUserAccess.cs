@@ -38,17 +38,17 @@ public sealed class SqlUserAccess : IWechatUserRepository
             "UPDATE ty_store_lock SET id = id WHERE id = 1",
             transaction: transaction, cancellationToken: cancellationToken));
 
-        var row = await db.QuerySingleOrDefaultAsync<(string Id, string Payload)>(new CommandDefinition(
-            "SELECT id AS Id, payload AS Payload FROM ty_users WHERE owner_id = @OpenId",
+        var payload = await db.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_users WHERE owner_id = @OpenId",
             new { OpenId = openId }, transaction: transaction, cancellationToken: cancellationToken));
 
         var timestamp = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
-        if (row.Payload is not null)
+        if (payload is not null)
         {
-            var document = JsonNode.Parse(row.Payload) as JsonObject
+            var document = JsonNode.Parse(payload) as JsonObject
                 ?? throw new JsonException("用户档案 JSON 格式无效");
             // 显式禁用的账户不得被重新激活、迁移或更新。
-            if (document["disabled"] is { } disabled && disabled.ToJsonString() != "false")
+            if (document.ContainsKey("disabled") && document["disabled"]?.ToJsonString() != "false")
             {
                 return false;
             }
@@ -103,21 +103,23 @@ public sealed class SqlUserAccess : IWechatUserRepository
     {
         await using var db = _connectionFactory();
         await db.OpenAsync(cancellationToken);
-        var row = await db.QuerySingleOrDefaultAsync<(string Payload, string CreatedAt)>(new CommandDefinition(
-            "SELECT payload AS Payload, created_at AS CreatedAt FROM ty_users WHERE owner_id = @OpenId",
+        var payload = await db.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_users WHERE owner_id = @OpenId",
             new { OpenId = openId }, cancellationToken: cancellationToken));
-        if (row.Payload is null)
+        if (payload is null)
         {
             return null;
         }
 
-        using var document = JsonDocument.Parse(row.Payload);
+        using var document = JsonDocument.Parse(payload);
         var root = document.RootElement;
         var id = root.TryGetProperty("id", out var userId) && userId.ValueKind == JsonValueKind.String
             ? userId.GetString() : null;
-        if (string.IsNullOrWhiteSpace(id))
+        var createdAt = root.TryGetProperty("created_at", out var created) && created.ValueKind == JsonValueKind.String
+            ? created.GetString() : null;
+        if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(createdAt))
         {
-            throw new JsonException("用户档案缺少内部 ID");
+            throw new JsonException("用户档案缺少内部 ID 或创建时间");
         }
 
         var works = await db.ExecuteScalarAsync<long>(new CommandDefinition(
@@ -130,7 +132,7 @@ public sealed class SqlUserAccess : IWechatUserRepository
         return new WechatUserProfile
         {
             Id = id,
-            CreatedAt = row.CreatedAt,
+            CreatedAt = createdAt,
             Works = checked((int)works),
             Orders = checked((int)orders)
         };
