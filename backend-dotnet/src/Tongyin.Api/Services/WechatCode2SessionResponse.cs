@@ -7,6 +7,11 @@ namespace Tongyin.Api.Services;
 /// </summary>
 internal sealed class WechatCode2SessionResponse
 {
+    /// <summary>供 System.Text.Json 创建对象。</summary>
+    public WechatCode2SessionResponse()
+    {
+    }
+
     /// <summary>微信错误码；成功时可能不返回该字段。</summary>
     [JsonPropertyName("errcode")]
     public int? ErrorCode { get; init; }
