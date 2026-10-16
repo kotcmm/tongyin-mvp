@@ -62,6 +62,14 @@
 
 `LoginWechat` 用例将 OpenID 交给 `SqlUserAccess.FindOrCreateEnabledAsync`：首次登录创建用户，重复登录复用已有档案，已停用用户返回 403。Token 仍是七天有效的 HMAC-SHA256 会话，`WechatSessionAuthenticationHandler` 统一验证。
 
+**用户资料与 Go 兼容：**
+
+- `ty_users.id` 是微信 OpenID，`ty_users.owner_id` 同样保存 OpenID；这两个数据库列不等于用户公开 ID。
+- `payload.id` 是用户公开的内部 ID，新注册时用 12 字节安全随机数生成 24 位小写十六进制字符；`payload.owner`、`created_at`、`last_login` 和 `disabled` 沿用旧 Go 的字段结构。
+- 早期 .NET 已写入的记录可能以 32 位 GUID 为 `ty_users.id` 和 `payload.id`。用户再次登录时仅将数据库主键恢复成 OpenID，保留原 `payload.id`，以避免已有引用失效；小程序身份展示同时接受 24/32 位内部 ID。
+- `GET /api/me` 使用 `[WechatAuthorize]` 校验 Bearer Token 和启用状态，按认证身份读取 `ty_users`，返回 `{"id":"...","created_at":"...","works":0,"orders":0}`，不暴露 OpenID。作品和订单数量按 `owner_id` 独立统计，不计入其他用户。
+- 已存在的 Go 档案保留原内部 ID、创建时间及未知扩展字段，登录只刷新 `last_login`；停用用户不会被重新激活。
+
 本轮后台配置入口仅提供 API。现有共享 `ADMIN_TOKEN` 无法标识具体管理员，因此**正式给多人开放配置页面前必须完成独立管理员身份和审计**；不得把这个 API 暴露给不可信管理人员。
 
 开发模拟登录仅在 `ASPNETCORE_ENVIRONMENT=Development` **同时** `DEV_MODE=true` 时允许 `{"code":"DEV_LOGIN"}`。生产环境无论 `DEV_MODE` 如何设置都拒绝模拟登录。

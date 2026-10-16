@@ -199,6 +199,10 @@ public sealed class WechatLoginEndpointTests
         Assert.Equal(1, me.RootElement.GetProperty("orders").GetInt32());
         Assert.Equal(1, app.UserCount("openid-001"));
         Assert.Equal("openid-001", app.UserPrimaryKey("openid-001"));
+        using var stored = JsonDocument.Parse(app.UserPayload("openid-001"));
+        Assert.Equal("do-not-erase", stored.RootElement.GetProperty("custom_legacy_field").GetString());
+        Assert.Equal(goId, stored.RootElement.GetProperty("id").GetString());
+        Assert.NotEqual("2026-01-01T00:00:00+08:00", stored.RootElement.GetProperty("last_login").GetString());
     }
 
     /// <summary>已注册的早期 .NET GUID 用户不能被重建；只把错误主键恢复为兼容 Go 的 OpenID。</summary>
@@ -221,6 +225,9 @@ public sealed class WechatLoginEndpointTests
         Assert.Equal(guidId, me.RootElement.GetProperty("id").GetString());
         Assert.Equal("openid-001", app.UserPrimaryKey("openid-001"));
         Assert.Equal(1, app.UserCount("openid-001"));
+        using var stored = JsonDocument.Parse(app.UserPayload("openid-001"));
+        Assert.Equal("do-not-erase", stored.RootElement.GetProperty("custom_legacy_field").GetString());
+        Assert.Equal(guidId, stored.RootElement.GetProperty("id").GetString());
     }
 
     /// <summary>无登录态和伪造登录态都不得获取个人档案。</summary>
