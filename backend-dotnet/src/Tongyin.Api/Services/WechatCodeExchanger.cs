@@ -11,35 +11,52 @@ public sealed class WechatCodeExchanger(HttpClient httpClient, IConfiguration co
     /// <summary>将一次性 code 换为微信 OpenID，不记录 AppSecret、code 或 session_key。</summary>
     public async Task<string> ExchangeAsync(string code, CancellationToken cancellationToken = default)
     {
+        ValidateCode(code);
+        if (code == "DEV_LOGIN")
+        {
+            return GetDevelopmentOpenId();
+        }
+
+        var settings = await settingsStore.GetAsync(cancellationToken);
+        var url = BuildSessionUrl(settings, code);
+        return await RequestOpenIdAsync(url, cancellationToken);
+    }
+
+    private static void ValidateCode(string code)
+    {
         if (string.IsNullOrWhiteSpace(code) || code.Length > 512)
         {
             throw new ArgumentException("微信登录凭证无效", nameof(code));
         }
+    }
 
-        if (code == "DEV_LOGIN")
+    private string GetDevelopmentOpenId()
+    {
+        if (!environment.IsDevelopment() || !configuration.GetValue<bool>("DEV_MODE"))
         {
-            if (environment.IsDevelopment() && configuration.GetValue<bool>("DEV_MODE"))
-            {
-                return "dev-openid";
-            }
-
-            throw new ArgumentException("生产环境不允许模拟登录", nameof(code));
+            throw new ArgumentException("生产环境不允许模拟登录", "code");
         }
 
-        var settings = await settingsStore.GetAsync(cancellationToken);
-        var appId = settings?.AppId;
-        var appSecret = settings?.AppSecret;
-        if (string.IsNullOrWhiteSpace(appId) || string.IsNullOrWhiteSpace(appSecret))
+        return "dev-openid";
+    }
+
+    private static string BuildSessionUrl(WechatAppSettings? settings, string code)
+    {
+        if (string.IsNullOrWhiteSpace(settings?.AppId) || string.IsNullOrWhiteSpace(settings.AppSecret))
         {
             throw new InvalidOperationException("微信登录所需的服务端应用凭据尚未配置");
         }
 
-        var uri = "https://api.weixin.qq.com/sns/jscode2session"
-            + "?appid=" + Uri.EscapeDataString(appId)
-            + "&secret=" + Uri.EscapeDataString(appSecret)
+        return "https://api.weixin.qq.com/sns/jscode2session"
+            + "?appid=" + Uri.EscapeDataString(settings.AppId)
+            + "&secret=" + Uri.EscapeDataString(settings.AppSecret)
             + "&js_code=" + Uri.EscapeDataString(code)
             + "&grant_type=authorization_code";
-        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+    }
+
+    private async Task<string> RequestOpenIdAsync(string url, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
         using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
@@ -47,25 +64,33 @@ public sealed class WechatCodeExchanger(HttpClient httpClient, IConfiguration co
         }
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var data = json.RootElement;
-        if (data.TryGetProperty("errcode", out var errorCode) && errorCode.GetInt32() != 0)
+        using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        return ParseOpenId(document.RootElement);
+    }
+
+    private static string ParseOpenId(JsonElement result)
+    {
+        if (result.TryGetProperty("errcode", out var errorCode))
         {
-            if (errorCode.GetInt32() is 40029 or 40163)
+            var code = errorCode.GetInt32();
+            if (code is 40029 or 40163)
             {
-                throw new ArgumentException("微信登录凭证无效", nameof(code));
+                throw new ArgumentException("微信登录凭证无效", "code");
             }
 
-            throw new InvalidOperationException("微信登录服务暂不可用");
+            if (code != 0)
+            {
+                throw new InvalidOperationException("微信登录服务暂不可用");
+            }
         }
 
-        if (!data.TryGetProperty("openid", out var userId) || userId.ValueKind != JsonValueKind.String
-            || string.IsNullOrWhiteSpace(userId.GetString()))
+        if (!result.TryGetProperty("openid", out var openId) || openId.ValueKind != JsonValueKind.String
+            || string.IsNullOrWhiteSpace(openId.GetString()))
         {
             throw new InvalidOperationException("微信登录服务未返回有效的用户标识");
         }
 
-        return userId.GetString()!;
+        return openId.GetString()!;
     }
 
     /// <summary>释放用于连接微信服务器的 HTTP 客户端。</summary>

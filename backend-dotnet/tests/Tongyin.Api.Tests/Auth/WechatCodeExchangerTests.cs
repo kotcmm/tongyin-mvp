@@ -82,8 +82,6 @@ public sealed class WechatCodeExchangerTests
     {
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["WECHAT_APP_ID"] = "test-app-id",
-            ["WECHAT_APP_SECRET"] = "test-app-secret",
             ["DEV_MODE"] = devMode ? "true" : "false"
         }).Build();
         return new WechatCodeExchanger(httpClient, config, new TestEnvironment
