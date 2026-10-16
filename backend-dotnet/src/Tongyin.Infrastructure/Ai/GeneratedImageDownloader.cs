@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Media;
 
 namespace Tongyin.Infrastructure.Ai;
@@ -7,7 +8,7 @@ namespace Tongyin.Infrastructure.Ai;
 /// <summary>
 /// 下载 AI 生成图片并存入童印媒体目录，只返回本地媒体文件名，不保留远端临时链接。
 /// </summary>
-public sealed class GeneratedImageDownloader(HttpClient httpClient, LocalMediaStore mediaStore)
+public sealed class GeneratedImageDownloader(HttpClient httpClient, LocalMediaStore mediaStore) : IGeneratedImageStore
 {
     private const long MaxImageBytes = 10L << 20;
 
@@ -49,6 +50,11 @@ public sealed class GeneratedImageDownloader(HttpClient httpClient, LocalMediaSt
             return await mediaStore.SaveImageAsync(image, image.Length, cancellationToken);
         }
     }
+
+    /// <summary>
+    /// 删除未成功关联到作品的生成图片，复用本地媒体存储的文件清理规则。
+    /// </summary>
+    public void Delete(string fileName) => mediaStore.Delete(fileName);
 
     private static Uri RequireHttpsUrl(string value)
     {

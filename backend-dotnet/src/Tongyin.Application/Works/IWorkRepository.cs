@@ -27,4 +27,9 @@ public interface IWorkRepository
     /// 作品不存在或不属于当前用户时返回空值；业务规则拒绝时抛出领域异常。
     /// </summary>
     Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 在数据库事务中校验当前任务编号与图片待生成状态，并保存单张结果；过期或重复回写时拒绝。
+    /// </summary>
+    Task<WorkSnapshot> CompleteImageGenerationAsync(string id, string generationId, string imageFileName, CancellationToken cancellationToken = default);
 }

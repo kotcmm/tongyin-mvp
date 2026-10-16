@@ -63,14 +63,7 @@ public sealed class SqlWorkRepository : IWorkRepository
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        // UPDATE 可以同时在 PostgreSQL、MySQL 和 SQLite 上持有排他写锁。
-        // 对 PostgreSQL/MySQL，它会与 Go 的 SELECT ... FOR UPDATE 锁住同一行。
-        await connection.ExecuteAsync(new CommandDefinition(
-            "UPDATE ty_store_lock SET id = id WHERE id = 1",
-            transaction: transaction, cancellationToken: cancellationToken));
-        await connection.QuerySingleAsync<int>(new CommandDefinition(
-            "SELECT id FROM ty_store_lock WHERE id = 1",
-            transaction: transaction, cancellationToken: cancellationToken));
+        await AcquireStoreLockAsync(connection, transaction, cancellationToken);
 
         var payload = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
             "SELECT payload FROM ty_works WHERE id = @Id AND owner_id = @Owner",
@@ -81,21 +74,7 @@ public sealed class SqlWorkRepository : IWorkRepository
             return null;
         }
 
-        var snapshot = JsonSerializer.Deserialize<WorkSnapshot>(payload)
-            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
-        var status = snapshot.Status switch
-        {
-            "image_pending" => WorkStatus.ImagePending,
-            "image_ready" => WorkStatus.ImageReady,
-            "model_pending" => WorkStatus.ModelPending,
-            "model_ready" => WorkStatus.ModelReady,
-            "failed" => WorkStatus.Failed,
-            _ => throw new JsonException("作品状态无效")
-        };
-        var restored = Work.Restore(
-            id, owner, DateTimeOffset.Parse(snapshot.CreatedAt, CultureInfo.InvariantCulture),
-            snapshot.Original, status, snapshot.Selected, snapshot.ImageAttempts,
-            snapshot.GenerationId, snapshot.Candidates, snapshot.Model, snapshot.Note);
+        var restored = RestoreWork(id, owner, payload);
 
         // 领域实体负责状态和额度规则，仓储只承担原子持久化。
         restored.RequestImageGeneration(generationId, freeImageAttempts);
@@ -120,6 +99,75 @@ public sealed class SqlWorkRepository : IWorkRepository
 
         return JsonSerializer.Deserialize<WorkSnapshot>(updatedPayload)
             ?? throw new JsonException("更新后的作品记录不是合法的 JSON 对象");
+    }
+
+    /// <summary>
+    /// 以与 Go 共用的事务写锁校验并提交当前图片任务结果，拒绝过期或重复回写。
+    /// </summary>
+    public async Task<WorkSnapshot> CompleteImageGenerationAsync(string id, string generationId, string imageFileName, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await AcquireStoreLockAsync(connection, transaction, cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<(string Owner, string Payload)>(new CommandDefinition(
+            "SELECT owner_id AS Owner, payload AS Payload FROM ty_works WHERE id = @Id",
+            new { Id = id }, transaction: transaction, cancellationToken: cancellationToken));
+
+        if (row.Payload is null)
+        {
+            throw new InvalidOperationException("生成任务已失效，无法保存形象图片");
+        }
+
+        var work = RestoreWork(id, row.Owner, row.Payload);
+        work.CompleteImageGeneration(generationId, imageFileName);
+
+        var document = JsonNode.Parse(row.Payload) as JsonObject
+            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+        document["status"] = "image_ready";
+        document["candidates"] = new JsonArray(JsonValue.Create(imageFileName));
+        var updatedPayload = document.ToJsonString();
+        var result = JsonSerializer.Deserialize<WorkSnapshot>(updatedPayload)
+            ?? throw new JsonException("更新后的作品记录不是合法的 JSON 对象");
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE ty_works SET payload = @Payload WHERE id = @Id",
+            new { Payload = updatedPayload, Id = id },
+            transaction: transaction, cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
+    private static async Task AcquireStoreLockAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
+    {
+        // Go 使用同一 ty_store_lock 行；无意义的 UPDATE 兼容 SQLite、PostgreSQL 与 MySQL。
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE ty_store_lock SET id = id WHERE id = 1",
+            transaction: transaction, cancellationToken: cancellationToken));
+        await connection.QuerySingleAsync<int>(new CommandDefinition(
+            "SELECT id FROM ty_store_lock WHERE id = 1",
+            transaction: transaction, cancellationToken: cancellationToken));
+    }
+
+    private static Work RestoreWork(string id, string owner, string payload)
+    {
+        var snapshot = JsonSerializer.Deserialize<WorkSnapshot>(payload)
+            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+        var status = snapshot.Status switch
+        {
+            "image_pending" => WorkStatus.ImagePending,
+            "image_ready" => WorkStatus.ImageReady,
+            "model_pending" => WorkStatus.ModelPending,
+            "model_ready" => WorkStatus.ModelReady,
+            "failed" => WorkStatus.Failed,
+            _ => throw new JsonException("作品状态无效")
+        };
+
+        return Work.Restore(
+            id, owner, DateTimeOffset.Parse(snapshot.CreatedAt, CultureInfo.InvariantCulture),
+            snapshot.Original, status, snapshot.Selected, snapshot.ImageAttempts,
+            snapshot.GenerationId, snapshot.Candidates, snapshot.Model, snapshot.Note);
     }
 
     /// <summary>

@@ -64,6 +64,8 @@ builder.Services.AddHttpClient<GeneratedImageDownloader>(client => client.Timeou
         ConnectCallback = PublicImageNetworkPolicy.ConnectAsync,
         PooledConnectionLifetime = TimeSpan.FromMinutes(1)
     });
+builder.Services.AddScoped<IGeneratedImageStore>(services => services.GetRequiredService<GeneratedImageDownloader>());
+builder.Services.AddScoped<SaveImageGenerationResult>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
