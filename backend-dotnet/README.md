@@ -32,7 +32,7 @@
 
 ## Application 层第一个用例
 
-`CreateWork.ExecuteFromImageAsync(owner, image, length)` 通过应用层 `IOriginalImageStore` 端口保存原画，生成作品 ID 和创建时间，然后调用既有 `ExecuteAsync(id, owner, createdAt, original)` 持久化作品。**只有作品保存失败时才回收本次原画**，成功保存后 HTTP 响应签名或格式化错误不会触发删除。Controller 仍负责 multipart 请求格式和响应，应用层不依赖 ASP.NET Core。`OriginalImageLimits.MaxBytes`（10 MiB）由 API 和存储适配器共同引用。
+`CreateWork.ExecuteFromImageAsync(owner, image, length)` 通过应用层 `IOriginalImageStore` 端口保存原画，生成作品 ID 和创建时间，然后调用既有 `ExecuteAsync(id, owner, createdAt, original)` 持久化作品。**只有作品保存失败时才回收本次原画**，成功保存后 HTTP 响应签名或格式化错误不会触发删除。Controller 仍负责 multipart 请求格式和响应，应用层不依赖 ASP.NET Core。`ImageFileLimits.MaxBytes`（10 MiB）由 API 和存储适配器共同引用。
 
 ## Infrastructure 层第一个 SQL 适配器
 
@@ -90,7 +90,7 @@ DB_CONNECTION_STRING=Server=127.0.0.1;Port=3306;Database=tongyin;User ID=tongyin
 
 `GET /api/works/{id}` 沿用原 Go 协议，使用 `[WechatAuthorize]` 检查微信登录状态和账号是否启用。Controller 通过 `GetWork` 用例读取作品；`SqlWorkRepository.GetByIdForOwnerAsync` 使用参数化 `WHERE id = @Id AND owner_id = @Owner` 同时核对作品标识与所属人。作品不存在或属于其他用户时均返回 `404 {"error":"作品不存在"}`，避免暴露其他人的作品是否存在；匿名返回 401，账号停用返回 403。正常返回现有 `WorkResponse` 单个 JSON 对象，重新签发所有原画、候选图、预览和模型的媒体 URL。
 
-## 图片生成任务原子登记（尚未开放 HTTP 生成接口）
+## 图片生成任务原子登记
 
 Application 层的 `StartImageGeneration.ExecuteAsync(owner, id, freeImageAttempts)` 生成独立任务标识，交由 `IWorkRepository.RegisterImageGenerationAsync` 原子登记，不直接发送 AI 请求。Dapper 适配器在事务内更新 Go 已有的 `ty_store_lock(id=1)` 行以获取排他写锁，与 Go 的 `SELECT ... FOR UPDATE` 竞争同一行锁，然后以作品 ID 和 owner_id 双重筛选目标记录，恢复 Domain `Work` 并调用既有 `RequestImageGeneration` 进行状态与免费次数校验；通过后原子写入新的 `image_pending`、`image_attempts` 和 `generation_id`，清理过期候选图片/预览/模型字段，其他 Go 兼容 JSON 属性保留。失败时事务回滚，不额外扣次数。
 
@@ -187,28 +187,23 @@ Invoke-RestMethod -Method Post -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-im
 curl.exe -X POST "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks/work-id/complete" -H "X-Admin-Token: $env:ADMIN_TOKEN" -F "generation_id=job-id" -F "reason=已确认服务商生成成功" -F "file=@C:\\images\\recovered.png"
 ```
 
-## 后台图片任务调度（默认关闭）
+## 图片生成入口与数据库驱动的派发
 
-.NET 后端已注册 `ImageGenerationPollingService`（ASP.NET Core BackgroundService）作为**受控轮询执行器**，默认不查询待执行任务、不自动生成图片、不发生模型费用。仅在明确配置 `AI_IMAGE_DISPATCH_ENABLED=true` 后启动轮询；`AI_IMAGE_DISPATCH_POLL_SECONDS` 默认为 5 秒（限制 1～60 秒），每轮最多处理一笔任务，适用于先上线验证的 MVP。
+图片生成可用性由数据库中的默认图片服务商决定，**不再使用 `AI_IMAGE_DISPATCH_ENABLED` 环境变量**。现有 `ty_ai_providers` 的 `stage=image`、`enabled=true`、`default=true` 且适配器为 `seedream`，并具有非空模型、地址和密文 API Key 时，允许图片生成。没有符合条件的服务商时，业务默认关闭。运营人员通过数据库配置启用或停用服务商后，不需要重启 .NET 服务。
 
-工作路径：`SqlQueuedImageGenerationReader` 从 Go 兼容的 `ty_works` 读取候选任务 → `DispatchQueuedImageGeneration` → `ExecuteImageGeneration` → 原有事务认领 → Seedream → 本地图片与结果回写。扫描仅接受 `image_pending`、`image_attempts > 0`、`generation_id` 非空、尚无执行认领/阶段/开始时间，并且 **JSON 明确包含 .NET 登记任务时写入的 `ai_execution_claim_id` 字段** 的作品。旧 Go 未写该字段的历史待执行任务一律不会被 .NET 自动接管。任务归属以数据库 `owner_id` 为准，不相信 `payload.owner`，扫描过程不改库；真正执行前必须抢占数据库原子认领。
+`POST /api/works/{id}/generate` 使用微信用户授权，仅对本人作品登记任务；先读取数据库配置再调用 `StartImageGeneration`，成功返回 **202 Accepted** 和作品状态快照，异步轮询随后执行。未登录返回 401，作品不属于本人返回 404，当前不允许重复生成返回 409，图片服务商未启用或配置不全时返回 503，且不会消耗生成次数。HTTP 接口不直接发起收费模型请求。
 
-**重启规则：**服务重启后尚未认领的 .NET 登记任务会被再次发现；已认领的任务（包括调用超时、网络结果不明的情况）不会再次生成，继续通过现有管理员核查接口人工处理。后台异常只记录异常类别，不输出可能包含鉴权签名的下载 URL；不会自动释放认领或重复请求付费 API。当前以 `ty_works.payload TEXT` 全表扫描实现跨 PostgreSQL/MySQL/SQLite 兼容，MVP 数据量可用，规模增长后需优化查询。当前没有自动重试，也没有完善的运行监控及告警。
+`ImageGenerationPollingService` 每轮同样读取数据库配置：禁用后不再认领新的图片任务，重新启用后继续处理未认领任务。运行中的已认领任务不被强制中断；超时或未知计费结果仍需管理员核查，不会自动重试付费请求。轮询周期 `AI_IMAGE_DISPATCH_POLL_SECONDS` 是宿主运行参数，默认为 5 秒、允许 1～60 秒，与业务开关不同。
 
-**部署前必须确认：**旧 Go 服务已经停止对同一批作品的 AI 派发；.NET 与 Go 不能同时处理同一作品任务。不要把 `AI_IMAGE_DISPATCH_ENABLED=true` 带入 CI 或无法控制账单的测试环境。可以先不启用轮询，仅执行单元测试；在测试环境完成模拟模型验收后，再由运维明确设置并重启服务启用。默认环境下没有新增任何真实模型调用。
+任务派发采用 `SqlQueuedImageGenerationReader` → `DispatchQueuedImageGeneration` → `ExecuteImageGeneration` → 原子认领 → Seedream → 图片落盘与结果回写。仅自动处理带有 .NET 任务登记标记的未认领记录；同一编号已认领后不重复计费。测试环境不应设置已启用的真实收费服务商；现有 API 集成测试使用独立 SQLite 和虚拟配置，不发送实际请求。
 
 ```powershell
-# 默认关闭，不会向模型发送请求
-$env:AI_IMAGE_DISPATCH_ENABLED = "false"
+# 检查代码和本地测试，不启用真实服务商
 dotnet test backend-dotnet/Tongyin.slnx -c Release
 
-# 完成单独测试环境验收、确认 Go 派发已停止后才显式启用：
-$env:AI_IMAGE_DISPATCH_ENABLED = "true"
+# 可选：调整后台扫描频率，不影响数据库中启用/停用状态
 $env:AI_IMAGE_DISPATCH_POLL_SECONDS = "5"
-# 随后按现有启动方式运行 .NET API
 ```
-
-**本轮尚未实现 `POST /api/works/{id}/generate`**。现有 `StartImageGeneration` 仅由调用方显式使用，尚未接入用户请求，因此本轮仅能自动消化此前由 .NET 持久化登记的待生成任务，不能让小程序直接创建新任务。下一轮应以 HTTP 集成测试先验证：认证用户提交 → 数据库登记 → HTTP 202 → 轮询派发，并确保重复提交不产生额外生成次数。
 
 ## 验收
 
@@ -229,4 +224,4 @@ python -m unittest discover -s tests -p "test_*.py" -v
 新增功能遵守同目录 `AGENTS.md`：以调用方的业务需求写测试，记录红灯，再实现最小代码并验证绿灯。
 一次只完成一个确认过的业务用例，后续迁移需另行确认。
 
-**此分支不替代已运行的 Go 服务。** 不允许把尚未迁移的代码当成完整后端，也不应直接合并上线。
+此分支仍为逐步完善中的 .NET 后端；上线前必须完成全部业务链路与测试验收，不能将尚未实现的部分视作已可用。
