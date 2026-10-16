@@ -74,6 +74,7 @@ builder.Services.AddScoped<ReviewStalledImageTask>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<IWechatUserRepository>(services => services.GetRequiredService<SqlUserAccess>());
 builder.Services.AddScoped<LoginWechat>();
+builder.Services.AddScoped<GetWechatProfile>();
 builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<StartImageGeneration>();
 builder.Services.AddScoped<ListWorks>();

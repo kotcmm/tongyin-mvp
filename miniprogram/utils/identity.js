@@ -4,7 +4,7 @@ const { request } = require('./api')
 
 async function loadIdentity() {
   const account = await request('GET', '/api/me')
-  if (!account || typeof account.id !== 'string' || !/^[a-f0-9]{24}$/.test(account.id)) {
+  if (!account || typeof account.id !== 'string' || !/^(?:[a-f0-9]{24}|[a-f0-9]{32})$/.test(account.id)) {
     throw new Error('账号验证失败，请重试')
   }
   return {
