@@ -187,6 +187,29 @@ Invoke-RestMethod -Method Post -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-im
 curl.exe -X POST "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks/work-id/complete" -H "X-Admin-Token: $env:ADMIN_TOKEN" -F "generation_id=job-id" -F "reason=已确认服务商生成成功" -F "file=@C:\\images\\recovered.png"
 ```
 
+## 后台图片任务调度（默认关闭）
+
+.NET 后端已注册 `ImageGenerationPollingService`（ASP.NET Core BackgroundService）作为**受控轮询执行器**，默认不查询待执行任务、不自动生成图片、不发生模型费用。仅在明确配置 `AI_IMAGE_DISPATCH_ENABLED=true` 后启动轮询；`AI_IMAGE_DISPATCH_POLL_SECONDS` 默认为 5 秒（限制 1～60 秒），每轮最多处理一笔任务，适用于先上线验证的 MVP。
+
+工作路径：`SqlQueuedImageGenerationReader` 从 Go 兼容的 `ty_works` 读取候选任务 → `DispatchQueuedImageGeneration` → `ExecuteImageGeneration` → 原有事务认领 → Seedream → 本地图片与结果回写。扫描仅接受 `image_pending`、`image_attempts > 0`、`generation_id` 非空、尚无执行认领/阶段/开始时间，并且 **JSON 明确包含 .NET 登记任务时写入的 `ai_execution_claim_id` 字段** 的作品。旧 Go 未写该字段的历史待执行任务一律不会被 .NET 自动接管。任务归属以数据库 `owner_id` 为准，不相信 `payload.owner`，扫描过程不改库；真正执行前必须抢占数据库原子认领。
+
+**重启规则：**服务重启后尚未认领的 .NET 登记任务会被再次发现；已认领的任务（包括调用超时、网络结果不明的情况）不会再次生成，继续通过现有管理员核查接口人工处理。后台异常只记录异常类别，不输出可能包含鉴权签名的下载 URL；不会自动释放认领或重复请求付费 API。当前以 `ty_works.payload TEXT` 全表扫描实现跨 PostgreSQL/MySQL/SQLite 兼容，MVP 数据量可用，规模增长后需优化查询。当前没有自动重试，也没有完善的运行监控及告警。
+
+**部署前必须确认：**旧 Go 服务已经停止对同一批作品的 AI 派发；.NET 与 Go 不能同时处理同一作品任务。不要把 `AI_IMAGE_DISPATCH_ENABLED=true` 带入 CI 或无法控制账单的测试环境。可以先不启用轮询，仅执行单元测试；在测试环境完成模拟模型验收后，再由运维明确设置并重启服务启用。默认环境下没有新增任何真实模型调用。
+
+```powershell
+# 默认关闭，不会向模型发送请求
+$env:AI_IMAGE_DISPATCH_ENABLED = "false"
+dotnet test backend-dotnet/Tongyin.slnx -c Release
+
+# 完成单独测试环境验收、确认 Go 派发已停止后才显式启用：
+$env:AI_IMAGE_DISPATCH_ENABLED = "true"
+$env:AI_IMAGE_DISPATCH_POLL_SECONDS = "5"
+# 随后按现有启动方式运行 .NET API
+```
+
+**本轮尚未实现 `POST /api/works/{id}/generate`**。现有 `StartImageGeneration` 仅由调用方显式使用，尚未接入用户请求，因此本轮仅能自动消化此前由 .NET 持久化登记的待生成任务，不能让小程序直接创建新任务。下一轮应以 HTTP 集成测试先验证：认证用户提交 → 数据库登记 → HTTP 202 → 轮询派发，并确保重复提交不产生额外生成次数。
+
 ## 验收
 
 需要 .NET 10 SDK：
