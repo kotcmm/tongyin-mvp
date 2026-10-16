@@ -39,9 +39,9 @@ public sealed class WechatSessionTokenService : IWechatSessionIssuer
         }
 
         var expiresAt = now.Add(lifetime).ToUnixTimeSeconds();
-        var payload = Base64Url(Encoding.UTF8.GetBytes(openId + "|" + expiresAt.ToString(CultureInfo.InvariantCulture)));
+        var payload = EncodeBase64Url(Encoding.UTF8.GetBytes(openId + "|" + expiresAt.ToString(CultureInfo.InvariantCulture)));
         var signature = HMACSHA256.HashData(_secret, Encoding.UTF8.GetBytes(payload));
-        return payload + "." + Base64Url(signature);
+        return payload + "." + EncodeBase64Url(signature);
     }
 
     /// <summary>验证令牌签名和到期时间，成功返回微信用户 OpenID。</summary>
@@ -143,6 +143,6 @@ public sealed class WechatSessionTokenService : IWechatSessionIssuer
         }
     }
 
-    private static string Base64Url(byte[] bytes)
+    private static string EncodeBase64Url(byte[] bytes)
         => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
