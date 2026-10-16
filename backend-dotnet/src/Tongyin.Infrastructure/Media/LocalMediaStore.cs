@@ -9,7 +9,7 @@ namespace Tongyin.Infrastructure.Media;
 /// <summary>
 /// 管理本地原画上传以及兼容 Go 服务的媒体访问签名。
 /// </summary>
-public sealed class LocalMediaStore : IOriginalImageStore
+public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader
 {
     private static readonly byte[] _pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
     private static readonly byte[] _jpegSignature = [0xFF, 0xD8, 0xFF];
@@ -57,6 +57,29 @@ public sealed class LocalMediaStore : IOriginalImageStore
             File.Delete(path);
             throw;
         }
+    }
+
+    /// <summary>
+    /// 只根据本地安全媒体文件名读取已保存的原画，并限制读取容量。
+    /// </summary>
+    public async Task<byte[]> ReadImageAsync(string fileName, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) || fileName.Length > 100
+            || fileName.Contains("..", StringComparison.Ordinal)
+            || fileName.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_')))
+        {
+            throw new InvalidDataException("原画文件名无效");
+        }
+
+        await using var source = new FileStream(Path.Combine(_directory, fileName), FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+        if (source.Length == 0 || source.Length > OriginalImageLimits.MaxBytes)
+        {
+            throw new InvalidDataException("原画为空或超过 10 MiB");
+        }
+
+        var bytes = new byte[checked((int)source.Length)];
+        await source.ReadExactlyAsync(bytes.AsMemory(), cancellationToken);
+        return bytes;
     }
 
     /// <summary>

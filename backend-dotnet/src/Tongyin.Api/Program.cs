@@ -41,6 +41,7 @@ builder.Services.AddSingleton(services =>
         configuration["SESSION_SECRET"]!);
 });
 builder.Services.AddSingleton<IOriginalImageStore>(services => services.GetRequiredService<LocalMediaStore>());
+builder.Services.AddSingleton<IOriginalImageReader>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<SqlUserAccess>();
 builder.Services.AddScoped<CreateWork>();
@@ -55,6 +56,7 @@ builder.Services.AddHttpClient<SeedreamImageGenerator>(client => client.Timeout 
         // 服务商无需重定向，避免跨域跳转时泄漏授权头。
         AllowAutoRedirect = false
     });
+builder.Services.AddScoped<IImageGenerationClient>(services => services.GetRequiredService<SeedreamImageGenerator>());
 builder.Services.AddHttpClient<GeneratedImageDownloader>(client => client.Timeout = TimeSpan.FromSeconds(60))
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
     {
@@ -66,6 +68,7 @@ builder.Services.AddHttpClient<GeneratedImageDownloader>(client => client.Timeou
     });
 builder.Services.AddScoped<IGeneratedImageStore>(services => services.GetRequiredService<GeneratedImageDownloader>());
 builder.Services.AddScoped<SaveImageGenerationResult>();
+builder.Services.AddScoped<ExecuteImageGeneration>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(

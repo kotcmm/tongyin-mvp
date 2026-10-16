@@ -9,7 +9,7 @@ namespace Tongyin.Infrastructure.Ai;
 /// <summary>
 /// Seedream 单图生成适配器。仅负责服务商请求和响应，不操作作品数据库或下载生成文件。
 /// </summary>
-public sealed class SeedreamImageGenerator(HttpClient httpClient, GoAiKeyDecryptor decryptor)
+public sealed class SeedreamImageGenerator(HttpClient httpClient, GoAiKeyDecryptor decryptor) : IImageGenerationClient
 {
     private const int MaxImageBytes = 10 * 1024 * 1024;
     private const string OfficialHost = "ark.cn-beijing.volces.com";
