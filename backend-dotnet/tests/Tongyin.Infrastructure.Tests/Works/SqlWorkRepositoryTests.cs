@@ -531,6 +531,81 @@ public sealed class SqlWorkRepositoryTests
         Assert.Equal(before, await ReadWorkPayloadAsync(db, "work-001"));
     }
 
+    /// <summary>
+    /// 当前有效生成任务失败后仅更新状态与原因，保留原画、次数、编号和 AI 元数据。
+    /// </summary>
+    [Fact]
+    public async Task FailImageGenerationAsync_CurrentTask_MarksFailedAndPreservesMetadata()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "image_pending", selected = -1,
+            image_attempts = 1, generation_id = "job-001", note = "",
+            candidates = Array.Empty<string>(), ai_provider_id = "seedream-a", ai_prompt_version = 3,
+            custom_field = "保留"
+        });
+
+        var result = await new SqlWorkRepository(db.CreateConnection)
+            .FailImageGenerationAsync("work-001", "job-001", "生成前配置不可用");
+
+        Assert.Equal("failed", result.Status);
+        Assert.Equal("生成前配置不可用", result.Note);
+        Assert.Equal("job-001", result.GenerationId);
+        Assert.Equal(1, result.ImageAttempts);
+
+        using var json = JsonDocument.Parse(await ReadWorkPayloadAsync(db, "work-001"));
+        var value = json.RootElement;
+        Assert.Equal("failed", value.GetProperty("status").GetString());
+        Assert.Equal("生成前配置不可用", value.GetProperty("note").GetString());
+        Assert.Equal("drawing.png", value.GetProperty("original").GetString());
+        Assert.Equal("seedream-a", value.GetProperty("ai_provider_id").GetString());
+        Assert.Equal(3, value.GetProperty("ai_prompt_version").GetInt32());
+        Assert.Equal("保留", value.GetProperty("custom_field").GetString());
+    }
+
+    /// <summary>
+    /// 旧编号、重复失败及成功后迟到的失败事件均不能覆盖新状态。
+    /// </summary>
+    [Theory]
+    [InlineData("image_pending", "job-new", "job-old")]
+    [InlineData("failed", "job-001", "job-001")]
+    [InlineData("image_ready", "job-001", "job-001")]
+    [InlineData("model_pending", "job-001", "job-001")]
+    [InlineData("image_pending", "", "")]
+    public async Task FailImageGenerationAsync_StaleOrWrongStatus_RejectsWithoutMutation(string status, string storedJob, string submittedJob)
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status, selected = status == "model_pending" ? 0 : -1,
+            image_attempts = 1, generation_id = storedJob, note = "原有状态",
+            candidates = Array.Empty<string>()
+        });
+        var before = await ReadWorkPayloadAsync(db, "work-001");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new SqlWorkRepository(db.CreateConnection).FailImageGenerationAsync(
+                "work-001", submittedJob, "迟到的失败"));
+
+        Assert.Equal(before, await ReadWorkPayloadAsync(db, "work-001"));
+    }
+
+    /// <summary>
+    /// 不存在的作品不能创建新的失败记录。
+    /// </summary>
+    [Fact]
+    public async Task FailImageGenerationAsync_MissingWork_Rejects()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new SqlWorkRepository(db.CreateConnection).FailImageGenerationAsync(
+                "missing", "job-001", "不存在"));
+    }
+
     private static async Task SeedImageWorkAsync(TestWorkDatabase db, string id, string owner, object payload)
     {
         using var connection = db.CreateConnection();
