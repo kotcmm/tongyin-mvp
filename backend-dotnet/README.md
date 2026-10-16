@@ -124,6 +124,14 @@ Application 层的 `StartImageGeneration.ExecuteAsync(owner, id, freeImageAttemp
 
 **本步骤没有启动任务调度，也不将结果写入 `ty_works`，不开放 `POST /api/works/{id}/generate`。** 下一步需要保证下载后的文件仅在对应 `generation_id` 仍有效时写入作品，过期结果要清理文件；之后才可完整衔接 AI 派发和失败处理。
 
+## 图片生成结果原子回写与失败清理
+
+Application 新增 `SaveImageGenerationResult.ExecuteAsync(workId, generationId, resultUrl)`，通过 `IGeneratedImageStore` 下载图片后，调用 `IWorkRepository.CompleteImageGenerationAsync` 持久化单张图片结果。生成图片存储端口由现有 `GeneratedImageDownloader` 实现，并复用 `LocalMediaStore.Delete` 清理回写失败的文件，不增加重复的文件存储实现。
+
+SQL 仓储使用与 Go 共用的 `ty_store_lock` 事务锁；在锁内读取作品 JSON，恢复领域 `Work`，调用 `CompleteImageGeneration(generationId, fileName)` 拒绝旧任务、重复回调及非 `image_pending` 状态。有效结果将 `candidates` 写为单个本地文件名并将 `status` 更新为 `image_ready`；不覆盖原画、次数、任务编号及其他 AI 元数据。回写失败时 Application 回收本次下载文件；下载本身失败不会访问数据库。
+
+此步骤尚未实现任务执行调度、Worker 回调、图片失败状态回写或超时恢复，也**不会对小程序开放 `POST /api/works/{id}/generate`**。事务提交出现网络断开等不确定结果时，文件清理仍存在与最终数据库提交状态不一致的理论风险；正式部署前需要进一步设计故障后核对与孤儿文件巡检机制，避免把当前实现当作完整的分布式事务。
+
 ## 验收
 
 需要 .NET 10 SDK：
