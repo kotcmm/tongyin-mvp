@@ -606,6 +606,156 @@ public sealed class SqlWorkRepositoryTests
                 "missing", "job-001", "不存在"));
     }
 
+    /// <summary>
+    /// 任务只允许首次原子认领，并记录当前编号、开始时间和阶段，不损坏旧版 Go 元数据。
+    /// </summary>
+    [Fact]
+    public async Task ClaimImageGenerationAsync_FirstClaim_PersistsExecutionMarker()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "image_pending", selected = -1,
+            image_attempts = 1, generation_id = "job-001", ai_execution_claim_id = "",
+            ai_started_at = "", ai_task_stage = "", custom_data = "保留"
+        });
+        var repository = new SqlWorkRepository(db.CreateConnection);
+        var started = new DateTimeOffset(2026, 10, 16, 10, 0, 0, TimeSpan.FromHours(8));
+
+        var claimed = await repository.ClaimImageGenerationAsync("work-001", "openid-001", "job-001", started);
+
+        Assert.NotNull(claimed);
+        Assert.Equal("drawing.png", claimed.Original);
+        Assert.Equal("job-001", claimed.AiExecutionClaimId);
+        Assert.Equal("image_pending", claimed.Status);
+        using var document = JsonDocument.Parse(await ReadWorkPayloadAsync(db, "work-001"));
+        var value = document.RootElement;
+        Assert.Equal("job-001", value.GetProperty("ai_execution_claim_id").GetString());
+        Assert.Equal("image", value.GetProperty("ai_task_stage").GetString());
+        Assert.Equal("2026-10-16T10:00:00+08:00", value.GetProperty("ai_started_at").GetString());
+        Assert.Equal("保留", value.GetProperty("custom_data").GetString());
+    }
+
+    /// <summary>
+    /// 同一任务在首次认领后不得再次认领，否则重启后会重复计费。
+    /// </summary>
+    [Fact]
+    public async Task ClaimImageGenerationAsync_AlreadyClaimed_ReturnsNullWithoutMutation()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "image_pending", selected = -1,
+            image_attempts = 1, generation_id = "job-001", ai_execution_claim_id = "job-001"
+        });
+        var repository = new SqlWorkRepository(db.CreateConnection);
+        var before = await ReadWorkPayloadAsync(db, "work-001");
+
+        var claimed = await repository.ClaimImageGenerationAsync("work-001", "openid-001", "job-001", DateTimeOffset.UtcNow);
+
+        Assert.Null(claimed);
+        Assert.Equal(before, await ReadWorkPayloadAsync(db, "work-001"));
+    }
+
+    /// <summary>
+    /// 外部 Go 执行器已经记录同一阶段开始时间时，不可再调用同一模型。
+    /// </summary>
+    [Fact]
+    public async Task ClaimImageGenerationAsync_LegacyGoStartedTask_Rejects()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "image_pending", selected = -1,
+            image_attempts = 1, generation_id = "job-001",
+            ai_task_stage = "image", ai_started_at = "2026-10-16T09:00:00+08:00"
+        });
+        var before = await ReadWorkPayloadAsync(db, "work-001");
+
+        Assert.Null(await new SqlWorkRepository(db.CreateConnection)
+            .ClaimImageGenerationAsync("work-001", "openid-001", "job-001", DateTimeOffset.UtcNow));
+        Assert.Equal(before, await ReadWorkPayloadAsync(db, "work-001"));
+    }
+
+    /// <summary>
+    /// 过期编号、其他用户及已完成作品均不得认领当前任务。
+    /// </summary>
+    [Theory]
+    [InlineData("openid-001", "job-old", "image_pending")]
+    [InlineData("openid-other", "job-001", "image_pending")]
+    [InlineData("openid-001", "job-001", "image_ready")]
+    [InlineData("openid-001", "job-001", "failed")]
+    public async Task ClaimImageGenerationAsync_IneligibleRequest_ReturnsNull(string owner, string generationId, string status)
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status, selected = -1,
+            image_attempts = 1, generation_id = "job-001", ai_execution_claim_id = ""
+        });
+        var before = await ReadWorkPayloadAsync(db, "work-001");
+
+        var claimed = await new SqlWorkRepository(db.CreateConnection)
+            .ClaimImageGenerationAsync("work-001", owner, generationId, DateTimeOffset.UtcNow);
+
+        Assert.Null(claimed);
+        Assert.Equal(before, await ReadWorkPayloadAsync(db, "work-001"));
+    }
+
+    /// <summary>
+    /// 两个并发执行器只能有一个获取当前任务执行资格。
+    /// </summary>
+    [Fact]
+    public async Task ClaimImageGenerationAsync_ConcurrentClaims_OnlyOneWins()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "image_pending", selected = -1,
+            image_attempts = 1, generation_id = "job-001", ai_execution_claim_id = ""
+        });
+        async Task<bool> ClaimAsync()
+        {
+            var claimed = await new SqlWorkRepository(db.CreateConnection)
+                .ClaimImageGenerationAsync("work-001", "openid-001", "job-001", DateTimeOffset.UtcNow);
+            return claimed is not null;
+        }
+
+        var claimed = await Task.WhenAll(ClaimAsync(), ClaimAsync());
+
+        Assert.Equal(1, claimed.Count(result => result));
+    }
+
+    /// <summary>
+    /// 用户重新提交有效的图片生成尝试时，必须清理上一任务认领，允许新编号独立认领。
+    /// </summary>
+    [Fact]
+    public async Task ClaimImageGenerationAsync_NewGeneration_CanClaimAfterRegistration()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", owner = "openid-001", created_at = "2026-10-15T10:00:00+08:00",
+            original = "drawing.png", status = "image_ready", selected = -1,
+            image_attempts = 1, generation_id = "job-001", ai_execution_claim_id = "job-001",
+            ai_task_stage = "image", ai_started_at = "2026-10-15T11:00:00+08:00",
+            candidates = new[] { "old.png" }
+        });
+        var repository = new SqlWorkRepository(db.CreateConnection);
+
+        var registered = await repository.RegisterImageGenerationAsync("work-001", "openid-001", "job-002", 2);
+        var claimed = await repository.ClaimImageGenerationAsync("work-001", "openid-001", "job-002", DateTimeOffset.UtcNow);
+
+        Assert.NotNull(registered);
+        Assert.NotNull(claimed);
+        Assert.Equal("job-002", claimed.AiExecutionClaimId);
+    }
+
     private static async Task SeedImageWorkAsync(TestWorkDatabase db, string id, string owner, object payload)
     {
         using var connection = db.CreateConnection();
