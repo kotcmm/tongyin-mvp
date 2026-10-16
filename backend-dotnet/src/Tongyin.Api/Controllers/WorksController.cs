@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
 using Tongyin.Api.Http;
+using Tongyin.Api.Services;
 using Tongyin.Application.Ai;
 using Tongyin.Api.ViewModels.Works;
 using Tongyin.Application.Works;
@@ -14,7 +15,7 @@ namespace Tongyin.Api.Controllers;
 [ApiController]
 [Route("api/works")]
 [WechatAuthorize]
-public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, StartImageGeneration startImageGeneration, LocalMediaStore media, IAiGenerationSettingsReader aiSettingsReader, ILogger<WorksController> logger) : ControllerBase
+public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, StartImageGeneration startImageGeneration, LocalMediaStore media, IAiGenerationSettingsReader aiSettingsReader, MiniappBusinessSettings businessSettings, ILogger<WorksController> logger) : ControllerBase
 {
     /// <summary>
     /// 上传一张儿童原画并创建作品，保持原小程序的响应字段及 HTTP 状态码。
@@ -71,7 +72,7 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
         try
         {
             var owner = User.GetWechatOpenId();
-            var work = await startImageGeneration.ExecuteAsync(owner, id, cancellationToken: cancellationToken);
+            var work = await startImageGeneration.ExecuteAsync(owner, id, businessSettings.FreeImageAttempts, cancellationToken);
             if (work is null)
             {
                 return NotFound(new { error = "作品不存在" });
