@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Tongyin.Api.Services;
+using Tongyin.Application.Auth;
 using Xunit;
 
 namespace Tongyin.Api.Tests.Auth;
@@ -88,7 +89,40 @@ public sealed class WechatCodeExchangerTests
         return new WechatCodeExchanger(httpClient, config, new TestEnvironment
         {
             EnvironmentName = development ? "Development" : "Production"
-        });
+        }, new FakeSettingsStore());
+    }
+
+    /// <summary>数据库凭据发生变化时，后续微信登录请求使用更新后的密钥。</summary>
+    [Fact]
+    public async Task ExchangeAsync_SettingsChanged_UsesUpdatedCredentials()
+    {
+        using var handler = new WxHttpHandler("""{"openid":"wechat-openid"}""");
+        using var client = new HttpClient(handler);
+        var settings = new FakeSettingsStore();
+        var config = new ConfigurationBuilder().Build();
+        using var exchanger = new WechatCodeExchanger(client, config, new TestEnvironment(), settings);
+        await exchanger.ExchangeAsync("first-code");
+        Assert.Contains("appid=test-app-id", handler.RequestUri?.Query);
+
+        settings.Set("wx-changed", "changed-secret");
+        await exchanger.ExchangeAsync("second-code");
+        Assert.Contains("appid=wx-changed", handler.RequestUri?.Query);
+        Assert.Contains("secret=changed-secret", handler.RequestUri?.Query);
+        Assert.DoesNotContain("test-app-secret", handler.RequestUri?.Query);
+    }
+
+    private sealed class FakeSettingsStore : IWechatAppSettingsStore
+    {
+        private WechatAppSettings _current = new() { AppId = "test-app-id", AppSecret = "test-app-secret" };
+
+        public Task<WechatAppSettings?> GetAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<WechatAppSettings?>(_current);
+
+        public Task SaveAsync(string appId, string? appSecret, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public void Set(string appId, string appSecret)
+            => _current = new WechatAppSettings { AppId = appId, AppSecret = appSecret };
     }
 
     private sealed class TestEnvironment : IHostEnvironment

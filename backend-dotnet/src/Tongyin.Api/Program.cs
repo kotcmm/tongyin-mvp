@@ -35,13 +35,19 @@ builder.Services.AddSingleton<Func<DbConnection>>(services =>
 builder.Services.AddSingleton(services =>
     new WechatSessionTokenService(services.GetRequiredService<IConfiguration>()["SESSION_SECRET"]!));
 builder.Services.AddSingleton<IWechatSessionIssuer>(services => services.GetRequiredService<WechatSessionTokenService>());
-builder.Services.AddSingleton<IWechatCodeExchanger>(services =>
+builder.Services.AddSingleton(services =>
+    new WechatAppSecretProtector(services.GetRequiredService<IConfiguration>()["SESSION_SECRET"]!));
+builder.Services.AddScoped<IWechatAppSettingsStore, SqlWechatAppSettingsStore>();
+builder.Services.AddScoped<ManageWechatAppSettings>();
+builder.Services.AddScoped<IWechatCodeExchanger>(services =>
 {
+    // 使用独立 HTTP 客户端，避免默认 HTTP 工厂日志记录包含 AppSecret 的微信 code2Session URL。
     var httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false })
     {
         Timeout = TimeSpan.FromSeconds(10)
     };
-    return new WechatCodeExchanger(httpClient, services.GetRequiredService<IConfiguration>(), services.GetRequiredService<IHostEnvironment>());
+    return new WechatCodeExchanger(httpClient, services.GetRequiredService<IConfiguration>(),
+        services.GetRequiredService<IHostEnvironment>(), services.GetRequiredService<IWechatAppSettingsStore>());
 });
 builder.Services.AddSingleton(services =>
     new AdminTokenValidator(services.GetRequiredService<IConfiguration>()["ADMIN_TOKEN"]));

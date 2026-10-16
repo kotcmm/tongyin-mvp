@@ -6,7 +6,7 @@ namespace Tongyin.Api.Services;
 /// <summary>
 /// 微信 code2Session HTTP 适配器；机密凭据只留在服务端，禁止开发模拟凭据进入生产。
 /// </summary>
-public sealed class WechatCodeExchanger(HttpClient httpClient, IConfiguration configuration, IHostEnvironment environment) : IWechatCodeExchanger, IDisposable
+public sealed class WechatCodeExchanger(HttpClient httpClient, IConfiguration configuration, IHostEnvironment environment, IWechatAppSettingsStore settingsStore) : IWechatCodeExchanger, IDisposable
 {
     /// <summary>将一次性 code 换为微信 OpenID，不记录 AppSecret、code 或 session_key。</summary>
     public async Task<string> ExchangeAsync(string code, CancellationToken cancellationToken = default)
@@ -26,8 +26,9 @@ public sealed class WechatCodeExchanger(HttpClient httpClient, IConfiguration co
             throw new ArgumentException("生产环境不允许模拟登录", nameof(code));
         }
 
-        var appId = configuration["WECHAT_APP_ID"];
-        var appSecret = configuration["WECHAT_APP_SECRET"];
+        var settings = await settingsStore.GetAsync(cancellationToken);
+        var appId = settings?.AppId;
+        var appSecret = settings?.AppSecret;
         if (string.IsNullOrWhiteSpace(appId) || string.IsNullOrWhiteSpace(appSecret))
         {
             throw new InvalidOperationException("微信登录所需的服务端应用凭据尚未配置");

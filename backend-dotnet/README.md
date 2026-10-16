@@ -44,19 +44,27 @@
 
 ## 微信小程序登录与账号注册（.NET 原生）
 
-小程序调用 `wx.login()` 获取一次性 `code`，随后请求 `POST /api/auth/wechat`，正文为 `{"code":"..."}`。后端 `WechatCodeExchanger` 通过微信官方 HTTPS `code2Session` 接口读取 OpenID；微信 `session_key`、小程序 AppSecret 和 OpenID 均不返回客户端。`LoginWechat` 用例将 OpenID 交给 `SqlUserAccess.FindOrCreateEnabledAsync`：首次登录创建用户，重复登录复用已有档案，已停用用户返回 403。用户写入现有 `ty_users` 表并在 `ty_store_lock` 事务锁中完成，不新增独立账号表。
+小程序调用 `wx.login()` 获取一次性 `code`，请求 `POST /api/auth/wechat`，正文为 `{"code":"..."}`。后端 `WechatCodeExchanger` 每次从数据库 `ty_system_settings` 加载当前 AppID、AppSecret，再调用微信官方 HTTPS `code2Session` 获取 OpenID。微信 `session_key`、AppSecret 和 OpenID 都不返回小程序。
 
-`WechatSessionTokenService` 使用 `SESSION_SECRET` 签发七天有效的 HMAC-SHA256 会话 Token，并验证签名、到期时间和 OpenID；`WechatSessionAuthenticationHandler` 将认证接入 ASP.NET Core 原生管线。小程序继续将返回的 `token` 作为 `Authorization: Bearer` 发送。Token 和用户信息不会写入 URL。无需 Go 进程参与微信认证或注册。
+**部署前需在对应数据库执行建表迁移**（只建表，不修改已有业务数据）：
 
-生产运行必须配置（不要写进前端、提交到仓库或普通日志）：
+- PostgreSQL：`backend-dotnet/sql/postgres/001_system_settings.sql`
+- MySQL：`backend-dotnet/sql/mysql/001_system_settings.sql`
 
-```env
-WECHAT_APP_ID=your_miniprogram_appid
-WECHAT_APP_SECRET=your_server_side_appsecret
-SESSION_SECRET=at-least-24-characters
-```
+配置通过现有 `[AdminAuthorize]` 管理员认证的后台接口读写，不需要将 `WECHAT_APP_ID` 或 `WECHAT_APP_SECRET` 放进服务器环境变量：
 
-开发模拟登录仅在 `ASPNETCORE_ENVIRONMENT=Development` **同时** `DEV_MODE=true` 时，允许请求 `{"code":"DEV_LOGIN"}`；它只创建固定的 `dev-openid` 本地测试账户。生产环境即使错误设置 `DEV_MODE=true` 也拒绝模拟登录。正式联调应关闭小程序 `DEV_LOGIN` 并使用微信真实 `wx.login()` 获取的一次性 code。整个登录过程具有独立的 HTTP 集成测试和模拟微信接口测试，不在测试中访问微信或发送收费 AI 请求。
+- `GET /api/admin/system/wechat`：仅返回 `{"app_id":"wx...","has_app_secret":true}`。
+- `PUT /api/admin/system/wechat`：发送 `{"app_id":"wx...","app_secret":"新密钥"}`，留空 `app_secret` 表示保留原有密钥。
+- 管理接口使用已有 `X-Admin-Token` 管理员认证；未授权返回 401，且绝不回显明文、密文。
+- AppSecret 使用 AES-256-GCM 加密后存储在 `ty_system_settings.payload`，由服务端现有 `SESSION_SECRET` 派生用途隔离的加密密钥。数据库本身不保存解密根密钥；修改主密钥前必须安排数据重新加密。
+- 更新配置后后续微信登录立即读取新值，不重启后端，也不再有环境变量回退。缺少配置时登录返回 503。
+- `SESSION_SECRET` **暂时仍是服务端主密钥**，继续用于 Token、媒体签名、已存 AI Key 的加密；本轮不修改它的存储，以免破坏旧数据。它与可在线修改的 AppID、AppSecret 不是同一类设置。
+
+`LoginWechat` 用例将 OpenID 交给 `SqlUserAccess.FindOrCreateEnabledAsync`：首次登录创建用户，重复登录复用已有档案，已停用用户返回 403。Token 仍是七天有效的 HMAC-SHA256 会话，`WechatSessionAuthenticationHandler` 统一验证。
+
+本轮后台配置入口仅提供 API。现有共享 `ADMIN_TOKEN` 无法标识具体管理员，因此**正式给多人开放配置页面前必须完成独立管理员身份和审计**；不得把这个 API 暴露给不可信管理人员。
+
+开发模拟登录仅在 `ASPNETCORE_ENVIRONMENT=Development` **同时** `DEV_MODE=true` 时允许 `{"code":"DEV_LOGIN"}`。生产环境无论 `DEV_MODE` 如何设置都拒绝模拟登录。
 
 ## HTTP 身份认证与授权
 

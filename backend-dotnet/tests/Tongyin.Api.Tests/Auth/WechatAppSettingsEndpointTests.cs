@@ -47,7 +47,7 @@ public sealed class WechatAppSettingsEndpointTests
         Assert.Contains("wx-test-id", data);
         Assert.Contains("\"has_app_secret\":true", data);
         Assert.DoesNotContain("super-private-value", data);
-        Assert.DoesNotContain("app_secret\"", data);
+        Assert.DoesNotContain("\"app_secret\":", data);
         var stored = app.ReadDatabasePayload();
         Assert.DoesNotContain("super-private-value", stored);
     }
