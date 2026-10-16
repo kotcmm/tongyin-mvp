@@ -2,21 +2,20 @@ using System.Buffers.Text;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Tongyin.Application.Auth;
 
 namespace Tongyin.Infrastructure.Auth;
 
 /// <summary>
-/// 校验原 Go 后端使用的 HMAC-SHA256 微信登录会话令牌，兼容现有小程序登录态。
+/// 自有微信登录会话签发与验证服务，统一采用带有效期的 HMAC-SHA256 签名。
 /// </summary>
-public sealed class GoSessionTokenValidator
+public sealed class WechatSessionTokenService : IWechatSessionIssuer
 {
     private static readonly UTF8Encoding _strictUtf8 = new(false, true);
     private readonly byte[] _secret;
 
-    /// <summary>
-    /// 使用 Go 后端一致的 SESSION_SECRET 创建令牌验证器，禁止空密钥。
-    /// </summary>
-    public GoSessionTokenValidator(string secret)
+    /// <summary>构造会话令牌服务，不允许使用空密钥。</summary>
+    public WechatSessionTokenService(string secret)
     {
         if (string.IsNullOrEmpty(secret))
         {
@@ -26,9 +25,26 @@ public sealed class GoSessionTokenValidator
         _secret = Encoding.UTF8.GetBytes(secret);
     }
 
-    /// <summary>
-    /// 验证令牌签名和到期时间，成功后返回所属微信用户 OpenID。
-    /// </summary>
+    /// <summary>签发指定 OpenID 的会话令牌，由服务端控制过期时间。</summary>
+    public string Issue(string openId, DateTimeOffset now, TimeSpan lifetime)
+    {
+        if (string.IsNullOrWhiteSpace(openId) || openId.Contains('|'))
+        {
+            throw new ArgumentException("OpenID 无效", nameof(openId));
+        }
+
+        if (lifetime <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(lifetime));
+        }
+
+        var expiresAt = now.Add(lifetime).ToUnixTimeSeconds();
+        var payload = Base64Url(Encoding.UTF8.GetBytes(openId + "|" + expiresAt.ToString(CultureInfo.InvariantCulture)));
+        var signature = HMACSHA256.HashData(_secret, Encoding.UTF8.GetBytes(payload));
+        return payload + "." + Base64Url(signature);
+    }
+
+    /// <summary>验证令牌签名和到期时间，成功返回微信用户 OpenID。</summary>
     public bool TryValidate(string token, DateTimeOffset now, out string openId)
     {
         openId = string.Empty;
@@ -126,4 +142,7 @@ public sealed class GoSessionTokenValidator
             return false;
         }
     }
+
+    private static string Base64Url(byte[] bytes)
+        => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

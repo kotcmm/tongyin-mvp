@@ -7,21 +7,21 @@ using Tongyin.Infrastructure.Auth;
 namespace Tongyin.Api.Auth;
 
 /// <summary>
-/// 将 Go 服务签发的微信会话令牌接入 ASP.NET Core 身份认证管线。
+/// 将服务端微信会话令牌接入 ASP.NET Core 身份认证管线。
 /// </summary>
 public sealed class WechatSessionAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
     /// <summary>
-    /// 微信旧版会话令牌的身份认证方案名称。
+    /// 微信会话令牌的身份认证方案名称。
     /// </summary>
     public const string SchemeName = "WechatSession";
 
-    private readonly GoSessionTokenValidator _tokenValidator;
+    private readonly WechatSessionTokenService _tokenValidator;
 
     /// <summary>
     /// 使用会话令牌验证器构造身份认证处理器。
     /// </summary>
-    public WechatSessionAuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, GoSessionTokenValidator tokenValidator)
+    public WechatSessionAuthenticationHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder, WechatSessionTokenService tokenValidator)
         : base(options, logger, encoder)
     {
         _tokenValidator = tokenValidator;

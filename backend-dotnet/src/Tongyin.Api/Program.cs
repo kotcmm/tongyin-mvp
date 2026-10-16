@@ -6,6 +6,7 @@ using Tongyin.Api.Services;
 using MySqlConnector;
 using Npgsql;
 using Tongyin.Application.Ai;
+using Tongyin.Application.Auth;
 using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Auth;
 using Tongyin.Infrastructure.Media;
@@ -32,7 +33,16 @@ builder.Services.AddSingleton<Func<DbConnection>>(services =>
     };
 });
 builder.Services.AddSingleton(services =>
-    new GoSessionTokenValidator(services.GetRequiredService<IConfiguration>()["SESSION_SECRET"]!));
+    new WechatSessionTokenService(services.GetRequiredService<IConfiguration>()["SESSION_SECRET"]!));
+builder.Services.AddSingleton<IWechatSessionIssuer>(services => services.GetRequiredService<WechatSessionTokenService>());
+builder.Services.AddSingleton<IWechatCodeExchanger>(services =>
+{
+    var httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false })
+    {
+        Timeout = TimeSpan.FromSeconds(10)
+    };
+    return new WechatCodeExchanger(httpClient, services.GetRequiredService<IConfiguration>(), services.GetRequiredService<IHostEnvironment>());
+});
 builder.Services.AddSingleton(services =>
     new AdminTokenValidator(services.GetRequiredService<IConfiguration>()["ADMIN_TOKEN"]));
 builder.Services.AddSingleton(services =>
@@ -51,6 +61,8 @@ builder.Services.AddScoped<ListStalledImageTasks>();
 builder.Services.AddScoped<IAdminImageReviewRepository, SqlAdminImageReviewRepository>();
 builder.Services.AddScoped<ReviewStalledImageTask>();
 builder.Services.AddScoped<SqlUserAccess>();
+builder.Services.AddScoped<IWechatUserRepository>(services => services.GetRequiredService<SqlUserAccess>());
+builder.Services.AddScoped<LoginWechat>();
 builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<StartImageGeneration>();
 builder.Services.AddScoped<ListWorks>();

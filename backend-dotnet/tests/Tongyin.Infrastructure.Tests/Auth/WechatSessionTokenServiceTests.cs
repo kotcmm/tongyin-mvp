@@ -6,9 +6,9 @@ using Xunit;
 namespace Tongyin.Infrastructure.Tests.Auth;
 
 /// <summary>
-/// 验证新后端可读取原 Go 服务签发的微信登录会话令牌。
+/// 验证服务端会话签发与认证的签名、过期时间和输入格式。
 /// </summary>
-public sealed class GoSessionTokenValidatorTests
+public sealed class WechatSessionTokenServiceTests
 {
     private const string Secret = "test-session-secret-longer-than-24-chars";
     private static readonly DateTimeOffset Now = DateTimeOffset.FromUnixTimeSeconds(1792065600);
@@ -19,7 +19,7 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void TryValidate_ValidGoToken_ReturnsOwner()
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
         var token = Issue("openid-001", Now.AddHours(1).ToUnixTimeSeconds());
 
         var valid = validator.TryValidate(token, Now, out var openId);
@@ -34,7 +34,7 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void TryValidate_ExpiredToken_Rejects()
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
         var token = Issue("openid-001", Now.AddSeconds(-1).ToUnixTimeSeconds());
 
         Assert.False(validator.TryValidate(token, Now, out var openId));
@@ -47,7 +47,7 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void TryValidate_AtExpiryBoundary_Accepts()
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
         var token = Issue("openid-001", Now.ToUnixTimeSeconds());
 
         Assert.True(validator.TryValidate(token, Now, out var openId));
@@ -60,7 +60,7 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void TryValidate_TamperedPayload_Rejects()
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
         var token = Issue("openid-001", Now.AddHours(1).ToUnixTimeSeconds());
         var dot = token.IndexOf('.');
         var forgedPayload = Base64Url(Encoding.UTF8.GetBytes($"other-user|{Now.AddHours(1).ToUnixTimeSeconds()}"));
@@ -76,7 +76,7 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void TryValidate_WrongSigningSecret_Rejects()
     {
-        var validator = new GoSessionTokenValidator("another-session-secret");
+        var validator = new WechatSessionTokenService("another-session-secret");
         var token = Issue("openid-001", Now.AddHours(1).ToUnixTimeSeconds());
 
         Assert.False(validator.TryValidate(token, Now, out _));
@@ -94,7 +94,7 @@ public sealed class GoSessionTokenValidatorTests
     [InlineData("**.**")]
     public void TryValidate_MalformedToken_Rejects(string token)
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
 
         Assert.False(validator.TryValidate(token, Now, out var openId));
         Assert.Equal(string.Empty, openId);
@@ -106,7 +106,7 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void TryValidate_EmptyOwner_Rejects()
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
         var token = Issue(string.Empty, Now.AddHours(1).ToUnixTimeSeconds());
 
         Assert.False(validator.TryValidate(token, Now, out _));
@@ -118,7 +118,7 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void Constructor_EmptySecret_Rejects()
     {
-        Assert.Throws<ArgumentException>(() => new GoSessionTokenValidator(string.Empty));
+        Assert.Throws<ArgumentException>(() => new WechatSessionTokenService(string.Empty));
     }
 
     /// <summary>
@@ -127,7 +127,7 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void TryValidate_SignatureContainsWhitespace_Rejects()
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
         var token = Issue("openid-001", Now.AddHours(1).ToUnixTimeSeconds());
         var separator = token.IndexOf('.');
         var tokenWithWhitespace = token.Insert(separator + 4, " ");
@@ -146,7 +146,7 @@ public sealed class GoSessionTokenValidatorTests
     [InlineData("openid-001|1792070000|extra")]
     public void TryValidate_SignedMalformedPayload_Rejects(string payload)
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
         var token = SignPayload(Base64Url(Encoding.UTF8.GetBytes(payload)));
 
         Assert.False(validator.TryValidate(token, Now, out var openId));
@@ -159,7 +159,7 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void TryValidate_SignedInvalidUtf8Payload_Rejects()
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
         var token = SignPayload(Base64Url([0xFF, 0xFE, 0xFD]));
 
         Assert.False(validator.TryValidate(token, Now, out var openId));
@@ -172,11 +172,23 @@ public sealed class GoSessionTokenValidatorTests
     [Fact]
     public void TryValidate_PaddedSignature_Rejects()
     {
-        var validator = new GoSessionTokenValidator(Secret);
+        var validator = new WechatSessionTokenService(Secret);
         var token = Issue("openid-001", Now.AddHours(1).ToUnixTimeSeconds()) + "=";
 
         Assert.False(validator.TryValidate(token, Now, out var openId));
         Assert.Equal(string.Empty, openId);
+    }
+
+    /// <summary>新签发的微信登录令牌可由同一服务验证，且不同用户不可混淆。</summary>
+    [Fact]
+    public void Issue_NewSession_ValidatesAndExpires()
+    {
+        var tokens = new WechatSessionTokenService(Secret);
+        var token = tokens.Issue("openid-new", Now, TimeSpan.FromHours(1));
+
+        Assert.True(tokens.TryValidate(token, Now.AddMinutes(30), out var openId));
+        Assert.Equal("openid-new", openId);
+        Assert.False(tokens.TryValidate(token, Now.AddHours(2), out _));
     }
 
     private static string Issue(string openId, long expiresAt)
