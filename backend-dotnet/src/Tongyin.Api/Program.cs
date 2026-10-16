@@ -46,8 +46,13 @@ builder.Services.AddScoped<IWechatCodeExchanger>(services =>
     {
         Timeout = TimeSpan.FromSeconds(10)
     };
-    return new WechatCodeExchanger(httpClient, services.GetRequiredService<IConfiguration>(),
-        services.GetRequiredService<IHostEnvironment>(), services.GetRequiredService<IWechatAppSettingsStore>());
+    IWechatCodeExchanger actual = new WechatCodeExchanger(httpClient, services.GetRequiredService<IWechatAppSettingsStore>());
+    var environment = services.GetRequiredService<IHostEnvironment>();
+    var configuration = services.GetRequiredService<IConfiguration>();
+
+    return environment.IsDevelopment() && configuration.GetValue<bool>("DEV_MODE")
+        ? new DevelopmentWechatCodeExchanger(actual)
+        : actual;
 });
 builder.Services.AddSingleton(services =>
     new AdminTokenValidator(services.GetRequiredService<IConfiguration>()["ADMIN_TOKEN"]));
