@@ -11,7 +11,9 @@ namespace Tongyin.Infrastructure.Tests.Ai;
 /// </summary>
 public sealed class GeneratedImageDownloaderTests
 {
-    private static readonly byte[] Png = [137, 80, 78, 71, 13, 10, 1, 2, 3, 4, 5, 6];
+    // 真实的 1×1 PNG 测试图片，不使用只有文件头的伪造数据。
+    private static readonly byte[] Png = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
 
     /// <summary>
     /// 保存后必须得到本地媒体文件名，而不是把外部临时 URL 保存进作品。
