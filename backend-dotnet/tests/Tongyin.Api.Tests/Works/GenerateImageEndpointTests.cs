@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -155,6 +156,27 @@ public sealed class GenerateImageEndpointTests
         Assert.Equal(1, stored.RootElement.GetProperty("image_attempts").GetInt32());
     }
 
+    /// <summary>免费次数使用与公开配置相同的服务端值，额度耗尽时不允许登记额外任务。</summary>
+    [Fact]
+    public async Task GenerateImage_ConfiguredAttemptLimit_IsEnforcedServerSide()
+    {
+        using var app = new GenerateImageApiFactory(enabled: true, attempts: "1");
+        app.SeedUser("openid-001");
+        app.SeedWork("work-001", "openid-001");
+        using var client = app.CreateClient();
+        using var firstRequest = GenerateRequest("openid-001", "work-001");
+        using var first = await client.SendAsync(firstRequest);
+        Assert.Equal(HttpStatusCode.Accepted, first.StatusCode);
+
+        app.SetWorkImageReady("work-001");
+
+        using var retryRequest = GenerateRequest("openid-001", "work-001");
+        using var retry = await client.SendAsync(retryRequest);
+        Assert.Equal(HttpStatusCode.Conflict, retry.StatusCode);
+        using var stored = JsonDocument.Parse(app.ReadWorkPayload("work-001"));
+        Assert.Equal(1, stored.RootElement.GetProperty("image_attempts").GetInt32());
+    }
+
     private static HttpRequestMessage GenerateRequest(string owner, string id)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"/api/works/{id}/generate");
@@ -172,9 +194,11 @@ public sealed class GenerateImageEndpointTests
         public const string Secret = "test-session-key-with-adequate-entropy";
         private readonly string _root = Path.Combine(Path.GetTempPath(), "tongyin-generate-api-" + Guid.NewGuid().ToString("N"));
         private string DatabasePath => Path.Combine(_root, "work.db");
+        private readonly string? _attempts;
 
-        public GenerateImageApiFactory(bool enabled)
+        public GenerateImageApiFactory(bool enabled, string? attempts = null)
         {
+            _attempts = attempts;
             Directory.CreateDirectory(_root);
             using var db = Connect();
             db.Open();
@@ -223,7 +247,8 @@ public sealed class GenerateImageEndpointTests
                 ["DB_CONNECTION_STRING"] = "unused-in-test",
                 ["DATA_DIR"] = _root,
                 ["PUBLIC_URL"] = "http://localhost",
-                ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60"
+                ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60",
+                ["FREE_IMAGE_ATTEMPTS"] = _attempts
             }));
             builder.ConfigureTestServices(services =>
             {
@@ -265,6 +290,23 @@ public sealed class GenerateImageEndpointTests
             command.Parameters.Add(new SqliteParameter("@Owner", owner));
             command.Parameters.Add(new SqliteParameter("@CreatedAt", "2026-10-16T10:00:00+08:00"));
             command.Parameters.Add(new SqliteParameter("@Payload", payload));
+            command.ExecuteNonQuery();
+        }
+
+        public void SetWorkImageReady(string id)
+        {
+            using var db = Connect();
+            db.Open();
+            using var command = db.CreateCommand();
+            command.CommandText = "SELECT payload FROM ty_works WHERE id=@Id";
+            command.Parameters.Add(new SqliteParameter("@Id", id));
+            var data = JsonNode.Parse((string)command.ExecuteScalar()!)!.AsObject();
+            data["status"] = "image_ready";
+            data["candidates"] = new JsonArray(JsonValue.Create("generated.png"));
+            command.Parameters.Clear();
+            command.CommandText = "UPDATE ty_works SET payload=@Payload WHERE id=@Id";
+            command.Parameters.Add(new SqliteParameter("@Id", id));
+            command.Parameters.Add(new SqliteParameter("@Payload", data.ToJsonString()));
             command.ExecuteNonQuery();
         }
 
