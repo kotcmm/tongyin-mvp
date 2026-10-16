@@ -42,9 +42,21 @@
 
 基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键、缺表错误和特殊字符的参数化保存。Dapper 使用 `@参数` 绑定；通过 API 组合根接入 PostgreSQL 或 MySQL 连接工厂。尚未接入生产环境，也尚未验证与 Go 服务并发写入的行为。
 
-## 现有小程序登录态兼容
+## 微信小程序登录与账号注册（.NET 原生）
 
-Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.go` 的格式校验 `base64url(openid|expires).base64url(HMAC-SHA256(payload))`，使用 `SESSION_SECRET`，核实签名与过期秒数后返回 OpenID。无效签名、过期、空用户及非法令牌均拒绝；不接受空密钥。该验证器由 `WechatSessionAuthenticationHandler` 调用；`EnabledWechatUserAuthorizationHandler` 通过 Dapper 查询 `ty_users`，对需要账号状态验证的端点统一授权。
+小程序调用 `wx.login()` 获取一次性 `code`，随后请求 `POST /api/auth/wechat`，正文为 `{"code":"..."}`。后端 `WechatCodeExchanger` 通过微信官方 HTTPS `code2Session` 接口读取 OpenID；微信 `session_key`、小程序 AppSecret 和 OpenID 均不返回客户端。`LoginWechat` 用例将 OpenID 交给 `SqlUserAccess.FindOrCreateEnabledAsync`：首次登录创建用户，重复登录复用已有档案，已停用用户返回 403。用户写入现有 `ty_users` 表并在 `ty_store_lock` 事务锁中完成，不新增独立账号表。
+
+`WechatSessionTokenService` 使用 `SESSION_SECRET` 签发七天有效的 HMAC-SHA256 会话 Token，并验证签名、到期时间和 OpenID；`WechatSessionAuthenticationHandler` 将认证接入 ASP.NET Core 原生管线。小程序继续将返回的 `token` 作为 `Authorization: Bearer` 发送。Token 和用户信息不会写入 URL。无需 Go 进程参与微信认证或注册。
+
+生产运行必须配置（不要写进前端、提交到仓库或普通日志）：
+
+```env
+WECHAT_APP_ID=your_miniprogram_appid
+WECHAT_APP_SECRET=your_server_side_appsecret
+SESSION_SECRET=at-least-24-characters
+```
+
+开发模拟登录仅在 `ASPNETCORE_ENVIRONMENT=Development` **同时** `DEV_MODE=true` 时，允许请求 `{"code":"DEV_LOGIN"}`；它只创建固定的 `dev-openid` 本地测试账户。生产环境即使错误设置 `DEV_MODE=true` 也拒绝模拟登录。正式联调应关闭小程序 `DEV_LOGIN` 并使用微信真实 `wx.login()` 获取的一次性 code。整个登录过程具有独立的 HTTP 集成测试和模拟微信接口测试，不在测试中访问微信或发送收费 AI 请求。
 
 ## HTTP 身份认证与授权
 
@@ -52,7 +64,7 @@ Infrastructure 层增加 `GoSessionTokenValidator`：按照原 Go `backend/auth.
 
 
 
-`WechatSessionAuthenticationHandler` 使用 ASP.NET Core 的 `AddAuthentication` 验证原 Go 的 Bearer 令牌，写入 `HttpContext.User` 中的 `ClaimTypes.NameIdentifier`（微信 OpenID）。**微信小程序与管理后台是两套独立身份体系**：小程序通过 `WechatSessionAuthenticationHandler`（独立认证方案 `WechatSession`）和具名的 `AuthorizationPolicies.Wechat` 策略进行认证授权。该策略要求微信用户已登录，并通过 `EnabledWechatUserRequirement` 校验 `ty_users` 中账号存在且未停用。小程序业务 Controller 使用 `[WechatAuthorize]`，不在控制器动作内解析 Token。**`[WechatAuthorize]` 只是对 `AuthorizationPolicies.Wechat` 的强类型封装，不会创建新的 Token 处理逻辑**。**不把微信认证设置为全局默认授权策略**，避免未来后台登录错误地套用微信账号检查。后台的认证方案、登录接口及管理员专属授权策略须单独实现；目前尚未迁移后台登录。未认证返回 401，令牌有效但无权访问返回 403；签名媒体链接 `GET /media/{file}` 不启用此策略，继续由媒体签名保护。
+`WechatSessionAuthenticationHandler` 使用 ASP.NET Core 的 `AddAuthentication` 验证服务器签发的 Bearer 令牌，写入 `HttpContext.User` 中的 `ClaimTypes.NameIdentifier`（微信 OpenID）。**微信小程序与管理后台是两套独立身份体系**：小程序通过 `WechatSessionAuthenticationHandler`（独立认证方案 `WechatSession`）和具名的 `AuthorizationPolicies.Wechat` 策略进行认证授权。该策略要求微信用户已登录，并通过 `EnabledWechatUserRequirement` 校验 `ty_users` 中账号存在且未停用。小程序业务 Controller 使用 `[WechatAuthorize]`，不在控制器动作内解析 Token。**`[WechatAuthorize]` 只是对 `AuthorizationPolicies.Wechat` 的强类型封装，不会创建新的 Token 处理逻辑**。**不把微信认证设置为全局默认授权策略**，避免未来后台登录错误地套用微信账号检查。后台的认证方案、登录接口及管理员专属授权策略须单独实现；目前尚未迁移后台登录。未认证返回 401，令牌有效但无权访问返回 403；签名媒体链接 `GET /media/{file}` 不启用此策略，继续由媒体签名保护。
 
 ## API 层 Controller 约定
 
