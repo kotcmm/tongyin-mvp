@@ -132,6 +132,14 @@ SQL 仓储使用与 Go 共用的 `ty_store_lock` 事务锁；在锁内读取作�
 
 此步骤尚未实现任务执行调度、Worker 回调、图片失败状态回写或超时恢复，也**不会对小程序开放 `POST /api/works/{id}/generate`**。事务提交出现网络断开等不确定结果时，文件清理仍存在与最终数据库提交状态不一致的理论风险；正式部署前需要进一步设计故障后核对与孤儿文件巡检机制，避免把当前实现当作完整的分布式事务。
 
+## 图片生成执行用例（尚未启动后台调度）
+
+`ExecuteImageGeneration.ExecuteAsync(owner, workId, generationId)` 是 Application 层的单次执行用例。它首先使用 `GetByIdForOwnerAsync` 核对作品归属、`image_pending` 状态及任务编号；然后读取已有 `image` 服务商及提示词配置，通过 `IOriginalImageReader` 从 `LocalMediaStore` 读取已保存原画，再由 `IImageGenerationClient`（当前由 `SeedreamImageGenerator` 实现）生成单张图片 HTTPS URL，最后调用既有 `SaveImageGenerationResult` 下载并原子写入作品。
+
+`IWorkRepository.FailImageGenerationAsync` 在与 Go 共用的 `ty_store_lock` 事务中恢复 Domain `Work`、调用 `FailImageGeneration`，只修改 `status=failed` 与 `note`。对不匹配的 `generation_id`、非 `image_pending`、重复回写或不存在的作品拒绝写入。**未配置可用 Seedream 服务商、原画读取失败**属于本用例在提交第三方请求前能够确认的错误，会登记明确失败；**模型网络中断、超时、结果下载失败或远端结果不确定**不会自动标记失败、退款或重新调用模型，保留 `image_pending` 供后续任务核查与恢复。
+
+本阶段只支持 Seedream 的图片执行流程，不支持 Go 的 worker 适配器或模型生成；没有后台队列、单任务执行占用权、主动重试、启动恢复，也**没有开放 `POST /api/works/{id}/generate`**。尤其注意：即使已有 `generation_id`，如果未来调度器重复并发执行同一个任务，仍可能产生重复调用和计费。下一步必须先加持久化任务认领及超时核查机制，再允许后台自动执行。
+
 ## 验收
 
 需要 .NET 10 SDK：
