@@ -146,17 +146,20 @@ public sealed class WechatLoginEndpointTests
     private static StringContent JsonContent(string code)
         => new(JsonSerializer.Serialize(new { code }), Encoding.UTF8, "application/json");
 
-    private sealed class LoginFactory(bool production = false, bool fakeWechat = true, bool devMode = false) : WebApplicationFactory<Program>
+    private sealed class LoginFactory : WebApplicationFactory<Program>
     {
         private const string Secret = "test-session-secret-2026-long-enough";
+        private readonly bool _production;
+        private readonly bool _fakeWechat;
+        private readonly bool _devMode;
         private readonly string _root = Path.Combine(Path.GetTempPath(), "tongyin-login-test-" + Guid.NewGuid().ToString("N"));
         private string DatabasePath => Path.Combine(_root, "db.sqlite");
 
-        public LoginFactory() : this(false, true, false) { }
-
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        public LoginFactory(bool production = false, bool fakeWechat = true, bool devMode = false)
         {
-            builder.UseEnvironment(production ? "Production" : "Development");
+            _production = production;
+            _fakeWechat = fakeWechat;
+            _devMode = devMode;
             Directory.CreateDirectory(_root);
             using (var db = Connect())
             {
@@ -170,13 +173,17 @@ public sealed class WechatLoginEndpointTests
                     """;
                 cmd.ExecuteNonQuery();
             }
+        }
 
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.UseEnvironment(_production ? "Production" : "Development");
             builder.ConfigureAppConfiguration((_, cfg) => cfg.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["SESSION_SECRET"] = Secret,
                 ["DB_CONNECTION_STRING"] = "unused",
                 ["DB_DRIVER"] = "postgres",
-                ["DEV_MODE"] = devMode ? "true" : "false",
+                ["DEV_MODE"] = _devMode ? "true" : "false",
                 ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60",
                 ["DATA_DIR"] = _root
             }));
@@ -184,7 +191,7 @@ public sealed class WechatLoginEndpointTests
             {
                 services.RemoveAll<Func<DbConnection>>();
                 services.AddSingleton<Func<DbConnection>>(_ => Connect);
-                if (fakeWechat)
+                if (_fakeWechat)
                 {
                     services.RemoveAll<IWechatCodeExchanger>();
                     services.AddScoped<IWechatCodeExchanger, FakeWechatCodeExchanger>();
