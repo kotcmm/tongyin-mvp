@@ -143,6 +143,142 @@ public sealed class WechatLoginEndpointTests
         Assert.Equal(1, app.UserCount("dev-openid"));
     }
 
+    /// <summary>首次微信登录创建兼容 Go 主键和 24 位内部 ID 的档案，随即可以通过认证获取个人信息。</summary>
+    [Fact]
+    public async Task FirstLogin_ProfileMatchesGoSchema()
+    {
+        using var app = new LoginFactory();
+        using var client = app.CreateClient();
+        using var login = await client.PostAsync("/api/auth/wechat", JsonContent("valid-code"));
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        using var json = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
+        var token = json.RootElement.GetProperty("token").GetString();
+
+        using var request = AuthorizedMe(token);
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var me = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var id = me.RootElement.GetProperty("id").GetString();
+        Assert.Matches("^[a-f0-9]{24}$", id!);
+        Assert.NotNull(me.RootElement.GetProperty("created_at").GetString());
+        Assert.Equal(0, me.RootElement.GetProperty("works").GetInt32());
+        Assert.Equal(0, me.RootElement.GetProperty("orders").GetInt32());
+        Assert.False(me.RootElement.TryGetProperty("owner", out _));
+        Assert.False(me.RootElement.TryGetProperty("openid", out _));
+        Assert.Equal("openid-001", app.UserPrimaryKey("openid-001"));
+        using var stored = JsonDocument.Parse(app.UserPayload("openid-001"));
+        Assert.Equal(id, stored.RootElement.GetProperty("id").GetString());
+        Assert.Equal("openid-001", stored.RootElement.GetProperty("owner").GetString());
+        Assert.False(string.IsNullOrEmpty(stored.RootElement.GetProperty("last_login").GetString()));
+    }
+
+    /// <summary>历史 Go 用户档案保留原始内部 ID 和创建时间，作品订单数只统计当前用户。</summary>
+    [Fact]
+    public async Task ExistingGoUser_ProfilePreservesIdentityAndCountsOwnRecords()
+    {
+        using var app = new LoginFactory();
+        const string goId = "0123456789abcdef01234567";
+        const string created = "2026-01-11T09:30:00+08:00";
+        app.SeedProfile("openid-001", "openid-001", goId, created);
+        app.SeedWorkAndOrder("openid-001", 2, 1);
+        app.SeedWorkAndOrder("openid-002", 3, 2);
+        using var client = app.CreateClient();
+        using var login = await client.PostAsync("/api/auth/wechat", JsonContent("valid-code"));
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        using var loginBody = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
+        using var request = AuthorizedMe(loginBody.RootElement.GetProperty("token").GetString());
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var me = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(goId, me.RootElement.GetProperty("id").GetString());
+        Assert.Equal(created, me.RootElement.GetProperty("created_at").GetString());
+        Assert.Equal(2, me.RootElement.GetProperty("works").GetInt32());
+        Assert.Equal(1, me.RootElement.GetProperty("orders").GetInt32());
+        Assert.Equal(1, app.UserCount("openid-001"));
+        Assert.Equal("openid-001", app.UserPrimaryKey("openid-001"));
+    }
+
+    /// <summary>已注册的早期 .NET GUID 用户不能被重建；只把错误主键恢复为兼容 Go 的 OpenID。</summary>
+    [Fact]
+    public async Task ExistingDotNetUser_LoginMigratesRowKeyWithoutChangingProfileId()
+    {
+        using var app = new LoginFactory();
+        const string guidId = "0123456789abcdef0123456789abcdef";
+        app.SeedProfile("openid-001", guidId, guidId, "2026-05-01T08:00:00+08:00");
+        using var client = app.CreateClient();
+        using var login = await client.PostAsync("/api/auth/wechat", JsonContent("valid-code"));
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        using var loginBody = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
+        using var request = AuthorizedMe(loginBody.RootElement.GetProperty("token").GetString());
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var me = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(guidId, me.RootElement.GetProperty("id").GetString());
+        Assert.Equal("openid-001", app.UserPrimaryKey("openid-001"));
+        Assert.Equal(1, app.UserCount("openid-001"));
+    }
+
+    /// <summary>无登录态和伪造登录态都不得获取个人档案。</summary>
+    [Fact]
+    public async Task Me_MissingOrInvalidToken_Rejects()
+    {
+        using var app = new LoginFactory();
+        using var client = app.CreateClient();
+        using var absent = await client.GetAsync("/api/me");
+        using var invalid = AuthorizedMe("forged-token");
+        using var forged = await client.SendAsync(invalid);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, absent.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, forged.StatusCode);
+    }
+
+    /// <summary>已停用的老用户即使持有签名有效的旧令牌也不能访问个人信息。</summary>
+    [Fact]
+    public async Task Me_DisabledUser_RejectsValidToken()
+    {
+        using var app = new LoginFactory();
+        app.SeedProfile("openid-001", "openid-001", "0123456789abcdef01234567", "2026-01-01T08:00:00+08:00", disabled: true);
+        using var client = app.CreateClient();
+        var token = app.Services.GetRequiredService<WechatSessionTokenService>()
+            .Issue("openid-001", DateTimeOffset.UtcNow, TimeSpan.FromDays(7));
+        using var request = AuthorizedMe(token);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>有效令牌仅可读取令牌所属用户的资料，不能伪装其他人的 OpenID。</summary>
+    [Fact]
+    public async Task Me_TwoUsers_ReturnsOnlyTokenOwner()
+    {
+        using var app = new LoginFactory();
+        app.SeedProfile("openid-001", "openid-001", "aaaaaaaaaaaaaaaaaaaaaaaa", "2026-02-01T08:00:00+08:00");
+        app.SeedProfile("openid-002", "openid-002", "bbbbbbbbbbbbbbbbbbbbbbbb", "2026-02-02T08:00:00+08:00");
+        using var client = app.CreateClient();
+        var token = app.Services.GetRequiredService<WechatSessionTokenService>()
+            .Issue("openid-002", DateTimeOffset.UtcNow, TimeSpan.FromDays(7));
+        using var request = AuthorizedMe(token);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var me = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("bbbbbbbbbbbbbbbbbbbbbbbb", me.RootElement.GetProperty("id").GetString());
+    }
+
+    private static HttpRequestMessage AuthorizedMe(string? token)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/me");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return request;
+    }
+
     private static StringContent JsonContent(string code)
         => new(JsonSerializer.Serialize(new { code }), Encoding.UTF8, "application/json");
 
@@ -170,6 +306,7 @@ public sealed class WechatLoginEndpointTests
                     INSERT OR IGNORE INTO ty_store_lock(id) VALUES (1);
                     CREATE TABLE IF NOT EXISTS ty_users (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
                     CREATE TABLE IF NOT EXISTS ty_works (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
+                    CREATE TABLE IF NOT EXISTS ty_orders (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
                     """;
                 cmd.ExecuteNonQuery();
             }
@@ -222,6 +359,60 @@ public sealed class WechatLoginEndpointTests
             cmd.Parameters.Add(new SqliteParameter("@created", "2026-10-16T10:00:00+08:00"));
             cmd.Parameters.Add(new SqliteParameter("@payload", JsonSerializer.Serialize(new { owner = openId, disabled })));
             cmd.ExecuteNonQuery();
+        }
+
+        public void SeedProfile(string owner, string rowId, string userId, string createdAt, bool disabled = false)
+        {
+            using var db = Connect();
+            db.Open();
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = "INSERT INTO ty_users(id,owner_id,created_at,payload) VALUES(@id,@owner,@created,@payload)";
+            cmd.Parameters.Add(new SqliteParameter("@id", rowId));
+            cmd.Parameters.Add(new SqliteParameter("@owner", owner));
+            cmd.Parameters.Add(new SqliteParameter("@created", createdAt));
+            cmd.Parameters.Add(new SqliteParameter("@payload", JsonSerializer.Serialize(new
+            {
+                id = userId, owner, created_at = createdAt,
+                last_login = "2026-01-01T00:00:00+08:00", disabled,
+                custom_legacy_field = "do-not-erase"
+            })));
+            cmd.ExecuteNonQuery();
+        }
+
+        public void SeedWorkAndOrder(string owner, int works, int orders)
+        {
+            using var db = Connect();
+            db.Open();
+            for (var i = 0; i < works + orders; i++)
+            {
+                using var cmd = db.CreateCommand();
+                cmd.CommandText = i < works
+                    ? "INSERT INTO ty_works(id,owner_id,created_at,payload) VALUES(@id,@owner,'2026-01-01','{}')"
+                    : "INSERT INTO ty_orders(id,owner_id,created_at,payload) VALUES(@id,@owner,'2026-01-01','{}')";
+                cmd.Parameters.Add(new SqliteParameter("@id", Guid.NewGuid().ToString("N")));
+                cmd.Parameters.Add(new SqliteParameter("@owner", owner));
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public string UserPrimaryKey(string owner)
+        {
+            using var db = Connect();
+            db.Open();
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = "SELECT id FROM ty_users WHERE owner_id=@owner";
+            cmd.Parameters.Add(new SqliteParameter("@owner", owner));
+            return (string)cmd.ExecuteScalar()!;
+        }
+
+        public string UserPayload(string owner)
+        {
+            using var db = Connect();
+            db.Open();
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = "SELECT payload FROM ty_users WHERE owner_id=@owner";
+            cmd.Parameters.Add(new SqliteParameter("@owner", owner));
+            return (string)cmd.ExecuteScalar()!;
         }
 
         protected override void Dispose(bool disposing)
