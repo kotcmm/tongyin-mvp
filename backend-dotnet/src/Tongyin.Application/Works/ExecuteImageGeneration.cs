@@ -6,12 +6,7 @@ namespace Tongyin.Application.Works;
 /// 执行一笔已登记的图片生成任务：校验状态、取得原画与配置、调用模型并保存单张结果。
 /// 此用例不负责新任务登记、任务调度及不确定结果的自动重试。
 /// </summary>
-public sealed class ExecuteImageGeneration(
-    IWorkRepository repository,
-    IAiGenerationSettingsReader settingsReader,
-    IOriginalImageReader originalImageReader,
-    IImageGenerationClient generator,
-    SaveImageGenerationResult saveResult)
+public sealed class ExecuteImageGeneration(IWorkRepository repository, IAiGenerationSettingsReader settingsReader, IOriginalImageReader originalImageReader, IImageGenerationClient generator, SaveImageGenerationResult saveResult)
 {
     /// <summary>
     /// 只执行指定微信用户当前有效的图片生成任务；提交模型前的明确失败写入 failed。
