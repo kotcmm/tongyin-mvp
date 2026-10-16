@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
+using Tongyin.Api.Http;
 using Tongyin.Api.ViewModels.Works;
 using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Media;
@@ -14,14 +15,12 @@ namespace Tongyin.Api.Controllers;
 [WechatAuthorize]
 public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, LocalMediaStore media, ILogger<WorksController> logger) : ControllerBase
 {
-    private const long MaxRequestBytes = OriginalImageLimits.MaxBytes + (1L << 20);
-
     /// <summary>
     /// 上传一张儿童原画并创建作品，保持原小程序的响应字段及 HTTP 状态码。
     /// </summary>
     [HttpPost]
-    [RequestSizeLimit(MaxRequestBytes)]
-    [RequestFormLimits(MultipartBodyLengthLimit = MaxRequestBytes)]
+    [RequestSizeLimit(UploadRequestLimits.MaxRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimits.MaxRequestBytes)]
     public async Task<ActionResult<WorkResponse>> CreateAsync([FromForm] IFormFile? file, CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
@@ -29,7 +28,7 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
             return BadRequest(new { error = "未找到上传文件或上传文件为空" });
         }
 
-        if (file.Length > OriginalImageLimits.MaxBytes)
+        if (file.Length > ImageFileLimits.MaxBytes)
         {
             return StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "图片最多 10 MiB" });
         }

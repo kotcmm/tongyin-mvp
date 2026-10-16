@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.ViewModels.Ai;
 using Tongyin.Api.Auth;
+using Tongyin.Api.Http;
 using Tongyin.Application.Works;
 
 namespace Tongyin.Api.Controllers;
@@ -14,8 +15,6 @@ namespace Tongyin.Api.Controllers;
 [AdminAuthorize]
 public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, ReviewStalledImageTask review) : ControllerBase
 {
-    private const long MaxRequestBytes = OriginalImageLimits.MaxBytes + (1L << 20);
-
     /// <summary>
     /// 查询认领超过 15 分钟仍未完成的图片任务；不改变状态、不触发模型计费。
     /// </summary>
@@ -52,8 +51,8 @@ public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, Revi
     /// 管理员上传已由服务商生成的图片并确认成功；回写失败时回收本次上传文件。
     /// </summary>
     [HttpPost("stalled-image-tasks/{workId}/complete")]
-    [RequestSizeLimit(MaxRequestBytes)]
-    [RequestFormLimits(MultipartBodyLengthLimit = MaxRequestBytes)]
+    [RequestSizeLimit(UploadRequestLimits.MaxRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimits.MaxRequestBytes)]
     public async Task<IActionResult> ConfirmImageAsync([FromRoute] string workId, [FromForm] AdminImageCompletionReviewRequest request, CancellationToken cancellationToken)
     {
         if (request.File is null || request.File.Length == 0)
@@ -61,7 +60,7 @@ public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, Revi
             return BadRequest(new { error = "需要上传已生成的图片" });
         }
 
-        if (request.File.Length > OriginalImageLimits.MaxBytes)
+        if (request.File.Length > ImageFileLimits.MaxBytes)
         {
             return StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "图片最多 10 MiB" });
         }

@@ -10,8 +10,6 @@ namespace Tongyin.Infrastructure.Ai;
 /// </summary>
 public sealed class GeneratedImageDownloader(HttpClient httpClient, LocalMediaStore mediaStore) : IGeneratedImageStore
 {
-    private const long MaxImageBytes = 10L << 20;
-
     /// <summary>
     /// 从公开 HTTPS 地址下载一张不超过 10 MiB 的图片，文件格式由本地媒体存储验证。
     /// </summary>
@@ -40,7 +38,7 @@ public sealed class GeneratedImageDownloader(HttpClient httpClient, LocalMediaSt
                 throw new InvalidOperationException($"生成图片下载失败：HTTP {(int)response.StatusCode}");
             }
 
-            if (response.Content.Headers.ContentLength > MaxImageBytes)
+            if (response.Content.Headers.ContentLength > ImageFileLimits.MaxBytes)
             {
                 throw new InvalidDataException("生成图片超过 10 MiB");
             }
@@ -84,7 +82,7 @@ public sealed class GeneratedImageDownloader(HttpClient httpClient, LocalMediaSt
             while ((count = await source.ReadAsync(buffer, cancellationToken)) != 0)
             {
                 total += count;
-                if (total > MaxImageBytes)
+                if (total > ImageFileLimits.MaxBytes)
                 {
                     throw new InvalidDataException("生成图片超过 10 MiB");
                 }

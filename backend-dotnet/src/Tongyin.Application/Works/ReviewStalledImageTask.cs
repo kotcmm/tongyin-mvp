@@ -21,7 +21,7 @@ public sealed class ReviewStalledImageTask(IAdminImageReviewRepository repositor
     {
         ValidateReview(workId, generationId, actor, reason);
         ArgumentNullException.ThrowIfNull(image);
-        if (length is <= 0 or > OriginalImageLimits.MaxBytes)
+        if (length is <= 0 or > ImageFileLimits.MaxBytes)
         {
             throw new InvalidDataException("补录图片必须在 10 MiB 以内");
         }

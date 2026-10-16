@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Tongyin.Application.Ai;
+using Tongyin.Application.Works;
 
 namespace Tongyin.Infrastructure.Ai;
 
@@ -11,7 +12,6 @@ namespace Tongyin.Infrastructure.Ai;
 /// </summary>
 public sealed class SeedreamImageGenerator(HttpClient httpClient, GoAiKeyDecryptor decryptor) : IImageGenerationClient
 {
-    private const int MaxImageBytes = 10 * 1024 * 1024;
     private const string OfficialHost = "ark.cn-beijing.volces.com";
     private const string OfficialPath = "/api/v3/images/generations";
 
@@ -24,7 +24,7 @@ public sealed class SeedreamImageGenerator(HttpClient httpClient, GoAiKeyDecrypt
 
         var provider = RequireProvider(settings);
         var endpoint = RequireOfficialEndpoint(provider.Endpoint);
-        if (originalImage.Length == 0 || originalImage.Length > MaxImageBytes)
+        if (originalImage.Length == 0 || originalImage.Length > ImageFileLimits.MaxBytes)
         {
             throw new InvalidDataException("原画为空或超出10MiB限制");
         }

@@ -7,7 +7,7 @@ using System.Text;
 namespace Tongyin.Infrastructure.Media;
 
 /// <summary>
-/// 管理本地原画上传以及兼容 Go 服务的媒体访问签名。
+/// 管理本地图片存储以及带签名的媒体访问。
 /// </summary>
 public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader
 {
@@ -32,7 +32,7 @@ public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader
     /// </summary>
     public async Task<string> SaveImageAsync(Stream source, long length, CancellationToken cancellationToken = default)
     {
-        if (length == 0 || length > OriginalImageLimits.MaxBytes)
+        if (length == 0 || length > ImageFileLimits.MaxBytes)
         {
             throw new InvalidDataException("图片为空或超过 10 MiB");
         }
@@ -72,7 +72,7 @@ public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader
         }
 
         await using var source = new FileStream(Path.Combine(_directory, fileName), FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
-        if (source.Length == 0 || source.Length > OriginalImageLimits.MaxBytes)
+        if (source.Length == 0 || source.Length > ImageFileLimits.MaxBytes)
         {
             throw new InvalidDataException("原画为空或超过 10 MiB");
         }
@@ -91,7 +91,7 @@ public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader
     }
 
     /// <summary>
-    /// 为已存储的媒体签发与原 Go 后端兼容的 48 小时访问地址。
+    /// 为已存储的媒体签发有效期为 48 小时的访问地址。
     /// </summary>
     public string SignUrl(string fileName)
     {
