@@ -105,6 +105,9 @@ public sealed class SaveImageGenerationResultTests
         public string? GenerationId { get; private set; }
         public string? FileName { get; private set; }
 
+        public Task<WorkSnapshot> FailImageGenerationAsync(string id, string generationId, string failureReason, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("本测试不回写图片生成失败");
+
         public Task<WorkSnapshot> CompleteImageGenerationAsync(string id, string generationId, string imageFileName, CancellationToken cancellationToken = default)
         {
             Id = id;

@@ -139,6 +139,44 @@ public sealed class SqlWorkRepository : IWorkRepository
         return result;
     }
 
+    /// <summary>
+    /// 在数据库事务中只对当前有效的图片任务登记明确失败，其他业务字段保持不变。
+    /// </summary>
+    public async Task<WorkSnapshot> FailImageGenerationAsync(string id, string generationId, string failureReason, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await AcquireStoreLockAsync(connection, transaction, cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<(string Owner, string Payload)>(new CommandDefinition(
+            "SELECT owner_id AS Owner, payload AS Payload FROM ty_works WHERE id = @Id",
+            new { Id = id }, transaction: transaction, cancellationToken: cancellationToken));
+
+        if (row.Payload is null)
+        {
+            throw new InvalidOperationException("生成任务已失效，无法记录失败结果");
+        }
+
+        var work = RestoreWork(id, row.Owner, row.Payload);
+        work.FailImageGeneration(generationId, failureReason);
+
+        var document = JsonNode.Parse(row.Payload) as JsonObject
+            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+        document["status"] = "failed";
+        document["note"] = work.Note;
+        var updatedPayload = document.ToJsonString();
+        var result = JsonSerializer.Deserialize<WorkSnapshot>(updatedPayload)
+            ?? throw new JsonException("更新后的作品记录不是合法的 JSON 对象");
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE ty_works SET payload = @Payload WHERE id = @Id",
+            new { Payload = updatedPayload, Id = id },
+            transaction: transaction, cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
     private static async Task AcquireStoreLockAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         // Go 使用同一 ty_store_lock 行；无意义的 UPDATE 兼容 SQLite、PostgreSQL 与 MySQL。

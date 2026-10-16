@@ -32,4 +32,9 @@ public interface IWorkRepository
     /// 在数据库事务中校验当前任务编号与图片待生成状态，并保存单张结果；过期或重复回写时拒绝。
     /// </summary>
     Task<WorkSnapshot> CompleteImageGenerationAsync(string id, string generationId, string imageFileName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 仅对当前待生成的图片任务登记明确失败；过期和重复失败结果必须拒绝。
+    /// </summary>
+    Task<WorkSnapshot> FailImageGenerationAsync(string id, string generationId, string failureReason, CancellationToken cancellationToken = default);
 }
