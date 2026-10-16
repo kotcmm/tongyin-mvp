@@ -133,6 +133,9 @@ public sealed class SaveImageGenerationResultTests
         public Task<WorkSnapshot?> GetByIdForOwnerAsync(string id, string owner, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<WorkSnapshot?> ClaimImageGenerationAsync(string id, string owner, string generationId, DateTimeOffset startedAt, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("本测试不认领图片任务");
+
         public Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
     }

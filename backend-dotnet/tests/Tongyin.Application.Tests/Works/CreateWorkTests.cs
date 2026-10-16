@@ -144,6 +144,9 @@ public sealed class CreateWorkTests
         public Task<WorkSnapshot> FailImageGenerationAsync(string id, string generationId, string failureReason, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("本测试不回写图片生成失败");
 
+        public Task<WorkSnapshot?> ClaimImageGenerationAsync(string id, string owner, string generationId, DateTimeOffset startedAt, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("本测试不认领图片任务");
+
         public Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("当前测试不登记图片生成任务");
 
@@ -169,6 +172,9 @@ public sealed class CreateWorkTests
 
         public Task<WorkSnapshot> FailImageGenerationAsync(string id, string generationId, string failureReason, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("本测试不回写图片生成失败");
+
+        public Task<WorkSnapshot?> ClaimImageGenerationAsync(string id, string owner, string generationId, DateTimeOffset startedAt, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("本测试不认领图片任务");
 
         public Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("当前测试不登记图片生成任务");

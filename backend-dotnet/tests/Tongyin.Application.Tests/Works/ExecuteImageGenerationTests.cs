@@ -138,6 +138,47 @@ public sealed class ExecuteImageGenerationTests
         Assert.Null(repository.LastCompletedGeneration);
     }
 
+    /// <summary>
+    /// 首次执行超时后认领仍必须持久有效，第二次执行不得再次调用计费模型。
+    /// </summary>
+    [Fact]
+    public async Task ExecuteAsync_RedeliveryAfterTimeout_DoesNotSubmitTwice()
+    {
+        var repository = new RecordingRepository();
+        var model = new RecordingGenerator { Timeout = true };
+        var useCase = CreateUseCase(repository, new RecordingSettingsReader(), new RecordingOriginalReader(), model);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            useCase.ExecuteAsync("openid-001", "work-001", "job-current"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            useCase.ExecuteAsync("openid-001", "work-001", "job-current"));
+
+        Assert.Equal(1, model.Calls);
+        Assert.Equal("image_pending", repository.Snapshot.Status);
+        Assert.Equal(0, repository.FailCount);
+        Assert.Equal(1, repository.ClaimCount);
+    }
+
+    /// <summary>
+    /// 被其他执行器提前认领时不能读取服务商配置或触发外部请求。
+    /// </summary>
+    [Fact]
+    public async Task ExecuteAsync_PreviouslyClaimed_RejectsBeforeModelAndMediaAccess()
+    {
+        var repository = new RecordingRepository { PreviouslyClaimed = true };
+        var settings = new RecordingSettingsReader();
+        var reader = new RecordingOriginalReader();
+        var model = new RecordingGenerator();
+        var useCase = CreateUseCase(repository, settings, reader, model);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            useCase.ExecuteAsync("openid-001", "work-001", "job-current"));
+
+        Assert.Equal(0, settings.Calls);
+        Assert.Null(reader.LastFileName);
+        Assert.Equal(0, model.Calls);
+    }
+
     private static ExecuteImageGeneration CreateUseCase(RecordingRepository repository, RecordingSettingsReader settings, RecordingOriginalReader reader, RecordingGenerator generator, RecordingGeneratedStore? output = null)
     {
         return new ExecuteImageGeneration(
@@ -225,6 +266,24 @@ public sealed class ExecuteImageGenerationTests
 
     private sealed class RecordingRepository : IWorkRepository
     {
+        private int _claimTaken;
+
+        public bool PreviouslyClaimed { get; init; }
+        public int ClaimCount { get; private set; }
+
+        public Task<WorkSnapshot?> ClaimImageGenerationAsync(string id, string owner, string generationId, DateTimeOffset startedAt, CancellationToken cancellationToken = default)
+        {
+            if (PreviouslyClaimed || id != "work-001" || owner != "openid-001" ||
+                generationId != "job-current" || Snapshot.Status != "image_pending" ||
+                Interlocked.CompareExchange(ref _claimTaken, 1, 0) != 0)
+            {
+                return Task.FromResult<WorkSnapshot?>(null);
+            }
+
+            ClaimCount++;
+            return Task.FromResult<WorkSnapshot?>(Snapshot);
+        }
+
         public WorkSnapshot Snapshot { get; private set; } = new()
         {
             Id = "work-001", Original = "drawing.png", Status = "image_pending", GenerationId = "job-current"
