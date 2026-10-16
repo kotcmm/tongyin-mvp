@@ -152,7 +152,7 @@ SQL 仓储使用与 Go 共用的 `ty_store_lock` 事务锁；在锁内读取作�
 
 .NET 已提供 **`GET /api/admin/ai/stalled-image-tasks`**，只读列出开始时间至少超过 **15 分钟**、状态仍为 `image_pending` 的已认领图片任务（最多 100 条，最早开始的排在前面）。兼容 .NET 的 `ai_execution_claim_id` 和旧 Go 的 `ai_task_stage=image` / `ai_started_at`；任务必须有非空 `generation_id`、有效时间、匹配的认领编号（或旧 Go 空认领编号）才会出现。时间按含时区的实际时刻比较，不允许因为异常文本把任务自动判失败或重新调用模型。
 
-请求必须携带与现有 Go 后台相同的 `X-Admin-Token: <ADMIN_TOKEN>` 请求头。若 .NET 未配置非空 `ADMIN_TOKEN`，或令牌不匹配，一律返回 401，且不会查询任务数据。仅迁移了旧 Go 的令牌认证模式，**暂不支持 Go 的管理员账号/密码登录会话，也未修改后台 Web UI**。不要将此令牌放进微信小程序、浏览器公开脚本或 Git 仓库；建议只从受控管理终端通过 HTTPS 访问。
+请求必须携带与现有 Go 后台相同的 `X-Admin-Token: <ADMIN_TOKEN>` 请求头。认证已采用 ASP.NET Core 标准的 `AdminTokenAuthenticationHandler`（独立 Scheme）、`AuthorizationPolicies.Admin` 以及 `[AdminAuthorize]` 属性，令牌验证由认证管线完成，Controller 只负责业务查询；管理员与微信 `WechatAuthorize` 方案完全隔离。若 .NET 未配置非空 `ADMIN_TOKEN`，或令牌不匹配，一律返回 401，且不会查询任务数据。仅迁移了旧 Go 的令牌认证模式，**暂不支持 Go 的管理员账号/密码登录会话，也未修改后台 Web UI**。不要将此令牌放进微信小程序、浏览器公开脚本或 Git 仓库；建议只从受控管理终端通过 HTTPS 访问。
 
 示例（在已配置 `ADMIN_TOKEN` 的受控管理环境）：
 
