@@ -132,6 +132,29 @@ public sealed class GenerateImageEndpointTests
         Assert.Equal(string.Empty, stored.RootElement.GetProperty("generation_id").GetString());
     }
 
+    /// <summary>
+    /// 关闭的服务商在数据库中启用后，无需重启 API 即可接受用户提交。
+    /// </summary>
+    [Fact]
+    public async Task GenerateImage_ProviderEnabledInDatabase_TakesEffectWithoutRestart()
+    {
+        using var app = new GenerateImageApiFactory(enabled: false);
+        app.SeedUser("openid-001");
+        app.SeedWork("work-001", "openid-001");
+        using var client = app.CreateClient();
+        using var disabledRequest = GenerateRequest("openid-001", "work-001");
+        using var disabledResponse = await client.SendAsync(disabledRequest);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, disabledResponse.StatusCode);
+
+        app.SetImageProviderEnabled(true);
+
+        using var enabledRequest = GenerateRequest("openid-001", "work-001");
+        using var enabledResponse = await client.SendAsync(enabledRequest);
+        Assert.Equal(HttpStatusCode.Accepted, enabledResponse.StatusCode);
+        using var stored = JsonDocument.Parse(app.ReadWorkPayload("work-001"));
+        Assert.Equal(1, stored.RootElement.GetProperty("image_attempts").GetInt32());
+    }
+
     private static HttpRequestMessage GenerateRequest(string owner, string id)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, $"/api/works/{id}/generate");
@@ -148,12 +171,10 @@ public sealed class GenerateImageEndpointTests
     {
         public const string Secret = "test-session-key-with-adequate-entropy";
         private readonly string _root = Path.Combine(Path.GetTempPath(), "tongyin-generate-api-" + Guid.NewGuid().ToString("N"));
-        private readonly bool _enabled;
         private string DatabasePath => Path.Combine(_root, "work.db");
 
         public GenerateImageApiFactory(bool enabled)
         {
-            _enabled = enabled;
             Directory.CreateDirectory(_root);
             using var db = Connect();
             db.Open();
@@ -161,9 +182,35 @@ public sealed class GenerateImageEndpointTests
             command.CommandText = """
                 CREATE TABLE ty_works (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
                 CREATE TABLE ty_users (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
+                CREATE TABLE ty_ai_providers (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
+                CREATE TABLE ty_ai_prompts (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
                 CREATE TABLE ty_store_lock (id INTEGER PRIMARY KEY);
                 INSERT INTO ty_store_lock (id) VALUES (1);
                 """;
+            command.ExecuteNonQuery();
+            SetImageProviderEnabled(enabled);
+        }
+
+        /// <summary>
+        /// 模拟后台在数据库中修改默认图片服务商的启用状态。
+        /// </summary>
+        public void SetImageProviderEnabled(bool enabled)
+        {
+            var provider = new
+            {
+                id = "image-default", stage = "image", adapter = "seedream",
+                endpoint = "https://ark.cn-beijing.volces.com/api/v3/images/generations",
+                model = "test-model", enabled, @default = true, api_key_cipher = "test-cipher"
+            };
+            using var connection = Connect();
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT INTO ty_ai_providers (id, owner_id, created_at, payload)
+                VALUES ('image-default', 'system', '2026-10-16T10:00:00+08:00', @Payload)
+                ON CONFLICT(id) DO UPDATE SET payload = excluded.payload
+                """;
+            command.Parameters.Add(new SqliteParameter("@Payload", JsonSerializer.Serialize(provider)));
             command.ExecuteNonQuery();
         }
 
@@ -176,7 +223,6 @@ public sealed class GenerateImageEndpointTests
                 ["DB_CONNECTION_STRING"] = "unused-in-test",
                 ["DATA_DIR"] = _root,
                 ["PUBLIC_URL"] = "http://localhost",
-                ["AI_IMAGE_DISPATCH_ENABLED"] = _enabled ? "true" : "false",
                 ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60"
             }));
             builder.ConfigureTestServices(services =>
