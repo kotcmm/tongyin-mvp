@@ -58,6 +58,9 @@ public sealed class StartImageGenerationTests
         public Task<WorkSnapshot?> GetByIdForOwnerAsync(string id, string owner, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
+        public Task<WorkSnapshot> CompleteImageGenerationAsync(string id, string generationId, string imageFileName, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("本测试不处理生成结果回写");
+
         public Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default)
         {
             Id = id;

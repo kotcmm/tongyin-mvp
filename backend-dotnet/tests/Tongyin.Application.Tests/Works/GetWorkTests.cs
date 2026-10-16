@@ -43,6 +43,9 @@ public sealed class GetWorkTests
         public string? RequestedId { get; private set; }
         public string? RequestedOwner { get; private set; }
 
+        public Task<WorkSnapshot> CompleteImageGenerationAsync(string id, string generationId, string imageFileName, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("本测试不处理生成结果回写");
+
         public Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default)
             => throw new NotSupportedException("当前测试不登记图片生成任务");
 
