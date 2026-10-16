@@ -35,6 +35,30 @@ public sealed class SqlQueuedImageGenerationReaderTests
     }
 
     /// <summary>
+    /// Go 旧记录没有 .NET 登记时写入的认领字段，禁止轮询器自动接管并额外计费。
+    /// </summary>
+    [Fact]
+    public async Task ListAsync_GoPendingWithoutDotnetRegistrationMarker_IsExcluded()
+    {
+        using var db = new TestDatabase();
+        await using (var connection = db.CreateConnection())
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(
+                "INSERT INTO ty_works(id, owner_id, created_at, payload) VALUES (@Id,@Owner,@Created,@Payload)",
+                new {
+                    Id = "legacy", Owner = "owner-A", Created = "2026-10-15T10:00:00+08:00",
+                    Payload = JsonSerializer.Serialize(new {
+                        id = "legacy", status = "image_pending", image_attempts = 1,
+                        generation_id = "go-job", original = "drawing.png"
+                    })
+                });
+        }
+
+        Assert.Empty(await new SqlQueuedImageGenerationReader(db.CreateConnection).ListAsync(10));
+    }
+
+    /// <summary>
     /// 旧任务只要出现历史执行时间，即使遗失认领字段，也不能再次送往付费模型。
     /// </summary>
     [Theory]
