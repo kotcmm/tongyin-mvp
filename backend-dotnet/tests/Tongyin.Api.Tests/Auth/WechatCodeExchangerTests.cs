@@ -1,8 +1,5 @@
 using System.Net;
 using System.Text;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Hosting;
 using Tongyin.Api.Services;
 using Tongyin.Application.Auth;
 using Xunit;
@@ -55,16 +52,47 @@ public sealed class WechatCodeExchangerTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => exchanger.ExchangeAsync("one-time-code"));
     }
 
-    /// <summary>开发模拟登录只在 Development 且 DEV_MODE 显式启用时生效。</summary>
+    /// <summary>开发模拟登录只由开发专用适配器处理，不读取数据库或发起微信 HTTP 请求。</summary>
     [Fact]
-    public async Task ExchangeAsync_DevLogin_WhenDevelopmentAndEnabled_ReturnsFixedTestOpenId()
+    public async Task DevelopmentExchanger_DevCode_ReturnsFixedOpenIdWithoutWechatRequest()
     {
         using var handler = new WxHttpHandler("{}");
         using var client = new HttpClient(handler);
-        using var exchanger = NewExchanger(client, development: true, devMode: true);
+        var settings = new FakeSettingsStore();
+        using var exchanger = new DevelopmentWechatCodeExchanger(new WechatCodeExchanger(client, settings));
 
         Assert.Equal("dev-openid", await exchanger.ExchangeAsync("DEV_LOGIN"));
+        Assert.Equal(0, settings.ReadCount);
         Assert.Null(handler.RequestUri);
+    }
+
+    /// <summary>生产适配器永远拒绝内部测试 code，不能访问数据库或请求微信接口。</summary>
+    [Fact]
+    public async Task ProductionExchanger_DevCode_IsRejectedBeforeExternalAccess()
+    {
+        using var handler = new WxHttpHandler("{}");
+        using var client = new HttpClient(handler);
+        var settings = new FakeSettingsStore();
+        using var exchanger = new WechatCodeExchanger(client, settings);
+
+        await Assert.ThrowsAsync<ArgumentException>(() => exchanger.ExchangeAsync("DEV_LOGIN"));
+
+        Assert.Equal(0, settings.ReadCount);
+        Assert.Null(handler.RequestUri);
+    }
+
+    /// <summary>开发专用适配器对于真实微信 code 应委托给生产实现，不绕过身份校验。</summary>
+    [Fact]
+    public async Task DevelopmentExchanger_RealCode_UsesWeChatExchange()
+    {
+        using var handler = new WxHttpHandler("""{"openid":"normal-openid"}""");
+        using var client = new HttpClient(handler);
+        var settings = new FakeSettingsStore();
+        using var exchanger = new DevelopmentWechatCodeExchanger(new WechatCodeExchanger(client, settings));
+
+        Assert.Equal("normal-openid", await exchanger.ExchangeAsync("real-code"));
+        Assert.Equal(1, settings.ReadCount);
+        Assert.Equal("api.weixin.qq.com", handler.RequestUri?.Host);
     }
 
     /// <summary>微信返回不合法的 JSON 时应按上游故障处理，不能当成成功的 OpenID。</summary>
@@ -78,17 +106,8 @@ public sealed class WechatCodeExchangerTests
         await Assert.ThrowsAnyAsync<System.Text.Json.JsonException>(() => exchanger.ExchangeAsync("one-time-code"));
     }
 
-    private static WechatCodeExchanger NewExchanger(HttpClient httpClient, bool development = false, bool devMode = false)
-    {
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["DEV_MODE"] = devMode ? "true" : "false"
-        }).Build();
-        return new WechatCodeExchanger(httpClient, config, new TestEnvironment
-        {
-            EnvironmentName = development ? "Development" : "Production"
-        }, new FakeSettingsStore());
-    }
+    private static WechatCodeExchanger NewExchanger(HttpClient httpClient)
+        => new(httpClient, new FakeSettingsStore());
 
     /// <summary>数据库凭据发生变化时，后续微信登录请求使用更新后的密钥。</summary>
     [Fact]
@@ -97,8 +116,7 @@ public sealed class WechatCodeExchangerTests
         using var handler = new WxHttpHandler("""{"openid":"wechat-openid"}""");
         using var client = new HttpClient(handler);
         var settings = new FakeSettingsStore();
-        var config = new ConfigurationBuilder().Build();
-        using var exchanger = new WechatCodeExchanger(client, config, new TestEnvironment(), settings);
+        using var exchanger = new WechatCodeExchanger(client, settings);
         await exchanger.ExchangeAsync("first-code");
         Assert.Contains("appid=test-app-id", handler.RequestUri?.Query);
 
@@ -109,26 +127,52 @@ public sealed class WechatCodeExchangerTests
         Assert.DoesNotContain("test-app-secret", handler.RequestUri?.Query);
     }
 
+    /// <summary>数据库未配置时，适配器不得发送微信请求。</summary>
+    [Fact]
+    public async Task ExchangeAsync_NoDatabaseCredentials_FailsBeforeNetwork()
+    {
+        using var handler = new WxHttpHandler("{}");
+        using var client = new HttpClient(handler);
+        var settings = new FakeSettingsStore();
+        settings.Clear();
+        using var exchanger = new WechatCodeExchanger(client, settings);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => exchanger.ExchangeAsync("real-code"));
+
+        Assert.Equal(1, settings.ReadCount);
+        Assert.Null(handler.RequestUri);
+    }
+
+    /// <summary>微信非 code 错误不能作为成功响应。</summary>
+    [Fact]
+    public async Task ExchangeAsync_WechatServiceError_IsRejected()
+    {
+        using var handler = new WxHttpHandler("""{"errcode":45011,"openid":"forged-user"}""");
+        using var client = new HttpClient(handler);
+        using var exchanger = NewExchanger(client);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => exchanger.ExchangeAsync("real-code"));
+    }
+
     private sealed class FakeSettingsStore : IWechatAppSettingsStore
     {
-        private WechatAppSettings _current = new() { AppId = "test-app-id", AppSecret = "test-app-secret" };
+        private WechatAppSettings? _current = new() { AppId = "test-app-id", AppSecret = "test-app-secret" };
+
+        public int ReadCount { get; private set; }
 
         public Task<WechatAppSettings?> GetAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<WechatAppSettings?>(_current);
+        {
+            ReadCount++;
+            return Task.FromResult(_current);
+        }
 
         public Task SaveAsync(string appId, string? appSecret, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         public void Set(string appId, string appSecret)
             => _current = new WechatAppSettings { AppId = appId, AppSecret = appSecret };
-    }
 
-    private sealed class TestEnvironment : IHostEnvironment
-    {
-        public string EnvironmentName { get; set; } = "Production";
-        public string ApplicationName { get; set; } = "Tongyin.Api.Tests";
-        public string ContentRootPath { get; set; } = "/";
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+        public void Clear() => _current = null;
     }
 
     private sealed class WxHttpHandler(string body) : HttpMessageHandler
