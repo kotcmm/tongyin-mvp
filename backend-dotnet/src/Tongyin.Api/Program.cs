@@ -2,6 +2,7 @@ using System.Data.Common;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Tongyin.Api.Auth;
+using Tongyin.Api.Services;
 using MySqlConnector;
 using Npgsql;
 using Tongyin.Application.Ai;
@@ -75,6 +76,10 @@ builder.Services.AddHttpClient<GeneratedImageDownloader>(client => client.Timeou
 builder.Services.AddScoped<IGeneratedImageStore>(services => services.GetRequiredService<GeneratedImageDownloader>());
 builder.Services.AddScoped<SaveImageGenerationResult>();
 builder.Services.AddScoped<ExecuteImageGeneration>();
+builder.Services.AddScoped<IQueuedImageGenerationReader, SqlQueuedImageGenerationReader>();
+builder.Services.AddScoped<DispatchQueuedImageGeneration>();
+// 服务实际读取已构建宿主的最终配置；默认关闭，避免测试和迁移时意外生成、计费。
+builder.Services.AddHostedService<ImageGenerationPollingService>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
