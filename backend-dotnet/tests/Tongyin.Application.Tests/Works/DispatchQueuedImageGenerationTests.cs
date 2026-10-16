@@ -92,7 +92,7 @@ public sealed class DispatchQueuedImageGenerationTests
         public Task<AiGenerationSettings> GetAsync(string stage, CancellationToken cancellationToken = default)
             => Task.FromResult(new AiGenerationSettings
             {
-                Stage = "image", PromptTemplate = "绘制卡通形象", Provider = new AiProviderSettings
+                Stage = "image", PromptTemplate = "绘制卡通形象", PromptVersion = 1, Provider = new AiProviderSettings
                 {
                     Stage = "image", Adapter = "seedream", Enabled = true, Default = true,
                     Model = "seedream-test", Endpoint = "https://ark.cn-beijing.volces.com/api/v3/images/generations"
