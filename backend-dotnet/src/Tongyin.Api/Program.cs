@@ -76,12 +76,19 @@ builder.Services.AddScoped<ExecuteImageGeneration>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
-        WechatSessionAuthenticationHandler.SchemeName, _ => { });
+        WechatSessionAuthenticationHandler.SchemeName, _ => { })
+    .AddScheme<AuthenticationSchemeOptions, AdminTokenAuthenticationHandler>(
+        AdminTokenAuthenticationHandler.SchemeName, _ => { });
 builder.Services.AddAuthorization(options =>
+{
     options.AddPolicy(AuthorizationPolicies.Wechat, new AuthorizationPolicyBuilder(WechatSessionAuthenticationHandler.SchemeName)
         .RequireAuthenticatedUser()
         .AddRequirements(new EnabledWechatUserRequirement())
-        .Build()));
+        .Build());
+    options.AddPolicy(AuthorizationPolicies.Admin, new AuthorizationPolicyBuilder(AdminTokenAuthenticationHandler.SchemeName)
+        .RequireAuthenticatedUser()
+        .Build());
+});
 builder.Services.AddScoped<IAuthorizationHandler, EnabledWechatUserAuthorizationHandler>();
 
 var app = builder.Build();

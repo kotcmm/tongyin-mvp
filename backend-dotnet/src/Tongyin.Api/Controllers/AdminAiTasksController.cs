@@ -9,7 +9,8 @@ namespace Tongyin.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/admin/ai")]
-public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, AdminTokenValidator adminToken) : ControllerBase
+[AdminAuthorize]
+public sealed class AdminAiTasksController(ListStalledImageTasks listTasks) : ControllerBase
 {
     /// <summary>
     /// 查询认领超过 15 分钟仍未完成的图片任务；不改变状态、不触发模型计费。
@@ -17,12 +18,6 @@ public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, Admi
     [HttpGet("stalled-image-tasks")]
     public async Task<IActionResult> GetStalledAsync(CancellationToken cancellationToken)
     {
-        if (!Request.Headers.TryGetValue("X-Admin-Token", out var token)
-            || token.Count != 1 || !adminToken.IsValid(token.ToString()))
-        {
-            return Unauthorized();
-        }
-
         var tasks = await listTasks.ExecuteAsync(DateTimeOffset.UtcNow.AddMinutes(-15), 100, cancellationToken);
         return Ok(tasks);
     }

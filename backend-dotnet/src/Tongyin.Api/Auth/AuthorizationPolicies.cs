@@ -9,4 +9,9 @@ public static class AuthorizationPolicies
     /// 微信小程序用户：必须持有有效微信会话令牌，且数据库账号处于可用状态。
     /// </summary>
     public const string Wechat = "Wechat";
+
+    /// <summary>
+    /// 管理员：必须通过独立的管理员令牌认证，不接受微信用户会话替代。
+    /// </summary>
+    public const string Admin = "Admin";
 }
