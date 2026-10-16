@@ -28,7 +28,7 @@ public sealed class WechatAppSettingsEndpointTests
             new { app_id = "wx-test-id", app_secret = "new-test-secret" });
         Assert.Equal(HttpStatusCode.Unauthorized, get.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, put.StatusCode);
-        Assert.Null(await app.Services.GetRequiredService<IWechatAppSettingsStore>().GetAsync());
+        Assert.Null(await app.ReadSettingsAsync());
     }
 
     /// <summary>管理员保存后能查看 AppID 和配置状态，绝不返回 AppSecret 或密文。</summary>
@@ -64,7 +64,7 @@ public sealed class WechatAppSettingsEndpointTests
         using var second = await client.SendAsync(changed);
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
-        var settings = await app.Services.GetRequiredService<IWechatAppSettingsStore>().GetAsync();
+        var settings = await app.ReadSettingsAsync();
         Assert.Equal("wx-second", settings?.AppId);
         Assert.Equal("original-secret", settings?.AppSecret);
     }
@@ -78,11 +78,11 @@ public sealed class WechatAppSettingsEndpointTests
         using var original = AdminPut(new { app_id = "wx-old", app_secret = "old-secret" });
         using var first = await client.SendAsync(original);
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
-        var originalSettings = await app.Services.GetRequiredService<IWechatAppSettingsStore>().GetAsync();
+        var originalSettings = await app.ReadSettingsAsync();
         using var changed = AdminPut(new { app_id = "wx-new", app_secret = "new-secret" });
         using var second = await client.SendAsync(changed);
         Assert.Equal(HttpStatusCode.OK, second.StatusCode);
-        var latest = await app.Services.GetRequiredService<IWechatAppSettingsStore>().GetAsync();
+        var latest = await app.ReadSettingsAsync();
         Assert.Equal("wx-old", originalSettings?.AppId);
         Assert.Equal("wx-new", latest?.AppId);
         Assert.Equal("new-secret", latest?.AppSecret);
@@ -154,6 +154,12 @@ public sealed class WechatAppSettingsEndpointTests
         }
 
         private DbConnection Connect() => new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
+
+        public async Task<WechatAppSettings?> ReadSettingsAsync()
+        {
+            using var scope = Services.CreateScope();
+            return await scope.ServiceProvider.GetRequiredService<IWechatAppSettingsStore>().GetAsync();
+        }
 
         public string ReadDatabasePayload()
         {

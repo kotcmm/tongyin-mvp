@@ -44,7 +44,7 @@ public sealed class SqlWechatAppSettingsStoreTests
         await db.Store().SaveAsync("wx-id", "app-secret");
         var wrong = new SqlWechatAppSettingsStore(db.Connect,
             new WechatAppSecretProtector("another-long-test-session-secret"));
-        await Assert.ThrowsAsync<CryptographicException>(() => wrong.GetAsync());
+        await Assert.ThrowsAnyAsync<CryptographicException>(() => wrong.GetAsync());
     }
 
     /// <summary>首次读取尚未保存的微信配置应返回空值而非虚假默认凭据。</summary>
