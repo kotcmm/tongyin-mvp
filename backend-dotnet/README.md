@@ -165,6 +165,28 @@ Invoke-RestMethod -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks" -H
 
 当前尚无人工结果确认/恢复操作、管理员 Web 页面、队列启动机制，也没有开放小程序的生成接口。发现超时任务应先核对上游实际执行与计费结果，不能直接清除认领标记。
 
+## 管理员人工核查：确认失败或补录已有图片
+
+在 **`[AdminAuthorize]`** 管理员认证下，新增两个仅用于人工核实后处理的写接口。两者都要求核对当前 `generation_id`、仍为 `image_pending`、`ai_task_stage=image`、具备已认领的图片执行时间且认领已超过 15 分钟；旧 Go 只有执行开始时间而没有 .NET 认领编号的任务也可核查。校验在与 Go 共用的 `ty_store_lock` 数据库锁内完成，不能根据前一次查询结果直接修改作品。
+
+- `POST /api/admin/ai/stalled-image-tasks/{workId}/fail`：JSON 正文 `{"generation_id":"job-id","reason":"已经查证服务商没有生成结果"}`。将任务置为 `failed`，用户仅能看到通用失败信息，详细核实依据只进审计。
+- `POST /api/admin/ai/stalled-image-tasks/{workId}/complete`：`multipart/form-data` 的 `generation_id`、`reason`、`file` 三个字段；管理员上传服务商**已经生成**的本地 PNG/JPEG/WebP 图片，单文件不超过 10 MiB。图片通过原媒体存储校验后只保存一张候选图，并置为 `image_ready`。更新被拒绝时回收刚保存的图片文件。
+
+两个操作都会在**同一事务**中更新现有 `ty_works` 和写入 Go 兼容 `ty_audit`：`action=ai.image.review.failed` 或 `ai.image.review.completed`，`target` 为作品 ID，`detail` 记录任务编号、核实依据和补录文件名。完成、失败、过期编号、时间不足、错误认领编号、重复处理都会被阻止覆盖；缺少审计表时作品更新也会回滚。所有处理**绝不调用 Seedream、不自动重新生成或释放认领**。
+
+当前管理员授权只支持共享 `ADMIN_TOKEN`，审计 actor 只能标识令牌凭据（`admin-token`），**不能准确追溯到具体员工**。正式多人使用前应迁移现有 Go 管理员账号会话、角色限制与每人独立审计身份。数据库提交发生未知结果时，补录文件失败清理可能与已经成功提交的数据库引用不一致；上线前仍需补故障恢复和孤儿文件巡检。本阶段不包含运营 Web UI，也不开放小程序的自动生成接口。
+
+受控环境使用示例：
+
+```powershell
+$headers = @{ "X-Admin-Token" = $env:ADMIN_TOKEN }
+$body = @{ generation_id = "job-id"; reason = "已确认服务商生成失败" } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks/work-id/fail" -Headers $headers -ContentType "application/json" -Body $body
+
+# 仅在有本地生成图片且人工核实成功时执行：
+curl.exe -X POST "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks/work-id/complete" -H "X-Admin-Token: $env:ADMIN_TOKEN" -F "generation_id=job-id" -F "reason=已确认服务商生成成功" -F "file=@C:\\images\\recovered.png"
+```
+
 ## 验收
 
 需要 .NET 10 SDK：
