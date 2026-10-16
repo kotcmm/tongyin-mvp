@@ -84,6 +84,10 @@ public sealed class SqlWorkRepository : IWorkRepository
         document["status"] = "image_pending";
         document["image_attempts"] = restored.ImageAttempts;
         document["generation_id"] = restored.GenerationId;
+        // 新生成编号允许重新认领；同时清除上一轮 Go/.NET 执行时间。
+        document["ai_execution_claim_id"] = "";
+        document["ai_started_at"] = "";
+        document["ai_task_stage"] = "";
         document["candidates"] = new JsonArray();
         document["selected"] = restored.Selected;
         document["preview"] = new JsonArray();
@@ -99,6 +103,57 @@ public sealed class SqlWorkRepository : IWorkRepository
 
         return JsonSerializer.Deserialize<WorkSnapshot>(updatedPayload)
             ?? throw new JsonException("更新后的作品记录不是合法的 JSON 对象");
+    }
+
+    /// <summary>
+    /// 在与 Go 共用的事务锁下首次认领待生成图片，后续同编号的重复投递直接拒绝。
+    /// 认领不可自动过期，以免 Seedream 调用结果不明时重复计费。
+    /// </summary>
+    public async Task<WorkSnapshot?> ClaimImageGenerationAsync(string id, string owner, string generationId, DateTimeOffset startedAt, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrEmpty(generationId))
+        {
+            return null;
+        }
+
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await AcquireStoreLockAsync(connection, transaction, cancellationToken);
+
+        var payload = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_works WHERE id = @Id AND owner_id = @Owner",
+            new { Id = id, Owner = owner }, transaction: transaction, cancellationToken: cancellationToken));
+
+        if (payload is null)
+        {
+            return null;
+        }
+
+        var work = JsonSerializer.Deserialize<WorkSnapshot>(payload)
+            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+        if (work.Status != "image_pending" || work.GenerationId != generationId
+            || !string.IsNullOrEmpty(work.AiExecutionClaimId)
+            || (work.AiTaskStage == "image" && !string.IsNullOrEmpty(work.AiStartedAt)))
+        {
+            return null;
+        }
+
+        var document = JsonNode.Parse(payload) as JsonObject
+            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+        document["ai_execution_claim_id"] = generationId;
+        document["ai_task_stage"] = "image";
+        document["ai_started_at"] = startedAt.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
+        var updated = document.ToJsonString();
+        var result = JsonSerializer.Deserialize<WorkSnapshot>(updated)
+            ?? throw new JsonException("更新后的作品记录不是合法的 JSON 对象");
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE ty_works SET payload = @Payload WHERE id = @Id AND owner_id = @Owner",
+            new { Payload = updated, Id = id, Owner = owner },
+            transaction: transaction, cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+        return result;
     }
 
     /// <summary>

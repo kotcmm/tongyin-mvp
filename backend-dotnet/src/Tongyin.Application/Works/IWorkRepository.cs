@@ -29,6 +29,11 @@ public interface IWorkRepository
     Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 事务内认领当前用户的图片生成任务。仅首次认领返回快照，旧任务或已认领则返回空。
+    /// </summary>
+    Task<WorkSnapshot?> ClaimImageGenerationAsync(string id, string owner, string generationId, DateTimeOffset startedAt, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 在数据库事务中校验当前任务编号与图片待生成状态，并保存单张结果；过期或重复回写时拒绝。
     /// </summary>
     Task<WorkSnapshot> CompleteImageGenerationAsync(string id, string generationId, string imageFileName, CancellationToken cancellationToken = default);

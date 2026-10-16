@@ -9,14 +9,13 @@ namespace Tongyin.Application.Works;
 public sealed class ExecuteImageGeneration(IWorkRepository repository, IAiGenerationSettingsReader settingsReader, IOriginalImageReader originalImageReader, IImageGenerationClient generator, SaveImageGenerationResult saveResult)
 {
     /// <summary>
-    /// 只执行指定微信用户当前有效的图片生成任务；提交模型前的明确失败写入 failed。
+    /// 先在数据库中原子认领当前图片生成任务；提交模型前的明确失败写入 failed。
     /// 模型调用或后续下载结果不确定时保留 image_pending，交由后续核查机制处理。
     /// </summary>
     public async Task<WorkSnapshot> ExecuteAsync(string owner, string workId, string generationId, CancellationToken cancellationToken = default)
     {
-        var work = await repository.GetByIdForOwnerAsync(workId, owner, cancellationToken);
-        if (work is null || work.Status != "image_pending"
-            || string.IsNullOrEmpty(generationId) || work.GenerationId != generationId)
+        var work = await repository.ClaimImageGenerationAsync(workId, owner, generationId, DateTimeOffset.UtcNow, cancellationToken);
+        if (work is null)
         {
             throw new InvalidOperationException("生成任务已失效");
         }

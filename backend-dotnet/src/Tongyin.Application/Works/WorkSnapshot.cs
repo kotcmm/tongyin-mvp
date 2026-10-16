@@ -70,4 +70,8 @@ public sealed class WorkSnapshot
     /// <summary>AI 任务开始时间。</summary>
     [JsonPropertyName("ai_started_at")]
     public string AiStartedAt { get; init; } = string.Empty;
+
+    /// <summary>当前图片生成任务持久化认领编号，同一编号只允许被认领一次。</summary>
+    [JsonPropertyName("ai_execution_claim_id")]
+    public string AiExecutionClaimId { get; init; } = string.Empty;
 }
