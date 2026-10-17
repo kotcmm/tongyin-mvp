@@ -68,13 +68,12 @@ public sealed class ModelResultEndpointTests
     {
         using var app = new ModelResultFactory();
         using var client = app.CreateClient();
-        var data = ValidSuccess();
         using var request = NewRequest(new
         {
             work_id = generationId == "wrong-id" ? "missing-work" : "work-1",
             stage = "model",
             generation_id = generationId == "wrong-id" ? "job-1" : generationId,
-            model_url = data.model_url
+            model_url = "https://assets.example.com/model.glb"
         }, "test-worker-token");
         using var response = await client.SendAsync(request);
 
