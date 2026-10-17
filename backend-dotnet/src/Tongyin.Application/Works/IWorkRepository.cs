@@ -29,11 +29,6 @@ public interface IWorkRepository
     Task<WorkSnapshot?> RegisterImageGenerationAsync(string id, string owner, string generationId, int freeImageAttempts, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 原子确认当前用户的单张候选图并转入三维模型处理阶段；不能确认非本人或不合法状态的作品。
-    /// </summary>
-    Task<WorkSnapshot?> SelectImageAsync(string id, string owner, int index, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// 事务内认领当前用户的图片生成任务。仅首次认领返回快照，旧任务或已认领则返回空。
     /// </summary>
     Task<WorkSnapshot?> ClaimImageGenerationAsync(string id, string owner, string generationId, DateTimeOffset startedAt, CancellationToken cancellationToken = default);

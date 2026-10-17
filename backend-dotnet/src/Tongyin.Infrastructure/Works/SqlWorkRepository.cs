@@ -12,7 +12,7 @@ namespace Tongyin.Infrastructure.Works;
 /// 基于 Dapper（轻量对象关系映射器）保存现有 ty_works 作品记录的 SQL 适配器。
 /// 数据库连接由外围提供，支持不同 ADO.NET 驱动。
 /// </summary>
-public sealed class SqlWorkRepository : IWorkRepository
+public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepository
 {
     private readonly Func<DbConnection> _connectionFactory;
 

@@ -67,6 +67,7 @@ builder.Services.AddSingleton(services =>
 builder.Services.AddSingleton<IOriginalImageStore>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddSingleton<IOriginalImageReader>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
+builder.Services.AddScoped<IWorkImageSelectionRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IStalledImageTasksReader, SqlStalledImageTasksReader>();
 builder.Services.AddScoped<ListStalledImageTasks>();
 builder.Services.AddScoped<IAdminImageReviewRepository, SqlAdminImageReviewRepository>();
