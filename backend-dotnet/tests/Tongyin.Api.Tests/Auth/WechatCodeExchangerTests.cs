@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text;
-using Tongyin.Api.Services;
+using Tongyin.Infrastructure.Auth;
 using Tongyin.Application.Auth;
 using Xunit;
 

@@ -1,7 +1,7 @@
 using System.Net.Http.Json;
 using Tongyin.Application.Auth;
 
-namespace Tongyin.Api.Services;
+namespace Tongyin.Infrastructure.Auth;
 
 /// <summary>
 /// 仅负责调用微信 code2Session，使用数据库中的应用凭据兑换真实 OpenID。

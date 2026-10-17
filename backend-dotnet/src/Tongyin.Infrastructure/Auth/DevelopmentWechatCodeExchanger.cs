@@ -1,6 +1,6 @@
 using Tongyin.Application.Auth;
 
-namespace Tongyin.Api.Services;
+namespace Tongyin.Infrastructure.Auth;
 
 /// <summary>
 /// 只在受控开发环境注册的模拟微信身份适配器，其他 code 委托真实微信交换服务。

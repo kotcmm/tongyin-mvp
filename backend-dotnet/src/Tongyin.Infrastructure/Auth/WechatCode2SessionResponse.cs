@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Tongyin.Api.Services;
+namespace Tongyin.Infrastructure.Auth;
 
 /// <summary>
 /// 微信 code2Session 响应，仅映射业务实际使用的错误码和 OpenID，忽略 session_key。
