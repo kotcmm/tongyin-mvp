@@ -18,7 +18,7 @@ public sealed class AiResultController(SaveModelGenerationResult saveModel) : Co
         if (request.Stage != "model" || string.IsNullOrWhiteSpace(request.WorkId)
             || string.IsNullOrWhiteSpace(request.GenerationId)
             || (string.IsNullOrWhiteSpace(request.Error) && string.IsNullOrWhiteSpace(request.ModelUrl))
-            || request.Error.Length > 1000)
+            || (request.Error?.Length ?? 0) > 1000)
         {
             return BadRequest(new { error = "模型回调参数无效" });
         }

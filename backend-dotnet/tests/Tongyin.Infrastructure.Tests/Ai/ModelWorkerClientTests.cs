@@ -96,7 +96,8 @@ public sealed class ModelWorkerClientTests
         RandomNumberGenerator.Fill(nonce);
         using (var aes = new AesGcm(key, 16))
             aes.Encrypt(nonce, clear, encrypted, tag);
-        return Convert.ToBase64String([.. nonce, .. encrypted, .. tag]).TrimEnd('=');
+        byte[] value = [.. nonce, .. encrypted, .. tag];
+        return Convert.ToBase64String(value).TrimEnd('=');
     }
 
     private sealed class RecordingHandler(HttpStatusCode status) : HttpMessageHandler

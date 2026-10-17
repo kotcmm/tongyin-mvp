@@ -17,6 +17,18 @@ public sealed class ModelGenerationPollingService(IServiceScopeFactory scopeFact
                 try
                 {
                     await using var scope = scopeFactory.CreateAsyncScope();
+                    // 必须保证 worker 能从公网回调，避免缺少 PUBLIC_URL 时先认领再挂起。
+                    var publicUrl = configuration["PUBLIC_URL"];
+                    if (!Uri.TryCreate(publicUrl, UriKind.Absolute, out var callbackBase)
+                        || callbackBase.Scheme != Uri.UriSchemeHttps
+                        || callbackBase.HostNameType != UriHostNameType.Dns
+                        || callbackBase.IsLoopback || callbackBase.Port != 443
+                        || callbackBase.UserInfo.Length != 0 || callbackBase.Query.Length != 0
+                        || callbackBase.Fragment.Length != 0)
+                    {
+                        continue;
+                    }
+
                     var dispatcher = scope.ServiceProvider.GetRequiredService<DispatchQueuedModelGeneration>();
                     await dispatcher.DispatchNextAsync(stoppingToken);
                 }

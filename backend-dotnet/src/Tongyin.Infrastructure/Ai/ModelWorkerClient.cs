@@ -25,7 +25,10 @@ public sealed class ModelWorkerClient(HttpClient httpClient, GoAiKeyDecryptor de
         var provider = settings.Provider!;
         var endpoint = RequirePublicHttpsUri(provider.Endpoint);
         if (!Uri.TryCreate(publicUrl, UriKind.Absolute, out var callbackBase)
-            || callbackBase.Scheme != Uri.UriSchemeHttps || callbackBase.UserInfo.Length != 0)
+            || callbackBase.Scheme != Uri.UriSchemeHttps
+            || callbackBase.HostNameType != UriHostNameType.Dns || callbackBase.IsLoopback
+            || callbackBase.Port != 443 || callbackBase.UserInfo.Length != 0
+            || callbackBase.Query.Length != 0 || callbackBase.Fragment.Length != 0)
         {
             throw new InvalidOperationException("模型 worker 需要配置公网 HTTPS PUBLIC_URL");
         }
