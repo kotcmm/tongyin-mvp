@@ -130,11 +130,11 @@ public sealed class Work
     }
 
     /// <summary>
-    /// 用户确认唯一的候选图片，进入三维模型待生成状态。
+    /// 用户确认唯一的候选图片，进入三维模型待生成状态；空候选列表不能确认。
     /// </summary>
     public void SelectImage(int index)
     {
-        if (Status != WorkStatus.ImageReady || index != 0)
+        if (Status != WorkStatus.ImageReady || index != 0 || Candidates.Count == 0)
         {
             throw new InvalidOperationException("无法选择此图片");
         }

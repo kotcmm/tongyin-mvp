@@ -232,6 +232,56 @@ public sealed class SqlWorkRepository : IWorkRepository
         return result;
     }
 
+    /// <summary>
+    /// 以同一作品事务锁校验选图状态，保护其他用户数据，并兼容旧多候选图作品的单图规范。
+    /// </summary>
+    public async Task<WorkSnapshot?> SelectImageAsync(string id, string owner, int index, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await AcquireStoreLockAsync(connection, transaction, cancellationToken);
+
+        var payload = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_works WHERE id = @Id AND owner_id = @Owner",
+            new { Id = id, Owner = owner }, transaction: transaction, cancellationToken: cancellationToken));
+
+        if (payload is null)
+        {
+            return null;
+        }
+
+        var work = RestoreWork(id, owner, payload);
+        work.SelectImage(index);
+
+        var document = JsonNode.Parse(payload) as JsonObject
+            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+        document["candidates"] = new JsonArray(JsonValue.Create(work.Candidates[0]));
+        document["selected"] = work.Selected;
+        document["preview"] = new JsonArray();
+        document["model"] = "";
+        document["status"] = "model_pending";
+        document["note"] = "";
+        document["ai_task_stage"] = "";
+        document["ai_started_at"] = "";
+        document["ai_execution_claim_id"] = "";
+        if (string.IsNullOrWhiteSpace(work.GenerationId))
+        {
+            // 兼容早期没有生成编号的 Go 作品，使模型结果回调有可核对的任务编号。
+            document["generation_id"] = Guid.NewGuid().ToString("N");
+        }
+
+        var updated = document.ToJsonString();
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE ty_works SET payload = @Payload WHERE id = @Id AND owner_id = @Owner",
+            new { Payload = updated, Id = id, Owner = owner },
+            transaction: transaction, cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+
+        return JsonSerializer.Deserialize<WorkSnapshot>(updated)
+            ?? throw new JsonException("更新后的作品记录不是合法的 JSON 对象");
+    }
+
     private static async Task AcquireStoreLockAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         // Go 使用同一 ty_store_lock 行；无意义的 UPDATE 兼容 SQLite、PostgreSQL 与 MySQL。

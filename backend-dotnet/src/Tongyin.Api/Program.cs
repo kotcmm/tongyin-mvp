@@ -77,6 +77,7 @@ builder.Services.AddScoped<LoginWechat>();
 builder.Services.AddScoped<GetWechatProfile>();
 builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<StartImageGeneration>();
+builder.Services.AddScoped<SelectWorkImage>();
 builder.Services.AddSingleton<MiniappBusinessSettings>();
 builder.Services.AddScoped<ListWorks>();
 builder.Services.AddScoped<GetWork>();

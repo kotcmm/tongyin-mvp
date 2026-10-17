@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using Tongyin.Api.Auth;
 using Tongyin.Api.Http;
 using Tongyin.Api.Services;
@@ -15,7 +16,7 @@ namespace Tongyin.Api.Controllers;
 [ApiController]
 [Route("api/works")]
 [WechatAuthorize]
-public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, StartImageGeneration startImageGeneration, LocalMediaStore media, IAiGenerationSettingsReader aiSettingsReader, MiniappBusinessSettings businessSettings, ILogger<WorksController> logger) : ControllerBase
+public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, StartImageGeneration startImageGeneration, SelectWorkImage selectWorkImage, LocalMediaStore media, IAiGenerationSettingsReader aiSettingsReader, MiniappBusinessSettings businessSettings, ILogger<WorksController> logger) : ControllerBase
 {
     /// <summary>
     /// 上传一张儿童原画并创建作品，保持原小程序的响应字段及 HTTP 状态码。
@@ -83,6 +84,37 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
         catch (InvalidOperationException exception)
         {
             return Conflict(new { error = exception.Message });
+        }
+    }
+
+    /// <summary>
+    /// 用户确认单张卡通图，转入模型处理阶段；使用同一微信授权与仓储所有权校验。
+    /// </summary>
+    [HttpPost("{id}/select")]
+    public async Task<IActionResult> SelectAsync([FromRoute] string id, [FromBody] JsonElement request, CancellationToken cancellationToken)
+    {
+        if (request.ValueKind != JsonValueKind.Object
+            || !request.TryGetProperty("index", out var selected)
+            || selected.ValueKind != JsonValueKind.Number
+            || !selected.TryGetInt32(out var index))
+        {
+            return BadRequest(new { error = "参数有误" });
+        }
+
+        try
+        {
+            var updated = await selectWorkImage.ExecuteAsync(User.GetWechatOpenId(), id, index, cancellationToken);
+            if (updated is null)
+            {
+                return NotFound(new { error = "作品不存在" });
+            }
+
+            // 本接口仅持久化用户确认，不假称模型已经成功提交到未接入的外部服务。
+            return StatusCode(StatusCodes.Status202Accepted, new { status = "model_pending", message = "已进入模型处理队列" });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return BadRequest(new { error = exception.Message });
         }
     }
 
