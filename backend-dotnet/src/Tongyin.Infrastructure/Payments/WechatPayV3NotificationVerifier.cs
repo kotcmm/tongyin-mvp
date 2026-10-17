@@ -20,7 +20,8 @@ public sealed class WechatPayV3NotificationVerifier(WechatPayConfiguration confi
         if (serial != configuration.PlatformSerial || string.IsNullOrWhiteSpace(nonce)
             || string.IsNullOrWhiteSpace(signature)
             || !long.TryParse(timestamp, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds)
-            || Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - seconds) > 300)
+            || seconds < DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 300
+            || seconds > DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 300)
         {
             throw new InvalidOperationException("微信支付回调序列号或时间戳无效");
         }
@@ -46,7 +47,9 @@ public sealed class WechatPayV3NotificationVerifier(WechatPayConfiguration confi
         }
 
         var resource = callback.Resource ?? throw new InvalidOperationException("微信支付交易资源缺失");
-        if (resource.Algorithm != "AEAD_AES_256_GCM" || Encoding.UTF8.GetByteCount(resource.Nonce) != 12)
+        if (resource.Algorithm != "AEAD_AES_256_GCM"
+            || string.IsNullOrEmpty(resource.Nonce) || Encoding.UTF8.GetByteCount(resource.Nonce) != 12
+            || string.IsNullOrEmpty(resource.Ciphertext))
         {
             throw new InvalidOperationException("微信支付交易资源加密格式无效");
         }
@@ -72,7 +75,7 @@ public sealed class WechatPayV3NotificationVerifier(WechatPayConfiguration confi
             using var aes = new AesGcm(key, 16);
             aes.Decrypt(Encoding.UTF8.GetBytes(resource.Nonce),
                 encrypted.AsSpan(0, plaintext.Length), encrypted.AsSpan(plaintext.Length, 16),
-                plaintext, Encoding.UTF8.GetBytes(resource.AssociatedData));
+                plaintext, Encoding.UTF8.GetBytes(resource.AssociatedData ?? ""));
             var transaction = JsonSerializer.Deserialize<PaymentTransaction>(plaintext)
                 ?? throw new InvalidOperationException("微信支付解密交易内容为空");
             if (transaction.TradeState != "SUCCESS" || transaction.MchId != configuration.MchId

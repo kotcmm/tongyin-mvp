@@ -90,7 +90,8 @@ public sealed class WechatPayV3Gateway(HttpClient client, WechatPayConfiguration
             var responseSignature = GetHeader(response, "Wechatpay-Signature");
             if (responseSerial != configuration.PlatformSerial || string.IsNullOrWhiteSpace(responseNonce)
                 || !long.TryParse(responseTimestamp, NumberStyles.None, CultureInfo.InvariantCulture, out var responseUnix)
-                || Math.Abs(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - responseUnix) > 300)
+                || responseUnix < DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 300
+                || responseUnix > DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 300)
             {
                 throw new InvalidOperationException("微信预下单应答的平台签名信息无效");
             }
