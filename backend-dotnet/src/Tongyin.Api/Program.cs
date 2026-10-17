@@ -68,6 +68,9 @@ builder.Services.AddSingleton<IOriginalImageStore>(services => services.GetRequi
 builder.Services.AddSingleton<IOriginalImageReader>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<IModelGenerationResultRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
+builder.Services.AddScoped<IModelGenerationClaimRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
+builder.Services.AddScoped<IQueuedModelGenerationReader, SqlQueuedModelGenerationReader>();
+builder.Services.AddScoped<DispatchQueuedModelGeneration>();
 builder.Services.AddScoped<IWorkImageSelectionRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IStalledImageTasksReader, SqlStalledImageTasksReader>();
 builder.Services.AddScoped<ListStalledImageTasks>();
@@ -112,6 +115,15 @@ builder.Services.AddHttpClient<GeneratedModelDownloader>(client => client.Timeou
         PooledConnectionLifetime = TimeSpan.FromMinutes(1)
     });
 builder.Services.AddScoped<IGeneratedModelStore>(services => services.GetRequiredService<GeneratedModelDownloader>());
+builder.Services.AddHttpClient<ModelWorkerClient>(client => client.Timeout = TimeSpan.FromSeconds(20))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        UseProxy = false,
+        ConnectCallback = PublicImageNetworkPolicy.ConnectAsync,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+    });
+builder.Services.AddScoped<IModelWorkerClient>(services => services.GetRequiredService<ModelWorkerClient>());
 builder.Services.AddScoped<SaveImageGenerationResult>();
 builder.Services.AddScoped<SaveModelGenerationResult>();
 builder.Services.AddScoped<ExecuteImageGeneration>();
@@ -119,6 +131,7 @@ builder.Services.AddScoped<IQueuedImageGenerationReader, SqlQueuedImageGeneratio
 builder.Services.AddScoped<DispatchQueuedImageGeneration>();
 // 图片任务是否可派发由数据库中的默认服务商启用状态控制；没有可用服务商时不派发或计费。
 builder.Services.AddHostedService<ImageGenerationPollingService>();
+builder.Services.AddHostedService<ModelGenerationPollingService>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(

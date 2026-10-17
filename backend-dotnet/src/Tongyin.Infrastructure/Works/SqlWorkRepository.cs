@@ -12,7 +12,7 @@ namespace Tongyin.Infrastructure.Works;
 /// 基于 Dapper（轻量对象关系映射器）保存现有 ty_works 作品记录的 SQL 适配器。
 /// 数据库连接由外围提供，支持不同 ADO.NET 驱动。
 /// </summary>
-public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepository, IModelGenerationResultRepository
+public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepository, IModelGenerationResultRepository, IModelGenerationClaimRepository
 {
     private readonly Func<DbConnection> _connectionFactory;
 
@@ -324,6 +324,56 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
         await connection.ExecuteAsync(new CommandDefinition(
             "UPDATE ty_works SET payload = @Payload WHERE id = @Id",
             new { Payload = updated, Id = workId },
+            transaction: transaction, cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+        return JsonSerializer.Deserialize<WorkSnapshot>(updated)
+            ?? throw new JsonException("更新后的模型记录不是合法的 JSON 对象");
+    }
+
+    /// <summary>持久化认领模型任务，不给旧任务或已认领任务再次派发的资格。</summary>
+    public async Task<WorkSnapshot?> ClaimAsync(string workId, string owner, string generationId, string providerId, int promptVersion, DateTimeOffset startedAt, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await AcquireStoreLockAsync(connection, transaction, cancellationToken);
+
+        var payload = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_works WHERE id = @Id AND owner_id = @Owner",
+            new { Id = workId, Owner = owner }, transaction: transaction, cancellationToken: cancellationToken));
+        if (payload is null)
+        {
+            return null;
+        }
+
+        var document = JsonNode.Parse(payload) as JsonObject
+            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+        if (!document.ContainsKey("ai_execution_claim_id"))
+        {
+            // 避免旧 Go 生成任务被 .NET 误派发。
+            return null;
+        }
+
+        var work = JsonSerializer.Deserialize<WorkSnapshot>(payload)
+            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+        if (work.Status != "model_pending" || work.GenerationId != generationId
+            || work.Selected != 0 || work.Candidates.Count == 0
+            || !string.IsNullOrWhiteSpace(work.AiExecutionClaimId)
+            || !string.IsNullOrWhiteSpace(work.AiTaskStage)
+            || !string.IsNullOrWhiteSpace(work.AiStartedAt))
+        {
+            return null;
+        }
+
+        document["ai_execution_claim_id"] = generationId;
+        document["ai_task_stage"] = "model";
+        document["ai_started_at"] = startedAt.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
+        document["ai_provider_id"] = providerId;
+        document["ai_prompt_version"] = promptVersion;
+        var updated = document.ToJsonString();
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE ty_works SET payload = @Payload WHERE id = @Id AND owner_id = @Owner",
+            new { Payload = updated, Id = workId, Owner = owner },
             transaction: transaction, cancellationToken: cancellationToken));
         await transaction.CommitAsync(cancellationToken);
         return JsonSerializer.Deserialize<WorkSnapshot>(updated)

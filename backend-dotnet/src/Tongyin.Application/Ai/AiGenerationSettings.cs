@@ -29,4 +29,14 @@ public sealed class AiGenerationSettings
             && !string.IsNullOrWhiteSpace(Provider.ApiKeyCipher)
             && !string.IsNullOrWhiteSpace(PromptTemplate);
     }
+
+    /// <summary>只有已启用默认模型 worker 并设置安全密钥与提示词时，才能认领新的模型任务。</summary>
+    public bool CanGenerateModel()
+    {
+        return Stage == "model"
+            && Provider is { Stage: "model", Adapter: "worker", Enabled: true, Default: true }
+            && !string.IsNullOrWhiteSpace(Provider.Endpoint)
+            && !string.IsNullOrWhiteSpace(Provider.ApiKeyCipher)
+            && !string.IsNullOrWhiteSpace(PromptTemplate);
+    }
 }
