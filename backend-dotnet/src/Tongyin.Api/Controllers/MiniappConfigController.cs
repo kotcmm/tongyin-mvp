@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Tongyin.Api.Services;
+using Tongyin.Application.Checkout;
 using Tongyin.Application.Ai;
 
 namespace Tongyin.Api.Controllers;

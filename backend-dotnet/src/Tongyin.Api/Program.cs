@@ -112,7 +112,13 @@ builder.Services.AddScoped<IWechatPayNotificationVerifier, WechatPayV3Notificati
 builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<StartImageGeneration>();
 builder.Services.AddScoped<SelectWorkImage>();
-builder.Services.AddSingleton<MiniappBusinessSettings>();
+builder.Services.AddSingleton(services =>
+{
+    var configuration = services.GetRequiredService<IConfiguration>();
+    int.TryParse(configuration["PRODUCT_PRICE_FEN"], out var priceFen);
+    int.TryParse(configuration["FREE_IMAGE_ATTEMPTS"], out var freeImageAttempts);
+    return new MiniappBusinessSettings(priceFen, freeImageAttempts);
+});
 builder.Services.AddScoped<ListWorks>();
 builder.Services.AddScoped<GetWork>();
 builder.Services.AddScoped<IAiGenerationSettingsReader, SqlAiGenerationSettingsReader>();

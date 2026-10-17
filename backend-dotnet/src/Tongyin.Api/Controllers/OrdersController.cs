@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
-using Tongyin.Api.Services;
+using Tongyin.Application.Checkout;
 using Tongyin.Api.ViewModels.Checkout;
 using Tongyin.Application.Checkout;
 
