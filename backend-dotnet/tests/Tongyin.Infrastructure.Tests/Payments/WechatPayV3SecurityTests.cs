@@ -51,6 +51,18 @@ public sealed class WechatPayV3SecurityTests
         Assert.Throws<InvalidOperationException>(() => verifier.Verify(body, timestamp, nonce, signature, "other-serial"));
     }
 
+    /// <summary>极端 Unix 时间戳必须被安全拒绝，不能因整数溢出抛出非预期异常。</summary>
+    [Fact]
+    public void Verify_MinimumTimestamp_ReturnsValidationError()
+    {
+        using var keys = new TestKeys();
+        var verifier = new WechatPayV3NotificationVerifier(keys.Configuration);
+        var (body, _, nonce, signature) = keys.ValidPayment();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            verifier.Verify(body, long.MinValue.ToString(), nonce, signature, "platform-serial"));
+    }
+
     /// <summary>没有对应密钥的伪造密文，即使回调正文通过 RSA 验签，也不能被解密。</summary>
     [Fact]
     public void Verify_AuthenticatedButInvalidCiphertext_Rejects()
