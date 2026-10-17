@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
 using Tongyin.Api.Auth;
 using Tongyin.Api.Http;
 using Tongyin.Api.Services;
@@ -91,19 +90,11 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
     /// 用户确认单张卡通图，转入模型处理阶段；使用同一微信授权与仓储所有权校验。
     /// </summary>
     [HttpPost("{id}/select")]
-    public async Task<IActionResult> SelectAsync([FromRoute] string id, [FromBody] JsonElement request, CancellationToken cancellationToken)
+    public async Task<IActionResult> SelectAsync([FromRoute] string id, [FromBody] SelectImageRequest request, CancellationToken cancellationToken)
     {
-        if (request.ValueKind != JsonValueKind.Object
-            || !request.TryGetProperty("index", out var selected)
-            || selected.ValueKind != JsonValueKind.Number
-            || !selected.TryGetInt32(out var index))
-        {
-            return BadRequest(new { error = "参数有误" });
-        }
-
         try
         {
-            var updated = await selectWorkImage.ExecuteAsync(User.GetWechatOpenId(), id, index, cancellationToken);
+            var updated = await selectWorkImage.ExecuteAsync(User.GetWechatOpenId(), id, request.Index, cancellationToken);
             if (updated is null)
             {
                 return NotFound(new { error = "作品不存在" });
