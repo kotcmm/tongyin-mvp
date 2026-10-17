@@ -1,4 +1,5 @@
 using System.Buffers.Text;
+using System.Buffers.Binary;
 using Tongyin.Application.Works;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -11,6 +12,8 @@ namespace Tongyin.Infrastructure.Media;
 /// </summary>
 public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader
 {
+    /// <summary>单个 GLB 模型最大体积为 100 MiB。</summary>
+    public const long MaxGlbBytes = 100L * 1024 * 1024;
     private static readonly byte[] _pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
     private static readonly byte[] _jpegSignature = [0xFF, 0xD8, 0xFF];
     private readonly string _directory;
@@ -83,6 +86,55 @@ public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader
     }
 
     /// <summary>
+    /// 校验 glTF 2.0 二进制 GLB 头部和 JSON 块，再将模型保存到同一媒体目录。
+    /// </summary>
+    public async Task<string> SaveGlbAsync(Stream source, long length, CancellationToken cancellationToken = default)
+    {
+        if (length < 24 || length > MaxGlbBytes || length > uint.MaxValue)
+        {
+            throw new InvalidDataException("GLB 文件大小无效");
+        }
+
+        var header = new byte[20];
+        var count = await source.ReadAtLeastAsync(header.AsMemory(), header.Length, throwOnEndOfStream: false, cancellationToken);
+        if (count != 20
+            || !header.AsSpan(0, 4).SequenceEqual("glTF"u8)
+            || BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(4, 4)) != 2
+            || BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(8, 4)) != length
+            || !header.AsSpan(16, 4).SequenceEqual("JSON"u8))
+        {
+            throw new InvalidDataException("仅支持有效的 glTF 2.0 GLB 模型");
+        }
+
+        var jsonLength = BinaryPrimitives.ReadUInt32LittleEndian(header.AsSpan(12, 4));
+        if (jsonLength < 4 || jsonLength % 4 != 0 || 20L + jsonLength > length)
+        {
+            throw new InvalidDataException("GLB JSON 块长度无效");
+        }
+
+        Directory.CreateDirectory(_directory);
+        var name = Convert.ToHexString(RandomNumberGenerator.GetBytes(12)).ToLowerInvariant() + ".glb";
+        var path = Path.Combine(_directory, name);
+        try
+        {
+            await using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+            await output.WriteAsync(header, cancellationToken);
+            await source.CopyToAsync(output, cancellationToken);
+            await output.FlushAsync(cancellationToken);
+            if (output.Length != length)
+            {
+                throw new InvalidDataException("GLB 实际长度与头部不一致");
+            }
+            return name;
+        }
+        catch
+        {
+            File.Delete(path);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// 撤销未关联到作品的已上传原画。
     /// </summary>
     public void Delete(string fileName)
@@ -140,6 +192,7 @@ public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader
             ".png" => "image/png",
             ".jpg" => "image/jpeg",
             ".webp" => "image/webp",
+            ".glb" => "model/gltf-binary",
             _ => "application/octet-stream"
         };
         return true;

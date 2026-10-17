@@ -12,7 +12,7 @@ namespace Tongyin.Infrastructure.Works;
 /// 基于 Dapper（轻量对象关系映射器）保存现有 ty_works 作品记录的 SQL 适配器。
 /// 数据库连接由外围提供，支持不同 ADO.NET 驱动。
 /// </summary>
-public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepository
+public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepository, IModelGenerationResultRepository
 {
     private readonly Func<DbConnection> _connectionFactory;
 
@@ -280,6 +280,54 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
 
         return JsonSerializer.Deserialize<WorkSnapshot>(updated)
             ?? throw new JsonException("更新后的作品记录不是合法的 JSON 对象");
+    }
+
+    /// <summary>原子保存当前模型生成任务的 GLB 文件名，拒绝重复或过期回调。</summary>
+    public Task<WorkSnapshot> CompleteModelGenerationAsync(string workId, string generationId, string modelFileName, CancellationToken cancellationToken = default)
+        => UpdateModelResultAsync(workId, generationId, modelFileName, null, cancellationToken);
+
+    /// <summary>原子记录当前模型生成任务的明确失败，不改动已经确认的形象图片。</summary>
+    public Task<WorkSnapshot> FailModelGenerationAsync(string workId, string generationId, string error, CancellationToken cancellationToken = default)
+        => UpdateModelResultAsync(workId, generationId, null, error, cancellationToken);
+
+    private async Task<WorkSnapshot> UpdateModelResultAsync(string workId, string generationId, string? modelFileName, string? error, CancellationToken cancellationToken)
+    {
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await AcquireStoreLockAsync(connection, transaction, cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<(string Owner, string Payload)>(new CommandDefinition(
+            "SELECT owner_id AS Owner, payload AS Payload FROM ty_works WHERE id = @Id",
+            new { Id = workId }, transaction: transaction, cancellationToken: cancellationToken));
+        if (row.Payload is null)
+        {
+            throw new InvalidOperationException("模型任务已失效");
+        }
+
+        var work = RestoreWork(workId, row.Owner, row.Payload);
+        if (modelFileName is not null)
+        {
+            work.CompleteModelGeneration(generationId, modelFileName);
+        }
+        else
+        {
+            work.FailModelGeneration(generationId, error ?? "");
+        }
+
+        var document = JsonNode.Parse(row.Payload) as JsonObject
+            ?? throw new JsonException("作品记录不是合法的 JSON 对象");
+        document["status"] = modelFileName is null ? "failed" : "model_ready";
+        document["model"] = work.Model;
+        document["note"] = work.Note;
+        var updated = document.ToJsonString();
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE ty_works SET payload = @Payload WHERE id = @Id",
+            new { Payload = updated, Id = workId },
+            transaction: transaction, cancellationToken: cancellationToken));
+        await transaction.CommitAsync(cancellationToken);
+        return JsonSerializer.Deserialize<WorkSnapshot>(updated)
+            ?? throw new JsonException("更新后的模型记录不是合法的 JSON 对象");
     }
 
     private static async Task AcquireStoreLockAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)

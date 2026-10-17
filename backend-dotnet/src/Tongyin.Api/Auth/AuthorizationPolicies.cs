@@ -14,4 +14,7 @@ public static class AuthorizationPolicies
     /// 管理员：必须通过独立的管理员令牌认证，不接受微信用户会话替代。
     /// </summary>
     public const string Admin = "Admin";
+
+    /// <summary>AI worker 结果回调：使用与微信、管理员完全独立的凭据验证。</summary>
+    public const string AiWebhook = "AiWebhook";
 }

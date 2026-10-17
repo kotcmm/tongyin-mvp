@@ -67,6 +67,7 @@ builder.Services.AddSingleton(services =>
 builder.Services.AddSingleton<IOriginalImageStore>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddSingleton<IOriginalImageReader>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
+builder.Services.AddScoped<IModelGenerationResultRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IWorkImageSelectionRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IStalledImageTasksReader, SqlStalledImageTasksReader>();
 builder.Services.AddScoped<ListStalledImageTasks>();
@@ -102,7 +103,17 @@ builder.Services.AddHttpClient<GeneratedImageDownloader>(client => client.Timeou
         PooledConnectionLifetime = TimeSpan.FromMinutes(1)
     });
 builder.Services.AddScoped<IGeneratedImageStore>(services => services.GetRequiredService<GeneratedImageDownloader>());
+builder.Services.AddHttpClient<GeneratedModelDownloader>(client => client.Timeout = TimeSpan.FromSeconds(90))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        UseProxy = false,
+        ConnectCallback = PublicImageNetworkPolicy.ConnectAsync,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+    });
+builder.Services.AddScoped<IGeneratedModelStore>(services => services.GetRequiredService<GeneratedModelDownloader>());
 builder.Services.AddScoped<SaveImageGenerationResult>();
+builder.Services.AddScoped<SaveModelGenerationResult>();
 builder.Services.AddScoped<ExecuteImageGeneration>();
 builder.Services.AddScoped<IQueuedImageGenerationReader, SqlQueuedImageGenerationReader>();
 builder.Services.AddScoped<DispatchQueuedImageGeneration>();
@@ -113,7 +124,9 @@ builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
         WechatSessionAuthenticationHandler.SchemeName, _ => { })
     .AddScheme<AuthenticationSchemeOptions, AdminTokenAuthenticationHandler>(
-        AdminTokenAuthenticationHandler.SchemeName, _ => { });
+        AdminTokenAuthenticationHandler.SchemeName, _ => { })
+    .AddScheme<AuthenticationSchemeOptions, AiWebhookAuthenticationHandler>(
+        AiWebhookAuthenticationHandler.SchemeName, _ => { });
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AuthorizationPolicies.Wechat, new AuthorizationPolicyBuilder(WechatSessionAuthenticationHandler.SchemeName)
@@ -121,6 +134,9 @@ builder.Services.AddAuthorization(options =>
         .AddRequirements(new EnabledWechatUserRequirement())
         .Build());
     options.AddPolicy(AuthorizationPolicies.Admin, new AuthorizationPolicyBuilder(AdminTokenAuthenticationHandler.SchemeName)
+        .RequireAuthenticatedUser()
+        .Build());
+    options.AddPolicy(AuthorizationPolicies.AiWebhook, new AuthorizationPolicyBuilder(AiWebhookAuthenticationHandler.SchemeName)
         .RequireAuthenticatedUser()
         .Build());
 });
