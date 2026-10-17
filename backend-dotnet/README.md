@@ -42,6 +42,41 @@
 
 基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键、缺表错误和特殊字符的参数化保存。Dapper 使用 `@参数` 绑定；通过 API 组合根接入 PostgreSQL 或 MySQL 连接工厂。尚未接入生产环境，也尚未验证与 Go 服务并发写入的行为。
 
+## 微信支付 V3（2026-10-17）
+
+本阶段实现 **JSAPI/小程序支付预下单 → wx.requestPayment → 官方异步支付通知 → 验签、AES 解密 → 订单原子入账** 的服务端链路，复用原 Go 的订单格式与环境变量。自动化测试的签名采用测试环境生成的临时 RSA 密钥，未连接真实微信商户。
+
+**接口**
+
+| 路由 | 授权 | 业务约束 |
+| --- | --- | --- |
+| `POST /api/orders/{id}/pay` | 微信小程序登录态 | 仅本人 `awaiting_payment` 订单；先在数据库事务中写入 `payment_started_at`，再向微信官方 `/v3/pay/transactions/jsapi` 创建预付订单；服务端采用订单原始 `price_fen` 和绑定 OpenID，不接受客户端修改金额；必须验证微信预下单应答 RSA 签名后才返回 `timeStamp`、`nonceStr`、`package`、`signType`、`paySign` |
+| `POST /api/pay/notify` | **公网匿名 HTTP 接口，仅信任微信平台 RSA 签名** | 限制请求体 1 MiB；校验 `Wechatpay-Timestamp`、`Wechatpay-Nonce`、`Wechatpay-Serial`、`Wechatpay-Signature`；原文参与签名；有效时间窗 5 分钟；使用商户 API V3 Key 对 `AEAD_AES_256_GCM` 资源解密；核实应用 AppID、商户号、订单号、实际金额和付款 OpenID；数据库事务内幂等更新状态 |
+
+**需要配置的服务端参数**（环境变量；不要提交到 Git）：
+
+```dotenv
+WX_MCH_ID=你的商户号
+WX_MCH_SERIAL=商户证书序列号
+WX_MCH_PRIVATE_KEY=/run/secrets/wechat_merchant_private.pem
+WX_PLATFORM_PUBLIC_KEY=/run/secrets/wechat_platform_public.pem
+WX_PLATFORM_SERIAL=对应微信平台公钥ID或证书序列号
+WX_PAY_API_V3_KEY=商户平台配置的32字节APIv3密钥
+WX_PAY_NOTIFY_URL=https://你的域名/api/pay/notify
+# WX_APP_ID=旧 Go AppID 备用项，优先读取 ty_system_settings 微信小程序 AppID
+```
+
+平台 PEM 支持微信支付平台**证书**或**平台公钥**格式，但 `WX_PLATFORM_SERIAL` 必须与实际验签公钥/证书匹配。预支付 API 连接固定的 `https://api.mch.weixin.qq.com`，不使用代理或自动重定向。商户证书/平台公钥必须安装在运行中的服务器并确保进程可读，私钥文件应设置最低必要文件权限。
+
+**状态与风险边界**
+
+- 成功点击小程序 `wx.requestPayment` **不等于实际到账**。只有验签成功、交易状态 `SUCCESS`、金额/OpenID/商户号/AppID 全部一致后才将订单设为 `paid`。
+- 微信可能重发通知：数据库保存 `wechat_transaction_id` 并对同一交易幂等处理；历史订单记录及其他 JSON 字段不会丢失。
+- **已取消订单意外收到真实付款**，状态更新为 `paid`、`refund_status=requested`，等待运营核实并在微信商户平台执行退款；**绝不代表退款已经完成**。
+- 网络超时或微信商户接口异常时，`payment_started_at` 保留，不允许直接取消可能已付款的订单；须核查微信交易状态。当前可使用同一个订单号重新发起预下单，但**尚未迁移微信主动查单与恢复流程**，这是上线前的阻塞项。
+- 当前自动测试验证加解密、API 鉴权、金额防篡改、回调幂等、安全取消及上游应答签名；**真实商户证书/微信回调/小程序真机付款必须另行联调**，测试通过不等于已真实收款。
+- 商户密钥、回调密文及签名不得写入应用日志或提交公开仓库历史。
+
 ## 收货地址与待付款订单主流程（2026-10-17）
 
 这阶段使用 **ASP.NET Core 强类型 DTO**，不使用 `JsonElement` 手动解析客户端业务请求。继承原 Go 接口约定和 `ty_addresses`、`ty_orders` 的 JSON 持久化格式；写入时与 Go/作品生成共用 `ty_store_lock` 事务锁。
