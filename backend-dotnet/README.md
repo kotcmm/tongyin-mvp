@@ -42,6 +42,25 @@
 
 基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键、缺表错误和特殊字符的参数化保存。Dapper 使用 `@参数` 绑定；通过 API 组合根接入 PostgreSQL 或 MySQL 连接工厂。尚未接入生产环境，也尚未验证与 Go 服务并发写入的行为。
 
+## 收货地址与待付款订单主流程（2026-10-17）
+
+这阶段使用 **ASP.NET Core 强类型 DTO**，不使用 `JsonElement` 手动解析客户端业务请求。继承原 Go 接口约定和 `ty_addresses`、`ty_orders` 的 JSON 持久化格式；写入时与 Go/作品生成共用 `ty_store_lock` 事务锁。
+
+| 客户端接口 | 行为 |
+| --- | --- |
+| `GET /api/shipping-address` | 本人默认地址；首次无地址时返回 `{"address":null}`；兼容最近一笔 Go 旧订单的收货快照 |
+| `PUT /api/shipping-address` | 验证 `name`、`phone`、`address`，写入本人唯一地址 |
+| `POST /api/orders` | 请求包含 `work_id`、`name`、`phone`、`address`；模型须 `model_ready` 且已保存 GLB；同一作品已有非取消订单则拒绝；创建 `awaiting_payment`，金额只取服务端 `PRODUCT_PRICE_FEN` |
+| `GET /api/orders` | 本人订单列表，最新优先 |
+| `GET /api/orders/{id}` | 订单详情；其他用户订单与不存在订单均返回 404 |
+| `GET /api/works/{id}/order` | 验证本人作品后查询有效订单，没有则返回 `{"order":null}` |
+| `PUT /api/orders/{id}/shipping-address` | 只改本人待付款订单的收货快照，不更改默认地址及订单价格 |
+| `POST /api/orders/{id}/cancel` | 只有未发起支付的待付款订单可取消；取消后允许重新创建订单 |
+
+订单中保存的是**创建时的收货地址快照**，后续修改默认地址不应改写已存在的订单。跨用户查询、恶意修改金额、重复下单、支付开始后取消、已支付订单修改地址等边界均有自动化测试。
+
+**目前未完成**：微信支付 JSAPI 下单及验签回调、订单生产/物流、取消后的真实退款、尺寸和数量可选项。这里的 `awaiting_payment` 严格表示**待付款**，不能用 API 测试成功代替真实微信支付联调。完整业务必须另行配置微信商户资料并做真机验收。
+
 ## 已接通的图片确认与 3D 模型 Worker 链路（2026-10-17）
 
 - **图片确认**：`POST /api/works/{id}/select` 使用微信授权，接受 `{"index":0}`；只允许本人已生成候选图的作品进入 `model_pending`，原子持久化状态并清理旧的预览/模型字段。旧多图记录自动规范为一张。用户可继续通过 `GET /api/works/{id}` 轮询。
