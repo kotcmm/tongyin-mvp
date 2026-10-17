@@ -7,7 +7,7 @@ using Tongyin.Infrastructure.Media;
 namespace Tongyin.Infrastructure.Ai;
 
 /// <summary>调用原 Go 约定的异步 3D worker 协议，不暴露密钥或模型任务详情到日志。</summary>
-public sealed class ModelWorkerClient(HttpClient httpClient, GoAiKeyDecryptor decryptor, LocalMediaStore media, IConfiguration configuration) : IModelWorkerClient
+public sealed class ModelWorkerClient(HttpClient httpClient, GoAiKeyDecryptor decryptor, LocalMediaStore media, string publicUrl) : IModelWorkerClient
 {
     /// <summary>提交模型任务，发送确认图片签名地址和安全回调 URL；结果由独立回调保存。</summary>
     public async Task SubmitAsync(AiGenerationSettings settings, WorkSnapshot work, CancellationToken cancellationToken = default)
@@ -24,7 +24,6 @@ public sealed class ModelWorkerClient(HttpClient httpClient, GoAiKeyDecryptor de
 
         var provider = settings.Provider!;
         var endpoint = RequirePublicHttpsUri(provider.Endpoint);
-        var publicUrl = configuration["PUBLIC_URL"];
         if (!Uri.TryCreate(publicUrl, UriKind.Absolute, out var callbackBase)
             || callbackBase.Scheme != Uri.UriSchemeHttps || callbackBase.UserInfo.Length != 0)
         {

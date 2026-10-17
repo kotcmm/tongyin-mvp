@@ -115,7 +115,7 @@ builder.Services.AddHttpClient<GeneratedModelDownloader>(client => client.Timeou
         PooledConnectionLifetime = TimeSpan.FromMinutes(1)
     });
 builder.Services.AddScoped<IGeneratedModelStore>(services => services.GetRequiredService<GeneratedModelDownloader>());
-builder.Services.AddHttpClient<ModelWorkerClient>(client => client.Timeout = TimeSpan.FromSeconds(20))
+builder.Services.AddHttpClient("model-worker", client => client.Timeout = TimeSpan.FromSeconds(20))
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
     {
         AllowAutoRedirect = false,
@@ -123,7 +123,11 @@ builder.Services.AddHttpClient<ModelWorkerClient>(client => client.Timeout = Tim
         ConnectCallback = PublicImageNetworkPolicy.ConnectAsync,
         PooledConnectionLifetime = TimeSpan.FromMinutes(1)
     });
-builder.Services.AddScoped<IModelWorkerClient>(services => services.GetRequiredService<ModelWorkerClient>());
+builder.Services.AddScoped<IModelWorkerClient>(services => new ModelWorkerClient(
+    services.GetRequiredService<IHttpClientFactory>().CreateClient("model-worker"),
+    services.GetRequiredService<GoAiKeyDecryptor>(),
+    services.GetRequiredService<LocalMediaStore>(),
+    services.GetRequiredService<IConfiguration>()["PUBLIC_URL"] ?? ""));
 builder.Services.AddScoped<SaveImageGenerationResult>();
 builder.Services.AddScoped<SaveModelGenerationResult>();
 builder.Services.AddScoped<ExecuteImageGeneration>();
