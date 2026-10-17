@@ -229,6 +229,45 @@ public sealed class CheckoutEndpointTests
         Assert.Equal(2, app.Count("ty_orders"));
     }
 
+    /// <summary>即使客户请求包含伪造金额或已付款状态，订单也必须使用服务端价格和待付款状态。</summary>
+    [Fact]
+    public async Task Order_ClientSuppliedPriceAndStatus_CannotChangeAuthoritativeOrder()
+    {
+        using var app = new CheckoutApiFactory();
+        app.SeedUser("owner-1");
+        app.SeedWork("work-1", "owner-1", "model_ready");
+        using var client = app.CreateClient();
+        using var request = Auth("owner-1", HttpMethod.Post, "/api/orders", new
+        {
+            work_id = "work-1", name = ValidName, phone = ValidPhone, address = ValidAddress,
+            price_fen = 1, status = "paid", owner = "owner-2"
+        });
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(12900, document.RootElement.GetProperty("price_fen").GetInt32());
+        Assert.Equal("awaiting_payment", document.RootElement.GetProperty("status").GetString());
+        Assert.False(document.RootElement.TryGetProperty("owner", out _));
+    }
+
+    /// <summary>他人无法通过作品订单查询接口窃取收货地址。</summary>
+    [Fact]
+    public async Task WorkOrder_AnotherOwner_ReturnsNotFound()
+    {
+        using var app = new CheckoutApiFactory();
+        app.SeedUser("owner-1");
+        app.SeedUser("owner-2");
+        app.SeedWork("work-1", "owner-1", "model_ready");
+        using var client = app.CreateClient();
+        using var request = Auth("owner-2", HttpMethod.Get, "/api/works/work-1/order");
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private static HttpRequestMessage Auth(string owner, HttpMethod method, string path, object? body = null)
     {
         var expires = DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeSeconds();
