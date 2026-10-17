@@ -2,7 +2,7 @@ using System.Data.Common;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Tongyin.Api.Auth;
-using Tongyin.Api.Services;
+using Tongyin.Api.Hosting;
 using MySqlConnector;
 using Npgsql;
 using Tongyin.Application.Ai;

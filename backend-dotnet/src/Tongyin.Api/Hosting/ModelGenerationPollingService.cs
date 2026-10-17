@@ -1,6 +1,6 @@
 using Tongyin.Application.Works;
 
-namespace Tongyin.Api.Services;
+namespace Tongyin.Api.Hosting;
 
 /// <summary>轮询模型生成队列，后台提交异步 worker 请求；已认领任务绝不自动重新提交。</summary>
 public sealed class ModelGenerationPollingService(IServiceScopeFactory scopeFactory, IConfiguration configuration, ILogger<ModelGenerationPollingService> logger) : BackgroundService

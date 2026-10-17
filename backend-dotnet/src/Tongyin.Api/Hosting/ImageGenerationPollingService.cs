@@ -2,7 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Tongyin.Application.Works;
 using Tongyin.Application.Ai;
 
-namespace Tongyin.Api.Services;
+namespace Tongyin.Api.Hosting;
 
 /// <summary>
 /// 图片生成后台轮询宿主；按数据库服务商启用状态动态控制派发，不自动解除认领或重试。
