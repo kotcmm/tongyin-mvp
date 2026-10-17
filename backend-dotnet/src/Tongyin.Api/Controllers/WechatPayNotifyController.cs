@@ -1,7 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Tongyin.Api.Services;
 using Tongyin.Application.Payments;
 using Tongyin.Infrastructure.Payments;
 

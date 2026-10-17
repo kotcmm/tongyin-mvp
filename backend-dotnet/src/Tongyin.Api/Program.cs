@@ -89,7 +89,9 @@ builder.Services.AddScoped<CheckoutService>();
 builder.Services.AddScoped<IPaymentOrderRepository, SqlPaymentOrderRepository>();
 builder.Services.AddScoped<StartWechatPayment>();
 builder.Services.AddScoped<ConfirmWechatPayment>();
-builder.Services.AddScoped<WechatPaymentAppIdResolver>();
+builder.Services.AddScoped(services => new WechatPaymentAppIdResolver(
+    services.GetRequiredService<IWechatAppSettingsStore>(),
+    services.GetRequiredService<WechatPayConfiguration>().AppId));
 builder.Services.AddSingleton(services =>
 {
     var configuration = services.GetRequiredService<IConfiguration>();

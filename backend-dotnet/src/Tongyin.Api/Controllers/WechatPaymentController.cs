@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
-using Tongyin.Api.Services;
 using Tongyin.Application.Payments;
 
 namespace Tongyin.Api.Controllers;
