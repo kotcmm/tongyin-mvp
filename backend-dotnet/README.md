@@ -42,6 +42,17 @@
 
 基础设施测试使用独立 SQLite 文件模拟同一表结构，覆盖真实插入、重复主键、缺表错误和特殊字符的参数化保存。Dapper 使用 `@参数` 绑定；通过 API 组合根接入 PostgreSQL 或 MySQL 连接工厂。尚未接入生产环境，也尚未验证与 Go 服务并发写入的行为。
 
+## 已接通的图片确认与 3D 模型 Worker 链路（2026-10-17）
+
+- **图片确认**：`POST /api/works/{id}/select` 使用微信授权，接受 `{"index":0}`；只允许本人已生成候选图的作品进入 `model_pending`，原子持久化状态并清理旧的预览/模型字段。旧多图记录自动规范为一张。用户可继续通过 `GET /api/works/{id}` 轮询。
+- **队列与派发**：模型队列只扫描 .NET 确认图片后写入标记的 `model_pending` 作品；使用 `ty_store_lock` 原子认领，设置 `ai_execution_claim_id`、`ai_task_stage=model`、`ai_started_at`、`ai_provider_id` 与提示词版本。相同生成编号只能认领一次。
+- **外部 worker 适配器**：从原 Go 的 `ty_ai_providers` 中动态读取启用的默认 `stage=model, adapter=worker` 服务商及 `ty_ai_prompts` 提示词。按照 Go worker 协议提交 `work_id`、`stage=model`、`generation_id`、`source_url`（已确认图片的签名访问链接）、`callback_url`、`instructions`、`prompt_version` 与 `model`。使用现有加密格式解密 API Key，只在 worker 的 Authorization 头传输。
+- **Worker 回调**：`POST /api/internal/ai-result` 使用独立的 `X-AI-Token` ASP.NET Core 认证（环境变量 `AI_WEBHOOK_TOKEN`）。接受 `{"work_id":"…","stage":"model","generation_id":"…","model_url":"https://…"}` 或 `error` 失败通知。过期、重复、错误状态回调拒绝；下载并验证 GLB 后原子保存到 `ty_works`，状态进入 `model_ready`；失败仅变更为 `failed` 并保留已确认图片。数据库回写失败会回收刚下载的模型文件。
+- **GLB 安全限制**：只从公网 HTTPS 下载，不接受重定向或内网 IP，最大 100 MiB；校验 glTF 2.0 文件头、声明长度和 JSON 块，再持久化到 `DATA_DIR/media`。原签名媒体接口会提供 `model/gltf-binary` MIME 类型，小程序沿用 `model` 签名 URL 预览。
+- **部署必要条件**：`PUBLIC_URL` 必须是可从公网访问、使用标准 443 端口的 HTTPS 根地址；`AI_WEBHOOK_TOKEN` 必须配置到 worker 回调请求头；启用的默认模型服务商必须有有效 worker HTTPS endpoint 和可被 `SESSION_SECRET` 解密的 API Key。模型调度轮询间隔通过 `AI_MODEL_DISPATCH_POLL_SECONDS` 设置（默认 5 秒）。
+- **故障边界**：模型 worker 若连接超时或返回非 2xx，可能已接受计费请求；出于防重复计费，任务保留已认领标记，**不会自动再次调用 worker**。需要补充管理员人工核查/恢复入口；此项尚未完成。未配置 worker 时图片确认只进入待处理队列，并**不等于实际生成 3D 成功**。
+- **当前尚未完成**：真实外部 3D 提供商联调、GLB 真机渲染验收、异常任务后台核查，以及后续订单支付/履约等 MVP 链路。本轮测试均使用模拟 worker 或测试数据库，不代表真实生成服务商已经可用。
+
 ## 小程序公开配置（.NET）
 
 `GET /api/config` 允许小程序不带登录态读取四个字段，与旧 Go 响应一致：
