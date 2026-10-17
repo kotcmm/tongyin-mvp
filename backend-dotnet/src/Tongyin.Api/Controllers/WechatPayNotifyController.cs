@@ -66,6 +66,10 @@ public sealed class WechatPayNotifyController(ConfirmWechatPayment confirmation,
             await confirmation.ExecuteAsync(body, timestamp, nonce, signature, serial, appId, cancellationToken);
             return Ok(new { code = "SUCCESS", message = "成功" });
         }
+        catch (PaymentNotificationValidationException)
+        {
+            return Unauthorized(new { code = "FAIL", message = "支付通知验签失败" });
+        }
         catch (InvalidOperationException)
         {
             // 验签失败、商户和订单信息不符都不得回 200，微信可安全重发以待核查。

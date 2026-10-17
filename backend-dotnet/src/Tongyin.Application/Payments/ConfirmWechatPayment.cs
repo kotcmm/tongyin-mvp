@@ -6,7 +6,15 @@ public sealed class ConfirmWechatPayment(IPaymentOrderRepository repository, IWe
     /// <summary>收到原始通知报文后核实交易，并将实际入账写成 paid 或标记待退款。</summary>
     public async Task<PaymentConfirmationResult?> ExecuteAsync(string rawBody, string timestamp, string nonce, string signature, string serial, string expectedAppId, CancellationToken cancellationToken = default)
     {
-        var notification = verifier.Verify(rawBody, timestamp, nonce, signature, serial);
+        VerifiedPaymentNotification? notification;
+        try
+        {
+            notification = verifier.Verify(rawBody, timestamp, nonce, signature, serial);
+        }
+        catch (InvalidOperationException error)
+        {
+            throw new PaymentNotificationValidationException("微信支付平台通知验证失败", error);
+        }
         if (notification is null)
         {
             return null;
