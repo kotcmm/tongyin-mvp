@@ -9,6 +9,8 @@ using Tongyin.Application.Ai;
 using Tongyin.Application.Auth;
 using Tongyin.Application.Checkout;
 using Tongyin.Application.Works;
+using Tongyin.Application.Payments;
+using Tongyin.Infrastructure.Payments;
 using Tongyin.Infrastructure.Auth;
 using Tongyin.Infrastructure.Checkout;
 using Tongyin.Infrastructure.Media;
@@ -84,6 +86,29 @@ builder.Services.AddScoped<LoginWechat>();
 builder.Services.AddScoped<GetWechatProfile>();
 builder.Services.AddScoped<ICheckoutRepository, SqlCheckoutRepository>();
 builder.Services.AddScoped<CheckoutService>();
+builder.Services.AddScoped<IPaymentOrderRepository, SqlPaymentOrderRepository>();
+builder.Services.AddScoped<StartWechatPayment>();
+builder.Services.AddScoped<ConfirmWechatPayment>();
+builder.Services.AddScoped<WechatPaymentAppIdResolver>();
+builder.Services.AddSingleton(services =>
+{
+    var configuration = services.GetRequiredService<IConfiguration>();
+    return new WechatPayConfiguration
+    {
+        AppId = configuration["WX_APP_ID"] ?? "",
+        MchId = configuration["WX_MCH_ID"] ?? "",
+        MerchantSerial = configuration["WX_MCH_SERIAL"] ?? "",
+        MerchantPrivateKeyPath = configuration["WX_MCH_PRIVATE_KEY"] ?? "",
+        PlatformPublicKeyPath = configuration["WX_PLATFORM_PUBLIC_KEY"] ?? "",
+        PlatformSerial = configuration["WX_PLATFORM_SERIAL"] ?? "",
+        ApiV3Key = configuration["WX_PAY_API_V3_KEY"] ?? "",
+        NotifyUrl = configuration["WX_PAY_NOTIFY_URL"] ?? ""
+    };
+});
+builder.Services.AddHttpClient<WechatPayV3Gateway>(client => client.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false });
+builder.Services.AddScoped<IWechatPayGateway>(services => services.GetRequiredService<WechatPayV3Gateway>());
+builder.Services.AddScoped<IWechatPayNotificationVerifier, WechatPayV3NotificationVerifier>();
 builder.Services.AddScoped<CreateWork>();
 builder.Services.AddScoped<StartImageGeneration>();
 builder.Services.AddScoped<SelectWorkImage>();
