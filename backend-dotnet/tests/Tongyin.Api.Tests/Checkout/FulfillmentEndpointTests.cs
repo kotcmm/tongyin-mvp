@@ -178,6 +178,7 @@ public sealed class FulfillmentEndpointTests
             db.Execute("""
                 CREATE TABLE ty_users(id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
                 CREATE TABLE ty_orders(id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
+                CREATE TABLE ty_audit(id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);
                 CREATE TABLE ty_store_lock(id INTEGER PRIMARY KEY);
                 INSERT INTO ty_store_lock(id) VALUES(1);
                 """);

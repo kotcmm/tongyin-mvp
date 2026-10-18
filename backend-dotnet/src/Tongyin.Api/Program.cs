@@ -86,6 +86,8 @@ builder.Services.AddScoped<LoginWechat>();
 builder.Services.AddScoped<GetWechatProfile>();
 builder.Services.AddScoped<ICheckoutRepository, SqlCheckoutRepository>();
 builder.Services.AddScoped<CheckoutService>();
+builder.Services.AddScoped<IOrderFulfillmentRepository, SqlOrderFulfillmentRepository>();
+builder.Services.AddScoped<OrderFulfillmentService>();
 builder.Services.AddScoped<IPaymentOrderRepository, SqlPaymentOrderRepository>();
 builder.Services.AddScoped<StartWechatPayment>();
 builder.Services.AddScoped<ConfirmWechatPayment>();
