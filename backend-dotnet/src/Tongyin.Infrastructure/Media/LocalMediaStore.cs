@@ -10,7 +10,7 @@ namespace Tongyin.Infrastructure.Media;
 /// <summary>
 /// 管理本地图片存储以及带签名的媒体访问。
 /// </summary>
-public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader
+public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader, IModelUploadStore
 {
     /// <summary>单个 GLB 模型最大体积为 100 MiB。</summary>
     public const long MaxGlbBytes = 100L * 1024 * 1024;

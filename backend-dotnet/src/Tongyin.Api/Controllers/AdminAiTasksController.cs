@@ -13,7 +13,7 @@ namespace Tongyin.Api.Controllers;
 [ApiController]
 [Route("api/admin/ai")]
 [AdminAuthorize]
-public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, ReviewStalledImageTask review) : ControllerBase
+public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, ReviewStalledImageTask review, ListStalledModelTasks listModels, ReviewStalledModelTask reviewModels) : ControllerBase
 {
     /// <summary>
     /// 查询认领超过 15 分钟仍未完成的图片任务；不改变状态、不触发模型计费。
@@ -69,6 +69,74 @@ public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, Revi
         {
             await using var stream = request.File.OpenReadStream();
             var result = await review.CompleteFromUploadAsync(
+                workId, request.GenerationId ?? "", User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "",
+                request.Reason ?? "", stream, request.File.Length, cancellationToken);
+            return Ok(new { status = result.Status, generation_id = result.GenerationId });
+        }
+        catch (InvalidDataException exception)
+        {
+            return BadRequest(new { error = exception.Message });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { error = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { error = exception.Message });
+        }
+    }
+
+
+    /// <summary>列出已认领超过 15 分钟且仍处于模型生成阶段的任务，不触发重试或收费。</summary>
+    [HttpGet("stalled-model-tasks")]
+    public async Task<IActionResult> GetStalledModelsAsync(CancellationToken cancellationToken)
+    {
+        var tasks = await listModels.ExecuteAsync(DateTimeOffset.UtcNow.AddMinutes(-15), 100, cancellationToken);
+        return Ok(tasks);
+    }
+
+    /// <summary>人工确认当前超时模型任务确实失败，保留家长已选择的卡通图片并记录审计。</summary>
+    [HttpPost("stalled-model-tasks/{workId}/fail")]
+    public async Task<IActionResult> ConfirmModelFailureAsync([FromRoute] string workId, [FromBody] AdminModelFailureReviewRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await reviewModels.ConfirmFailureAsync(
+                workId, request.GenerationId ?? "", User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "",
+                request.Reason ?? "", cancellationToken);
+            return Ok(new { status = result.Status, generation_id = result.GenerationId });
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { error = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { error = exception.Message });
+        }
+    }
+
+    /// <summary>管理员提交经人工核实的实际 GLB 模型，文件校验通过且任务仍未更新时才回写。</summary>
+    [HttpPost("stalled-model-tasks/{workId}/complete")]
+    [RequestSizeLimit(105L * 1024 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = 105L * 1024 * 1024)]
+    public async Task<IActionResult> ConfirmModelAsync([FromRoute] string workId, [FromForm] AdminModelCompletionReviewRequest request, CancellationToken cancellationToken)
+    {
+        if (request.File is null || request.File.Length == 0)
+        {
+            return BadRequest(new { error = "需要上传真实 GLB 模型" });
+        }
+
+        if (request.File.Length > 100L * 1024 * 1024)
+        {
+            return StatusCode(StatusCodes.Status413PayloadTooLarge, new { error = "GLB 模型最多 100 MiB" });
+        }
+
+        try
+        {
+            await using var stream = request.File.OpenReadStream();
+            var result = await reviewModels.CompleteFromUploadAsync(
                 workId, request.GenerationId ?? "", User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "",
                 request.Reason ?? "", stream, request.File.Length, cancellationToken);
             return Ok(new { status = result.Status, generation_id = result.GenerationId });

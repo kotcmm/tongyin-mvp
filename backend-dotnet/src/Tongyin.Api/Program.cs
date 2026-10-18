@@ -69,6 +69,7 @@ builder.Services.AddSingleton(services =>
         configuration["SESSION_SECRET"]!);
 });
 builder.Services.AddSingleton<IOriginalImageStore>(services => services.GetRequiredService<LocalMediaStore>());
+builder.Services.AddSingleton<IModelUploadStore>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddSingleton<IOriginalImageReader>(services => services.GetRequiredService<LocalMediaStore>());
 builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<IModelGenerationResultRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
@@ -77,6 +78,10 @@ builder.Services.AddScoped<IQueuedModelGenerationReader, SqlQueuedModelGeneratio
 builder.Services.AddScoped<DispatchQueuedModelGeneration>();
 builder.Services.AddScoped<IWorkImageSelectionRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IStalledImageTasksReader, SqlStalledImageTasksReader>();
+builder.Services.AddScoped<IStalledModelTasksReader, SqlStalledModelTasksReader>();
+builder.Services.AddScoped<ListStalledModelTasks>();
+builder.Services.AddScoped<IAdminModelReviewRepository, SqlAdminModelReviewRepository>();
+builder.Services.AddScoped<ReviewStalledModelTask>();
 builder.Services.AddScoped<ListStalledImageTasks>();
 builder.Services.AddScoped<IAdminImageReviewRepository, SqlAdminImageReviewRepository>();
 builder.Services.AddScoped<ReviewStalledImageTask>();
