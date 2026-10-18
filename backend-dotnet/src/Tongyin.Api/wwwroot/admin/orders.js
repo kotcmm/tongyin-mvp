@@ -7,7 +7,7 @@ const statusLabels = {
   awaiting_payment: '待付款', paid: '已支付', printing: '制作中',
   shipped: '已发货', completed: '已完成', canceled: '已取消'
 };
-const state = { token: '', tab: 'orders', orders: [], page: 1, pageSize: 12, busy: false };
+const state = { token: '', tab: 'orders', orders: [], works: [], page: 1, pageSize: 12, busy: false };
 
 async function api(path, options = {}) {
   const headers = { 'X-Admin-Token': state.token, ...(options.headers || {}) };
@@ -30,6 +30,7 @@ function toast(message) {
 function logout() {
   state.token = '';
   state.orders = [];
+  state.works = [];
   $('adminToken').value = '';
   $('app').classList.add('hidden');
   $('loginWrap').classList.remove('hidden');
@@ -46,11 +47,13 @@ function setBusy(value) {
 async function reload() {
   if (!state.token || state.busy) return;
   setBusy(true);
-  $('pageMessage').textContent = '正在读取最新订单…';
+  $('pageMessage').textContent = state.tab === 'works' ? '正在读取最新作品…' : '正在读取最新订单…';
   try {
-    const orders = await api('/api/admin/orders');
-    if (!Array.isArray(orders)) throw new Error('订单列表响应格式异常');
-    state.orders = orders;
+    const worksMode = state.tab === 'works';
+    const records = await api(worksMode ? '/api/admin/works' : '/api/admin/orders');
+    if (!Array.isArray(records)) throw new Error(worksMode ? '作品列表响应格式异常' : '订单列表响应格式异常');
+    if (worksMode) state.works = records;
+    else state.orders = records;
     $('lastLoaded').textContent = new Date().toLocaleTimeString();
     $('pageMessage').textContent = '';
     render();
@@ -79,6 +82,49 @@ async function login(event) {
   }
 }
 
+// 作品按真实状态及作品编号检索，不依赖微信 OpenID。
+const workStatusLabels = {
+  image_pending: '正在生成形象', image_ready: '形象待确认',
+  model_pending: '正在生成模型', model_ready: '模型已完成', failed: '处理失败'
+};
+
+function filteredWorks() {
+  const keyword = $('keyword').value.trim().toLowerCase();
+  const chosenStatus = $('statusFilter').value;
+  return state.works.filter((work) => {
+    if (chosenStatus && work.status !== chosenStatus) return false;
+    const fields = [work.id, work.status, work.owner_user_id, work.note, work.generation_id];
+    return !keyword || fields.some((field) => String(field ?? '').toLowerCase().includes(keyword));
+  });
+}
+
+function signedImage(url, alt) {
+  if (!url) return '<span class="muted small">尚未生成</span>';
+  const safe = h(url);
+  return '<a target="_blank" rel="noopener noreferrer" href="' + safe + '">' +
+    '<img class="preview" loading="lazy" alt="' + h(alt) + '" src="' + safe + '"></a>';
+}
+
+function workCard(work) {
+  const selected = Number(work.selected);
+  const candidates = Array.isArray(work.candidates) ? work.candidates : [];
+  const previews = Array.isArray(work.preview) ? work.preview : [];
+  const model = work.model
+    ? '<a target="_blank" rel="noopener noreferrer" download href="' + h(work.model) + '">下载 GLB 模型</a>'
+    : '<span class="muted small">尚未生成 GLB</span>';
+  const note = work.note ? '<p class="small muted">备注：' + h(work.note) + '</p>' : '';
+  const attempts = Number.isFinite(Number(work.image_attempts)) ? work.image_attempts : 0;
+  return '<article class="card"><div class="card-header"><div><strong>作品 #' + h(work.id) +
+    '</strong>　<span class="pill">' + h(workStatusLabels[work.status] || work.status) + '</span></div>' +
+    '<span class="small muted">' + h(String(work.created_at || '').replace('T', ' ').slice(0, 19)) + '</span></div>' +
+    '<p class="meta">图片生成次数：' + h(attempts) + '　·　已选形象：' +
+    (selected >= 0 ? h(selected + 1) : '未确认') + '</p>' +
+    '<div class="grid"><div class="step"><h4>① 原始画作</h4>' + signedImage(work.original, '儿童原始画作') + '</div>' +
+    '<div class="step"><h4>② AI 形象</h4>' + signedImage(candidates[0] || '', 'AI 生成形象') + '</div>' +
+    '<div class="step"><h4>③ GLB 白模</h4>' + (previews[0] ? signedImage(previews[0], '三维模型预览') + '<div>' + model + '</div>' : model) +
+    '</div></div>' + note + '</article>';
+}
+
 function filteredOrders() {
   const keyword = $('keyword').value.trim().toLowerCase();
   const chosenStatus = $('statusFilter').value;
@@ -92,13 +138,14 @@ function filteredOrders() {
 }
 
 function render() {
-  const rows = filteredOrders();
+  const worksMode = state.tab === 'works';
+  const rows = worksMode ? filteredWorks() : filteredOrders();
   const pageCount = Math.max(1, Math.ceil(rows.length / state.pageSize));
   state.page = Math.min(state.page, pageCount);
   const begin = (state.page - 1) * state.pageSize;
   $('listResults').innerHTML = rows.length
-    ? rows.slice(begin, begin + state.pageSize).map(orderCard).join('')
-    : '<div class="note">暂无符合条件的订单。</div>';
+    ? rows.slice(begin, begin + state.pageSize).map(worksMode ? workCard : orderCard).join('')
+    : '<div class="note">暂无符合条件的' + (worksMode ? '作品' : '订单') + '。</div>';
   $('pagerText').textContent = rows.length + ' 条 · 第 ' + state.page + '/' + pageCount + ' 页';
   $('previous').disabled = state.page <= 1;
   $('next').disabled = state.page >= pageCount;
@@ -131,16 +178,23 @@ function orderCard(o) {
 }
 
 function openTab(tab) {
-  if (!['orders', 'shipping'].includes(tab)) return;
+  if (!['works', 'orders', 'shipping'].includes(tab)) return;
   state.tab = tab;
   state.page = 1;
   $('keyword').value = '';
-  $('statusFilter').value = '';
-  $('pageTitle').textContent = tab === 'shipping' ? '物流发货' : '全部订单';
-  $('pageIntro').textContent = tab === 'shipping' ? '制作中、已发货及已完成订单' : '收款后制作 → 核实运单 → 发货';
+  const filter = $('statusFilter');
+  filter.innerHTML = tab === 'works'
+    ? '<option value="">全部状态</option>' +
+      Object.entries(workStatusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('')
+    : '<option value="">全部状态</option>' +
+      Object.entries(statusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('');
+  $('pageTitle').textContent = tab === 'works' ? '作品管理' : tab === 'shipping' ? '物流发货' : '全部订单';
+  $('pageIntro').textContent = tab === 'works' ? '原画 → AI 形象 → GLB 白模，当前为只读核查' :
+    tab === 'shipping' ? '制作中、已发货及已完成订单' : '收款后制作 → 核实运单 → 发货';
   document.querySelectorAll('[data-tab]').forEach((node) =>
     node.classList.toggle('active', node.dataset.tab === tab));
-  render();
+  // 切换时重新读取相应业务数据，避免作品页和订单页使用彼此的缓存。
+  reload().catch((error) => toast(error.message));
 }
 
 async function requestChange(path, body) {

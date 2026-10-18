@@ -124,6 +124,8 @@ builder.Services.AddSingleton(services =>
     return new MiniappBusinessSettings(priceFen, freeImageAttempts);
 });
 builder.Services.AddScoped<ListWorks>();
+builder.Services.AddScoped<IAdminWorksReader, SqlAdminWorksReader>();
+builder.Services.AddScoped<ListAdminWorks>();
 builder.Services.AddScoped<GetWork>();
 builder.Services.AddScoped<IAiGenerationSettingsReader, SqlAiGenerationSettingsReader>();
 builder.Services.AddSingleton(services =>
