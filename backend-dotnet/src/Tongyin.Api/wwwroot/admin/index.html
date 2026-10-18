@@ -26,6 +26,7 @@
       <div class="brand"><strong>童印<span style="color:#e58160">.</span></strong><small>订单履约管理</small></div>
       <nav aria-label="运营功能导航">
         <button type="button" class="nav-item" data-tab="works"><span class="glyph">▣</span>作品管理</button>
+        <button type="button" class="nav-item" data-tab="review"><span class="glyph">⚑</span>超时图片任务</button>
         <button type="button" class="nav-item active" data-tab="orders"><span class="glyph">▤</span>全部订单</button>
         <button type="button" class="nav-item" data-tab="shipping"><span class="glyph">◇</span>物流发货</button>
       </nav>
@@ -43,6 +44,10 @@
         <div class="row"><button id="refresh" type="button" class="ghost">刷新当前数据 ↻</button><span id="lastLoaded" class="small muted"></span></div>
       </div>
       <div class="panel">
+        <div id="reviewNotice" class="note hidden" style="margin-bottom:18px">
+          只列出已认领超过 15 分钟但仍未完成的图片生成任务。超时不等于失败，必须先核查模型服务商的实际结果；
+          仅能人工确认失败或上传服务商已生成的真实图片。本页不自动重试、不重新计费，也不处理 3D 模型异常。
+        </div>
         <div class="toolbar">
           <label class="sr-only" for="keyword">搜索订单</label>
           <input id="keyword" type="search" placeholder="订单编号、作品、收件人、快递单号">

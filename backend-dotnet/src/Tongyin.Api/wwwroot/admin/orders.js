@@ -7,7 +7,7 @@ const statusLabels = {
   awaiting_payment: '待付款', paid: '已支付', printing: '制作中',
   shipped: '已发货', completed: '已完成', canceled: '已取消'
 };
-const state = { token: '', tab: 'orders', orders: [], works: [], page: 1, pageSize: 12, busy: false };
+const state = { token: '', tab: 'orders', orders: [], works: [], reviews: [], page: 1, pageSize: 12, busy: false };
 
 async function api(path, options = {}) {
   const headers = { 'X-Admin-Token': state.token, ...(options.headers || {}) };
@@ -31,6 +31,7 @@ function logout() {
   state.token = '';
   state.orders = [];
   state.works = [];
+  state.reviews = [];
   $('adminToken').value = '';
   $('app').classList.add('hidden');
   $('loginWrap').classList.remove('hidden');
@@ -47,12 +48,17 @@ function setBusy(value) {
 async function reload() {
   if (!state.token || state.busy) return;
   setBusy(true);
-  $('pageMessage').textContent = state.tab === 'works' ? '正在读取最新作品…' : '正在读取最新订单…';
+  $('pageMessage').textContent = state.tab === 'works' ? '正在读取最新作品…' :
+    state.tab === 'review' ? '正在读取超时图片任务…' : '正在读取最新订单…';
   try {
     const worksMode = state.tab === 'works';
-    const records = await api(worksMode ? '/api/admin/works' : '/api/admin/orders');
-    if (!Array.isArray(records)) throw new Error(worksMode ? '作品列表响应格式异常' : '订单列表响应格式异常');
-    if (worksMode) state.works = records;
+    const reviewMode = state.tab === 'review';
+    const route = reviewMode ? '/api/admin/ai/stalled-image-tasks' :
+      worksMode ? '/api/admin/works' : '/api/admin/orders';
+    const records = await api(route);
+    if (!Array.isArray(records)) throw new Error('列表响应格式异常');
+    if (reviewMode) state.reviews = records;
+    else if (worksMode) state.works = records;
     else state.orders = records;
     $('lastLoaded').textContent = new Date().toLocaleTimeString();
     $('pageMessage').textContent = '';
@@ -125,6 +131,113 @@ function workCard(work) {
     '</div></div>' + note + '</article>';
 }
 
+// 只展示真实已认领且超时的图片任务，由服务端再次校验当前状态和任务编号。
+function filteredReviews() {
+  const keyword = $('keyword').value.trim().toLowerCase();
+  return state.reviews.filter((task) => {
+    const values = [task.work_id, task.generation_id, task.provider_id];
+    return !keyword || values.some((value) => String(value ?? '').toLowerCase().includes(keyword));
+  });
+}
+
+function reviewCard(task) {
+  const workId = h(task.work_id);
+  const generationId = h(task.generation_id);
+  const started = h(String(task.started_at || '').replace('T', ' ').slice(0, 19));
+  const provider = h(task.provider_id || '未记录');
+  const legacy = task.is_legacy_go ? '旧 Go 任务' : '.NET 任务';
+  return '<article class="card"><div class="card-header">' +
+    '<strong>超时作品 #' + workId + '</strong><span class="pill warning">' + h(legacy) + '</span></div>' +
+    '<p class="meta">任务编号：' + generationId + '</p>' +
+    '<p class="meta">开始时间：' + started + '　·　服务商：' + provider +
+    '　·　图片生成次数：' + h(task.image_attempts) + '</p>' +
+    '<div class="row" style="margin-top:14px">' +
+    '<button type="button" class="danger" data-action="review-fail" data-id="' + workId +
+    '" data-generation="' + generationId + '">已核实失败</button>' +
+    '<button type="button" data-action="review-complete" data-id="' + workId +
+    '" data-generation="' + generationId + '">补录真实图片</button></div></article>';
+}
+
+function openReview(taskId, generationId, mode) {
+  const complete = mode === 'review-complete';
+  const title = complete ? '补录已生成图片' : '确认图片任务失败';
+  const file = complete
+    ? '<label for="reviewFile">服务商实际生成的图片</label>' +
+      '<input id="reviewFile" name="file" type="file" accept="image/png,image/jpeg,image/webp" required>' +
+      '<p class="small muted">仅支持 PNG/JPG/WebP，最大 10 MiB。不得上传与原任务无关的图片。</p>'
+    : '';
+  $('modalContainer').innerHTML = '<div class="modal-back">' +
+    '<form class="modal" id="reviewForm">' +
+    '<div class="card-header"><h2>' + title +
+    '</h2><button type="button" class="ghost" data-close>关闭 ✕</button></div>' +
+    '<p class="small muted">作品 ' + h(taskId) + ' · 当前任务 ' + h(generationId) +
+    '。操作前必须核实服务商实际结果，系统会再次校验任务是否仍然超时。</p>' +
+    '<label for="reviewReason">人工核实依据</label>' +
+    '<textarea id="reviewReason" name="reason" rows="4" maxlength="300" required ' +
+    'placeholder="如：已向服务商核查任务编号，确认无输出结果"></textarea>' +
+    file + '<div class="row" style="margin-top:20px">' +
+    '<button type="submit">' + (complete ? '确认补录' : '确认失败') + '</button></div>' +
+    '</form></div>';
+  const form = $('reviewForm');
+  form.dataset.workId = taskId;
+  form.dataset.generationId = generationId;
+  form.dataset.mode = mode;
+  $('reviewReason').focus();
+}
+
+async function submitReview(event) {
+  if (event.target.id !== 'reviewForm') return;
+  event.preventDefault();
+  if (state.busy) return;
+  const formNode = event.target;
+  const workId = formNode.dataset.workId;
+  const generationId = formNode.dataset.generationId;
+  const reason = $('reviewReason').value.trim();
+  const complete = formNode.dataset.mode === 'review-complete';
+  if (!reason || reason.length > 300) {
+    toast('需填写不超过 300 字的真实核实依据');
+    return;
+  }
+  const file = complete ? $('reviewFile').files[0] : null;
+  if (complete && (!file || file.size === 0 || file.size > 10 * 1024 * 1024)) {
+    toast('请提供不超过 10 MiB 的真实生成图片');
+    return;
+  }
+  const question = complete
+    ? '已核实此图片确实是当前任务的服务商生成结果，并确认补录？'
+    : '已核实服务商确定失败，并确认将当前任务标记失败？';
+  if (!window.confirm(question)) return;
+  const endpoint = '/api/admin/ai/stalled-image-tasks/' +
+    encodeURIComponent(workId) + (complete ? '/complete' : '/fail');
+  setBusy(true);
+  try {
+    let options;
+    if (complete) {
+      // 浏览器自动生成 multipart boundary；不得人为指定 Content-Type。
+      const form = new FormData();
+      form.append('generation_id', generationId);
+      form.append('reason', reason);
+      form.append('file', file);
+      options = { method: 'POST', body: form };
+    } else {
+      options = {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ generation_id: generationId, reason })
+      };
+    }
+    await api(endpoint, options);
+    $('modalContainer').replaceChildren();
+    toast(complete ? '图片已补录，作品进入待确认状态' : '已标记失败，操作已写入审计');
+  } catch (error) {
+    toast(error.message);
+    if (error.status === 401) logout();
+    return;
+  } finally {
+    setBusy(false);
+  }
+  await reload().catch((error) => toast(error.message));
+}
+
 function filteredOrders() {
   const keyword = $('keyword').value.trim().toLowerCase();
   const chosenStatus = $('statusFilter').value;
@@ -139,13 +252,14 @@ function filteredOrders() {
 
 function render() {
   const worksMode = state.tab === 'works';
-  const rows = worksMode ? filteredWorks() : filteredOrders();
+  const reviewMode = state.tab === 'review';
+  const rows = reviewMode ? filteredReviews() : worksMode ? filteredWorks() : filteredOrders();
   const pageCount = Math.max(1, Math.ceil(rows.length / state.pageSize));
   state.page = Math.min(state.page, pageCount);
   const begin = (state.page - 1) * state.pageSize;
   $('listResults').innerHTML = rows.length
-    ? rows.slice(begin, begin + state.pageSize).map(worksMode ? workCard : orderCard).join('')
-    : '<div class="note">暂无符合条件的' + (worksMode ? '作品' : '订单') + '。</div>';
+    ? rows.slice(begin, begin + state.pageSize).map(reviewMode ? reviewCard : worksMode ? workCard : orderCard).join('')
+    : '<div class="note">暂无符合条件的' + (reviewMode ? '超时任务' : worksMode ? '作品' : '订单') + '。</div>';
   $('pagerText').textContent = rows.length + ' 条 · 第 ' + state.page + '/' + pageCount + ' 页';
   $('previous').disabled = state.page <= 1;
   $('next').disabled = state.page >= pageCount;
@@ -178,18 +292,24 @@ function orderCard(o) {
 }
 
 function openTab(tab) {
-  if (!['works', 'orders', 'shipping'].includes(tab)) return;
+  if (!['works', 'orders', 'shipping', 'review'].includes(tab)) return;
   state.tab = tab;
   state.page = 1;
   $('keyword').value = '';
   const filter = $('statusFilter');
+  filter.hidden = tab === 'review';
+  $('reviewNotice').classList.toggle('hidden', tab !== 'review');
+  $('keyword').placeholder = tab === 'review' ? '搜索作品、任务或服务商编号' :
+    tab === 'works' ? '搜索作品编号、状态或备注' : '搜索订单编号、收件人或运单';
   filter.innerHTML = tab === 'works'
     ? '<option value="">全部状态</option>' +
       Object.entries(workStatusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('')
     : '<option value="">全部状态</option>' +
       Object.entries(statusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('');
-  $('pageTitle').textContent = tab === 'works' ? '作品管理' : tab === 'shipping' ? '物流发货' : '全部订单';
-  $('pageIntro').textContent = tab === 'works' ? '原画 → AI 形象 → GLB 白模，当前为只读核查' :
+  $('pageTitle').textContent = tab === 'review' ? '超时图片任务' :
+    tab === 'works' ? '作品管理' : tab === 'shipping' ? '物流发货' : '全部订单';
+  $('pageIntro').textContent = tab === 'review' ? '人工核实结果后，确认失败或补录实际生成图片' :
+    tab === 'works' ? '原画 → AI 形象 → GLB 白模，当前为只读核查' :
     tab === 'shipping' ? '制作中、已发货及已完成订单' : '收款后制作 → 核实运单 → 发货';
   document.querySelectorAll('[data-tab]').forEach((node) =>
     node.classList.toggle('active', node.dataset.tab === tab));
@@ -229,6 +349,11 @@ async function handleListClick(event) {
   const button = event.target.closest('button[data-action]');
   if (!button || !event.currentTarget.contains(button) || state.busy) return;
   const id = button.dataset.id;
+  if (button.dataset.action === 'review-fail' || button.dataset.action === 'review-complete') {
+    // 不信任浏览器的操作状态；提交后服务端会原子校验任务编号与超时阈值。
+    openReview(id, button.dataset.generation, button.dataset.action);
+    return;
+  }
   if (button.dataset.action === 'shipment') {
     openShipment(id);
     return;
@@ -275,6 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     node.addEventListener('click', () => openTab(node.dataset.tab)));
   $('listResults').addEventListener('click', handleListClick);
   $('modalContainer').addEventListener('submit', ship);
+  $('modalContainer').addEventListener('submit', submitReview);
   $('modalContainer').addEventListener('click', (event) => {
     if (event.target.matches('[data-close]') || event.target.classList.contains('modal-back'))
       $('modalContainer').replaceChildren();
