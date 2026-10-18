@@ -218,6 +218,31 @@ if (app.Configuration["DB_DRIVER"] is { } configuredDriver
     throw new InvalidOperationException("仅支持 postgres 或 mysql 数据库驱动");
 }
 
+// /admin 及静态资源由 .NET 自行托管，不再依赖运行中的 Go 服务。
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/admin")
+    {
+        context.Response.Redirect("/admin/");
+        return;
+    }
+    await next();
+});
+app.UseDefaultFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = response =>
+    {
+        if (response.Context.Request.Path.StartsWithSegments("/admin"))
+        {
+            // 页面和脚本均不缓存，避免部署后浏览器沿用旧版管理逻辑。
+            response.Context.Response.Headers.CacheControl = "no-store";
+            response.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            response.Context.Response.Headers["X-Frame-Options"] = "DENY";
+        }
+    }
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 
