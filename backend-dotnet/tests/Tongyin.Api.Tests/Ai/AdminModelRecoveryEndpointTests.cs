@@ -41,7 +41,7 @@ public sealed class AdminModelRecoveryEndpointTests
         using var app = new ModelFactory();
         app.Seed(WorkId, owner: "openid-a");
         app.Seed("work-new", owner: "openid-b", startedAt: DateTimeOffset.UtcNow.AddMinutes(-2));
-        app.Seed("work-queued", owner: "openid-c", startedAt: null);
+        app.Seed("work-queued", owner: "openid-c", claimed: false);
         app.Seed("work-image", owner: "openid-d", stage: "image");
         using var client = app.CreateClient();
         using var result = await client.SendAsync(Admin(HttpMethod.Get, Tasks));
@@ -233,7 +233,7 @@ public sealed class AdminModelRecoveryEndpointTests
         private DbConnection Connect() => new SqliteConnection($"Data Source={DbFile};Pooling=False");
         private DbConnection Open() { var result = Connect(); result.Open(); return result; }
 
-        public void Seed(string id, string owner = "openid-a", DateTimeOffset? startedAt = default, string stage = "model")
+        public void Seed(string id, string owner = "openid-a", DateTimeOffset? startedAt = default, string stage = "model", bool claimed = true)
         {
             // Null explicitly means the model queue has not been claimed yet.
             var started = startedAt ?? DateTimeOffset.UtcNow.AddMinutes(-35);
@@ -243,9 +243,9 @@ public sealed class AdminModelRecoveryEndpointTests
                 status = "model_pending", selected = 0,
                 candidates = new[] { "cartoon.png" }, original = "drawing.png",
                 model = "", preview = Array.Empty<string>(), image_attempts = 1,
-                generation_id = GenerationId, ai_task_stage = stage,
-                ai_started_at = started.ToString("O"),
-                ai_execution_claim_id = GenerationId, ai_provider_id = "worker-model",
+                generation_id = GenerationId, ai_task_stage = claimed ? stage : "",
+                ai_started_at = claimed ? started.ToString("O") : "",
+                ai_execution_claim_id = claimed ? GenerationId : "", ai_provider_id = "worker-model",
                 note = "", custom_field = "保留"
             });
             using var db = Open();
