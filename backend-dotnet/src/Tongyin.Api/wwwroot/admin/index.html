@@ -27,6 +27,7 @@
       <nav aria-label="运营功能导航">
         <button type="button" class="nav-item" data-tab="works"><span class="glyph">▣</span>作品管理</button>
         <button type="button" class="nav-item" data-tab="review"><span class="glyph">⚑</span>超时图片任务</button>
+        <button type="button" class="nav-item" data-tab="model-review"><span class="glyph">⬡</span>3D 模型异常</button>
         <button type="button" class="nav-item active" data-tab="orders"><span class="glyph">▤</span>全部订单</button>
         <button type="button" class="nav-item" data-tab="shipping"><span class="glyph">◇</span>物流发货</button>
       </nav>
@@ -47,6 +48,11 @@
         <div id="reviewNotice" class="note hidden" style="margin-bottom:18px">
           只列出已认领超过 15 分钟但仍未完成的图片生成任务。超时不等于失败，必须先核查模型服务商的实际结果；
           仅能人工确认失败或上传服务商已生成的真实图片。本页不自动重试、不重新计费，也不处理 3D 模型异常。
+        </div>
+        <div id="modelReviewNotice" class="note hidden" style="margin-bottom:18px">
+          仅展示 Worker 已认领且超过 15 分钟仍未完成的 3D 模型任务。
+          超时不代表失败；操作前须在服务商确认任务结果。补录必须上传与当前任务匹配的真实 GLB（最大 100 MiB）。
+          不自动重新调用模型，也不能对排队中、已完成或旧编号任务操作。
         </div>
         <div class="toolbar">
           <label class="sr-only" for="keyword">搜索订单</label>

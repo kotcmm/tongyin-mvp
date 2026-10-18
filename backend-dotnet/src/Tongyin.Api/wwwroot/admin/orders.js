@@ -7,7 +7,7 @@ const statusLabels = {
   awaiting_payment: '待付款', paid: '已支付', printing: '制作中',
   shipped: '已发货', completed: '已完成', canceled: '已取消'
 };
-const state = { token: '', tab: 'orders', orders: [], works: [], reviews: [], page: 1, pageSize: 12, busy: false };
+const state = { token: '', tab: 'orders', orders: [], works: [], reviews: [], modelReviews: [], page: 1, pageSize: 12, busy: false };
 
 async function api(path, options = {}) {
   const headers = { 'X-Admin-Token': state.token, ...(options.headers || {}) };
@@ -32,6 +32,7 @@ function logout() {
   state.orders = [];
   state.works = [];
   state.reviews = [];
+  state.modelReviews = [];
   $('adminToken').value = '';
   $('app').classList.add('hidden');
   $('loginWrap').classList.remove('hidden');
@@ -49,15 +50,19 @@ async function reload() {
   if (!state.token || state.busy) return;
   setBusy(true);
   $('pageMessage').textContent = state.tab === 'works' ? '正在读取最新作品…' :
-    state.tab === 'review' ? '正在读取超时图片任务…' : '正在读取最新订单…';
+    state.tab === 'review' ? '正在读取超时图片任务…' :
+    state.tab === 'model-review' ? '正在读取 3D 模型超时任务…' : '正在读取最新订单…';
   try {
     const worksMode = state.tab === 'works';
     const reviewMode = state.tab === 'review';
-    const route = reviewMode ? '/api/admin/ai/stalled-image-tasks' :
+    const modelReviewMode = state.tab === 'model-review';
+    const route = modelReviewMode ? '/api/admin/ai/stalled-model-tasks' :
+      reviewMode ? '/api/admin/ai/stalled-image-tasks' :
       worksMode ? '/api/admin/works' : '/api/admin/orders';
     const records = await api(route);
     if (!Array.isArray(records)) throw new Error('列表响应格式异常');
-    if (reviewMode) state.reviews = records;
+    if (modelReviewMode) state.modelReviews = records;
+    else if (reviewMode) state.reviews = records;
     else if (worksMode) state.works = records;
     else state.orders = records;
     $('lastLoaded').textContent = new Date().toLocaleTimeString();
@@ -238,6 +243,111 @@ async function submitReview(event) {
   await reload().catch((error) => toast(error.message));
 }
 
+
+// 模型异常列表仅展现已认领且超过阈值的任务，实际可处理条件由服务器在事务中再次核对。
+function filteredModelReviews() {
+  const keyword = $('keyword').value.trim().toLowerCase();
+  return state.modelReviews.filter((task) => {
+    const values = [task.work_id, task.generation_id, task.provider_id];
+    return !keyword || values.some((item) => String(item ?? '').toLowerCase().includes(keyword));
+  });
+}
+
+function modelReviewCard(task) {
+  const workId = h(task.work_id);
+  const generationId = h(task.generation_id);
+  const started = h(String(task.started_at || '').replace('T', ' ').slice(0, 19));
+  const legacy = task.is_legacy_go ? '旧 Go 任务' : '.NET 任务';
+  return '<article class="card"><div class="card-header">' +
+    '<strong>3D 异常作品 #' + workId + '</strong><span class="pill warning">' + h(legacy) + '</span></div>' +
+    '<p class="meta">当前任务：' + generationId + '</p>' +
+    '<p class="meta">开始时间：' + started +
+    '　·　服务商：' + h(task.provider_id || '未记录') + '</p>' +
+    '<div class="row" style="margin-top:14px">' +
+    '<button type="button" class="danger" data-action="model-fail" data-id="' + workId +
+    '" data-generation="' + generationId + '">确认模型失败</button>' +
+    '<button type="button" data-action="model-complete" data-id="' + workId +
+    '" data-generation="' + generationId + '">补录真实 GLB</button></div></article>';
+}
+
+function openModelReview(workId, generationId, action) {
+  const complete = action === 'model-complete';
+  const title = complete ? '补录实际生成的 GLB' : '核实模型生成失败';
+  const fileControl = complete
+    ? '<label for="modelFile">实际 GLB 模型文件（上限 100 MiB）</label>' +
+      '<input id="modelFile" name="file" type="file" accept=".glb,model/gltf-binary" required>' +
+      '<p class="small muted">必须是服务商已生成且归属当前任务的 glTF 2.0 GLB 文件。</p>'
+    : '';
+  $('modalContainer').innerHTML = '<div class="modal-back"><form id="modelReviewForm" class="modal">' +
+    '<div class="card-header"><h2>' + title +
+    '</h2><button type="button" class="ghost" data-close>关闭 ✕</button></div>' +
+    '<p class="small muted">作品 ' + h(workId) + ' · 生成任务 ' + h(generationId) +
+    '。先查询模型服务商真实结果；超过 15 分钟不等于任务失败。</p>' +
+    '<label for="modelReviewReason">核实依据（必填）</label>' +
+    '<textarea id="modelReviewReason" rows="4" maxlength="300" required ' +
+    'placeholder="例如：在 Worker 日志中核对当前任务编号及实际结果"></textarea>' +
+    fileControl +
+    '<div class="row" style="margin-top:20px"><button type="submit">' +
+    (complete ? '确认补录 GLB' : '确认失败') + '</button></div></form></div>';
+  const form = $('modelReviewForm');
+  form.dataset.workId = workId;
+  form.dataset.generationId = generationId;
+  form.dataset.complete = complete ? 'true' : 'false';
+  $('modelReviewReason').focus();
+}
+
+async function submitModelReview(event) {
+  if (event.target.id !== 'modelReviewForm') return;
+  event.preventDefault();
+  if (state.busy) return;
+  const formNode = event.target;
+  const complete = formNode.dataset.complete === 'true';
+  const reason = $('modelReviewReason').value.trim();
+  const generationId = formNode.dataset.generationId;
+  const workId = formNode.dataset.workId;
+  if (!reason || reason.length > 300) {
+    toast('请填写不超过 300 字的核实依据');
+    return;
+  }
+  const file = complete ? $('modelFile').files[0] : null;
+  if (complete && (!file || file.size < 24 || file.size > 100 * 1024 * 1024)) {
+    toast('请上传符合 GLB 格式且不超过 100 MiB 的实际模型文件');
+    return;
+  }
+  if (!window.confirm(complete
+    ? '已确认该 GLB 确实属于当前模型任务，是否补录？'
+    : '已向服务商确认模型任务确实失败，是否登记失败？')) return;
+  const endpoint = '/api/admin/ai/stalled-model-tasks/' +
+    encodeURIComponent(workId) + (complete ? '/complete' : '/fail');
+  setBusy(true);
+  try {
+    let options;
+    if (complete) {
+      const form = new FormData();
+      form.append('generation_id', generationId);
+      form.append('reason', reason);
+      form.append('file', file);
+      // 浏览器自动设置 multipart boundary；不得强制设置 Content-Type。
+      options = { method: 'POST', body: form };
+    } else {
+      options = {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ generation_id: generationId, reason })
+      };
+    }
+    await api(endpoint, options);
+    $('modalContainer').replaceChildren();
+    toast(complete ? '真实 GLB 已补录，作品进入模型就绪' : '模型失败已登记并审计');
+  } catch (error) {
+    toast(error.message);
+    if (error.status === 401) logout();
+    return;
+  } finally {
+    setBusy(false);
+  }
+  await reload().catch((error) => toast(error.message));
+}
+
 function filteredOrders() {
   const keyword = $('keyword').value.trim().toLowerCase();
   const chosenStatus = $('statusFilter').value;
@@ -253,13 +363,15 @@ function filteredOrders() {
 function render() {
   const worksMode = state.tab === 'works';
   const reviewMode = state.tab === 'review';
-  const rows = reviewMode ? filteredReviews() : worksMode ? filteredWorks() : filteredOrders();
+  const modelReviewMode = state.tab === 'model-review';
+  const rows = modelReviewMode ? filteredModelReviews() :
+    reviewMode ? filteredReviews() : worksMode ? filteredWorks() : filteredOrders();
   const pageCount = Math.max(1, Math.ceil(rows.length / state.pageSize));
   state.page = Math.min(state.page, pageCount);
   const begin = (state.page - 1) * state.pageSize;
   $('listResults').innerHTML = rows.length
-    ? rows.slice(begin, begin + state.pageSize).map(reviewMode ? reviewCard : worksMode ? workCard : orderCard).join('')
-    : '<div class="note">暂无符合条件的' + (reviewMode ? '超时任务' : worksMode ? '作品' : '订单') + '。</div>';
+    ? rows.slice(begin, begin + state.pageSize).map(modelReviewMode ? modelReviewCard : reviewMode ? reviewCard : worksMode ? workCard : orderCard).join('')
+    : '<div class="note">暂无符合条件的' + (modelReviewMode ? '超时模型任务' : reviewMode ? '超时任务' : worksMode ? '作品' : '订单') + '。</div>';
   $('pagerText').textContent = rows.length + ' 条 · 第 ' + state.page + '/' + pageCount + ' 页';
   $('previous').disabled = state.page <= 1;
   $('next').disabled = state.page >= pageCount;
@@ -292,23 +404,26 @@ function orderCard(o) {
 }
 
 function openTab(tab) {
-  if (!['works', 'orders', 'shipping', 'review'].includes(tab)) return;
+  if (!['works', 'orders', 'shipping', 'review', 'model-review'].includes(tab)) return;
   state.tab = tab;
   state.page = 1;
   $('keyword').value = '';
   const filter = $('statusFilter');
-  filter.hidden = tab === 'review';
+  filter.hidden = ['review', 'model-review'].includes(tab);
   $('reviewNotice').classList.toggle('hidden', tab !== 'review');
-  $('keyword').placeholder = tab === 'review' ? '搜索作品、任务或服务商编号' :
+  $('modelReviewNotice').classList.toggle('hidden', tab !== 'model-review');
+  $('keyword').placeholder = ['review', 'model-review'].includes(tab) ? '搜索作品、任务或服务商编号' :
     tab === 'works' ? '搜索作品编号、状态或备注' : '搜索订单编号、收件人或运单';
   filter.innerHTML = tab === 'works'
     ? '<option value="">全部状态</option>' +
       Object.entries(workStatusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('')
     : '<option value="">全部状态</option>' +
       Object.entries(statusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('');
-  $('pageTitle').textContent = tab === 'review' ? '超时图片任务' :
+  $('pageTitle').textContent = tab === 'model-review' ? '3D 模型异常' :
+    tab === 'review' ? '超时图片任务' :
     tab === 'works' ? '作品管理' : tab === 'shipping' ? '物流发货' : '全部订单';
-  $('pageIntro').textContent = tab === 'review' ? '人工核实结果后，确认失败或补录实际生成图片' :
+  $('pageIntro').textContent = tab === 'model-review' ? '人工核实 Worker 结果，确认失败或补录实际 GLB 模型' :
+    tab === 'review' ? '人工核实结果后，确认失败或补录实际生成图片' :
     tab === 'works' ? '原画 → AI 形象 → GLB 白模，当前为只读核查' :
     tab === 'shipping' ? '制作中、已发货及已完成订单' : '收款后制作 → 核实运单 → 发货';
   document.querySelectorAll('[data-tab]').forEach((node) =>
@@ -349,6 +464,10 @@ async function handleListClick(event) {
   const button = event.target.closest('button[data-action]');
   if (!button || !event.currentTarget.contains(button) || state.busy) return;
   const id = button.dataset.id;
+  if (button.dataset.action === 'model-fail' || button.dataset.action === 'model-complete') {
+    openModelReview(id, button.dataset.generation, button.dataset.action);
+    return;
+  }
   if (button.dataset.action === 'review-fail' || button.dataset.action === 'review-complete') {
     // 不信任浏览器的操作状态；提交后服务端会原子校验任务编号与超时阈值。
     openReview(id, button.dataset.generation, button.dataset.action);
@@ -401,6 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('listResults').addEventListener('click', handleListClick);
   $('modalContainer').addEventListener('submit', ship);
   $('modalContainer').addEventListener('submit', submitReview);
+  $('modalContainer').addEventListener('submit', submitModelReview);
   $('modalContainer').addEventListener('click', (event) => {
     if (event.target.matches('[data-close]') || event.target.classList.contains('modal-back'))
       $('modalContainer').replaceChildren();
