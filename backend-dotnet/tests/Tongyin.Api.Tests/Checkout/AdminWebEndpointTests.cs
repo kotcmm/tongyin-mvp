@@ -26,7 +26,7 @@ public sealed class AdminWebEndpointTests
         Assert.Equal("/admin/", result.Headers.Location?.ToString());
     }
 
-    /// <summary>后台页面由 .NET 服务提供，登录使用 ADMIN_TOKEN 而非尚未迁移的管理员账号接口。</summary>
+    /// <summary>后台页面由 .NET 提供独立用户名密码登录和管理员会话，不依赖固定口令头。</summary>
     [Fact]
     public async Task AdminConsole_ServesUsernamePasswordLoginAndOrdersAssets()
     {
@@ -63,6 +63,27 @@ public sealed class AdminWebEndpointTests
         Assert.Contains("/api/admin/account/login", script);
         Assert.DoesNotContain("/api/admin/auth/login", script);
         Assert.DoesNotContain("test-admin-secret", script);
+    }
+
+    /// <summary>后台应提供用户名密码表单及账号自助维护，脚本不能保留旧管理员固定令牌认证。</summary>
+    [Fact]
+    public async Task AdminConsole_AccountManagementUsesBearerSessionNotLegacyHeader()
+    {
+        using var app = new AdminWebFactory();
+        using var client = app.CreateClient();
+        var html = await client.GetStringAsync("/admin/");
+        var js = await client.GetStringAsync("/admin/orders.js");
+        Assert.Contains("id=\"adminUsername\"", html);
+        Assert.Contains("id=\"adminPassword\"", html);
+        Assert.Contains("id=\"accountForm\"", html);
+        Assert.Contains("id=\"currentAdminPassword\"", html);
+        Assert.Contains("id=\"newAdminPassword\"", html);
+        Assert.Contains("/api/admin/account/login", js);
+        Assert.Contains("currentPassword", js);
+        Assert.Contains("newPassword", js);
+        Assert.Contains("Authorization: 'Bearer '", js);
+        Assert.DoesNotContain("X-Admin-Token", js);
+        Assert.DoesNotContain("adminToken", html);
     }
 
     /// <summary>静态页可供登录，但未认证不能读取包含个人收货信息的后台订单。</summary>
