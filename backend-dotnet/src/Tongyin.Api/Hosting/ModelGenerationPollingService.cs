@@ -8,6 +8,7 @@ public sealed class ModelGenerationPollingService(IServiceScopeFactory scopeFact
     /// <summary>定期处理一笔模型任务；异常只记录类别，避免将密钥与签名 URL 写入日志。</summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var diagnostics = new PollingFailureDiagnostics();
         var pollSeconds = Math.Clamp(configuration.GetValue("AI_MODEL_DISPATCH_POLL_SECONDS", 5), 1, 60);
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(pollSeconds));
         try
@@ -31,6 +32,7 @@ public sealed class ModelGenerationPollingService(IServiceScopeFactory scopeFact
 
                     var dispatcher = scope.ServiceProvider.GetRequiredService<DispatchQueuedModelGeneration>();
                     await dispatcher.DispatchNextAsync(stoppingToken);
+                    diagnostics.Reset();
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -38,7 +40,12 @@ public sealed class ModelGenerationPollingService(IServiceScopeFactory scopeFact
                 }
                 catch (Exception exception)
                 {
-                    logger.LogError("3D 模型任务派发异常，类别：{Type}；已认领任务不会自动重试", exception.GetType().Name);
+                    // 模型服务商的异常正文可能含密钥或带签名的 URL，仅输出固定分类。
+                    var reason = PollingFailureDiagnostics.Describe(exception);
+                    if (diagnostics.ShouldLog(reason, DateTimeOffset.UtcNow))
+                    {
+                        logger.LogError("3D 模型派发失败：{Reason}（{ErrorType}）；后续相同错误每分钟最多提示一次，已认领任务不会自动重试", reason, exception.GetType().Name);
+                    }
                 }
             }
         }

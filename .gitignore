@@ -3,4 +3,10 @@ backend/.env
 *.log
 .DS_Store
 miniprogram/project.private.config.json
+
+# Visual Studio / .NET generated files
+.vs/
+backend-dotnet/**/bin/
+backend-dotnet/**/obj/
+backend-dotnet/**/appsettings.Development.json
 /backend-dotnet/data

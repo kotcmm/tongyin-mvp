@@ -1,12 +1,18 @@
 {
+  "$schema": "http://json.schemastore.org/launchsettings.json",
   "profiles": {
-    "Tongyin.Api": {
+    "童印 API · 本地 18080": {
       "commandName": "Project",
+      "dotnetRunMessages": true,
       "launchBrowser": true,
+      "launchUrl": "admin/",
+      "applicationUrl": "http://localhost:18080",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "applicationUrl": "https://localhost:6196;http://localhost:6197"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DEV_MODE": "true",
+        "DB_DRIVER": "postgres",
+        "PUBLIC_URL": "http://localhost:18080"
+      }
     }
   }
 }
