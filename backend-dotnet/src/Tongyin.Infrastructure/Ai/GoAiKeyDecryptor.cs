@@ -15,6 +15,33 @@ public sealed class GoAiKeyDecryptor(string sessionSecret)
         ? throw new ArgumentException("SESSION_SECRET 不能为空", nameof(sessionSecret))
         : sessionSecret;
 
+    /// <summary>为新管理员配置使用与历史 Go 完全兼容的 AES-256-GCM 密文；不存储明文。</summary>
+    public string Encrypt(string apiKey)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new ArgumentException("API Key 不能为空", nameof(apiKey));
+        }
+
+        var key = SHA256.HashData(Encoding.UTF8.GetBytes("tongyin-ai-api-key-v1:" + _sessionSecret));
+        var plaintext = Encoding.UTF8.GetBytes(apiKey);
+        var result = new byte[NonceSize + plaintext.Length + TagSize];
+        RandomNumberGenerator.Fill(result.AsSpan(0, NonceSize));
+        try
+        {
+            using var aes = new AesGcm(key, TagSize);
+            aes.Encrypt(result.AsSpan(0, NonceSize), plaintext,
+                result.AsSpan(NonceSize, plaintext.Length), result.AsSpan(NonceSize + plaintext.Length, TagSize));
+            return Convert.ToBase64String(result).TrimEnd('=');
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(key);
+            CryptographicOperations.ZeroMemory(plaintext);
+            CryptographicOperations.ZeroMemory(result);
+        }
+    }
+
     /// <summary>
     /// 解密 Go RawStdEncoding 编码的 nonce、密文和认证标签；不暴露密钥或原始密文。
     /// </summary>
