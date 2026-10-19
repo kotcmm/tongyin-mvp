@@ -10,7 +10,7 @@ const statusLabels = {
 const allowedTabs = ['works', 'review', 'model-review', 'orders', 'shipping', 'account',
   'wechat-settings', 'image-settings', 'model-settings'];
 function tabFromHash() {
-  const tab = decodeURIComponent(window.location.hash.slice(1));
+  const tab = window.location.hash.slice(1);
   return allowedTabs.includes(tab) ? tab : 'orders';
 }
 const state = { authenticated: false, csrf: '', username: '', tab: tabFromHash(),
@@ -553,7 +553,7 @@ function openTab(tab, updateLocation = true) {
   if (!allowedTabs.includes(tab)) return;
   state.tab = tab;
   if (updateLocation && window.location.hash !== '#' + tab) {
-    window.location.hash = tab;
+    window.location.hash = '#' + tab;
   }
   state.page = 1;
   const settingsMode = tab === 'account' || configurationTabs.includes(tab);
