@@ -31,13 +31,17 @@ public sealed class SqlAiGenerationTaskReader(Func<DbConnection> connections) : 
         var tasks = new List<AiGenerationTask>();
         foreach (var payload in payloads)
         {
-            var work = JsonSerializer.Deserialize<WorkSnapshot>(payload)
+            using var record = JsonDocument.Parse(payload);
+            var root = record.RootElement;
+            var hasDotnetQueueMarker = root.TryGetProperty("ai_execution_claim_id", out var marker)
+                && marker.ValueKind == JsonValueKind.String;
+            var work = root.Deserialize<WorkSnapshot>()
                 ?? throw new JsonException("作品记录不是合法的 JSON 对象");
             var hasImageResult = work.Candidates.Count > 0;
             var isImageTask = work.ImageAttempts > 0 ||
                 hasImageResult || work.Status is "image_ready" or "model_pending" or "model_ready";
             var isModelTask = work.Selected == 0 && hasImageResult
-                && work.Status is "model_pending" or "model_ready" or "failed";
+                && work.Status is ("model_pending" or "model_ready" or "failed");
 
             if (stage == "image" && !isImageTask || stage == "model" && !isModelTask)
             {
@@ -86,8 +90,7 @@ public sealed class SqlAiGenerationTaskReader(Func<DbConnection> connections) : 
                 ImageAttempts = work.ImageAttempts,
                 Note = failed || stale ? work.Note : string.Empty,
                 CanReview = canReview,
-                IsLegacyGo = !complete && !failed && !recordedClaim &&
-                    string.IsNullOrWhiteSpace(work.AiExecutionClaimId)
+                IsLegacyGo = !complete && !failed && !hasDotnetQueueMarker
             });
         }
 
