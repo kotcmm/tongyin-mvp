@@ -228,8 +228,8 @@ public sealed class AdminModelRecoveryEndpointTests
             Directory.CreateDirectory(Path.Combine(DirectoryPath, "media"));
             using var connection = Open();
             connection.Execute("CREATE TABLE ty_store_lock(id INTEGER PRIMARY KEY); INSERT INTO ty_store_lock(id) VALUES(1);" +
-                "CREATE TABLE ty_model_jobs(generation_id TEXT PRIMARY KEY, status TEXT NOT NULL,updated_at TEXT NOT NULL);
-                CREATE TABLE ty_works(id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);" +
+                "CREATE TABLE ty_model_jobs(generation_id TEXT PRIMARY KEY,status TEXT NOT NULL,updated_at TEXT NOT NULL);" +
+                "CREATE TABLE ty_works(id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL);" +
                 "CREATE TABLE ty_audit(id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL)");
         }
 
