@@ -872,12 +872,65 @@ public sealed class SqlWorkRepositoryTests
             .DeleteWorkAsync("work-001", "openid-001"));
     }
 
+    /// <summary>删除作品时应在同一事务登记原画、生成图、预览和 GLB，去重后异步回收。</summary>
+    [Fact]
+    public async Task DeleteAsync_QueuesMediaFilesTransactionally()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", status = "model_ready",
+            original = "abc012345678901234567890.png",
+            candidates = new[] { "def012345678901234567890.png", "def012345678901234567890.png" },
+            preview = new[] { "def012345678901234567890.png", "ghi012345678901234567890.webp" },
+            model = "jkl012345678901234567890.glb"
+        });
+        await CreateOrdersTableAsync(db);
+
+        var result = await new SqlWorkRepository(db.CreateConnection).DeleteWorkAsync("work-001", "openid-001");
+
+        Assert.Equal(DeleteWorkResult.Deleted, result);
+        using var connection = db.CreateConnection();
+        await connection.OpenAsync();
+        var queued = (await connection.QueryAsync<string>("SELECT file_name FROM ty_media_cleanup")).ToArray();
+        Assert.Equal(4, queued.Length);
+        Assert.Contains("abc012345678901234567890.png", queued);
+        Assert.Contains("def012345678901234567890.png", queued);
+        Assert.Contains("ghi012345678901234567890.webp", queued);
+        Assert.Contains("jkl012345678901234567890.glb", queued);
+    }
+
+    /// <summary>历史记录中含外部 URL 或路径时不会入队，避免清理器越权访问磁盘。</summary>
+    [Fact]
+    public async Task DeleteAsync_InvalidMediaNames_AreNotEnqueued()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", status = "failed", original = "../secret.png",
+            candidates = new[] { "https://example.com/test.png", "ok-image_1.jpg" },
+            preview = new[] { "/etc/passwd" }, model = ""
+        });
+        await CreateOrdersTableAsync(db);
+
+        Assert.Equal(DeleteWorkResult.Deleted,
+            await new SqlWorkRepository(db.CreateConnection).DeleteWorkAsync("work-001", "openid-001"));
+
+        using var connection = db.CreateConnection();
+        await connection.OpenAsync();
+        Assert.Equal("ok-image_1.jpg", await connection.ExecuteScalarAsync<string>(
+            "SELECT file_name FROM ty_media_cleanup"));
+    }
+
     private static async Task CreateOrdersTableAsync(TestWorkDatabase db)
     {
         using var connection = db.CreateConnection();
         await connection.OpenAsync();
         await connection.ExecuteAsync(
-            "CREATE TABLE ty_orders(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,created_at TEXT NOT NULL,payload TEXT NOT NULL)");
+            """
+            CREATE TABLE ty_orders(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,created_at TEXT NOT NULL,payload TEXT NOT NULL);
+            CREATE TABLE ty_media_cleanup(file_name TEXT PRIMARY KEY,requested_at TEXT NOT NULL);
+            """);
     }
 
     private static async Task SeedImageWorkAsync(TestWorkDatabase db, string id, string owner, object payload)
