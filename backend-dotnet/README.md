@@ -32,16 +32,17 @@
    {
      "DB_CONNECTION_STRING": "Host=localhost;Port=5432;Database=tongyin;Username=postgres;Password=你的本地数据库密码",
      "SESSION_SECRET": "填写至少24位的真实本地开发会话密钥",
-     "ADMIN_TOKEN": "填写仅自己使用的后台管理令牌",
+     "ADMIN_BOOTSTRAP_USER": "admin",
+      "ADMIN_BOOTSTRAP_PASSWORD": "填写至少12位的随机强密码",
      "DATA_DIR": "E:\\童印\\tongyin-mvp\\backend\\data"
    }
    ```
 
    上面路径仅为**示例**，必须改为本机真正的原 Go 媒体目录；若不复用既有媒体，也可以换成新目录。如果连接的是原 Go 开发数据库，`SESSION_SECRET` 必须复用原值，以便读取既有加密配置。用户名和密码不要复制到 Git 仓库中的 `launchSettings.json`、`appsettings.json` 或源码。
-3. 本地 PostgreSQL 需已经存在童印业务表，并执行 `backend-dotnet/sql/postgres/001_system_settings.sql` 的数据库迁移（已执行过则不用重复）。**不要同时运行旧 Go 后端占用 `18080`，也不要让新旧服务同时派发同一数据库的收费 AI 任务。**
-4. 按 **F5** 启动。正常时 VS 的控制台输出 `Now listening on: http://localhost:18080`；打开 `http://localhost:18080/admin/`，输入 `ADMIN_TOKEN`，先检查后台和作品列表，再在微信开发者工具中启动小程序联调。
+3. 本地 PostgreSQL 需已经存在童印业务表，并执行 `backend-dotnet/sql/postgres/001_system_settings.sql` 和 `backend-dotnet/sql/postgres/002_admin_credentials.sql` 的数据库迁移（已执行过则不用重复）。**不要同时运行旧 Go 后端占用 `18080`，也不要让新旧服务同时派发同一数据库的收费 AI 任务。**
+4. 按 **F5** 启动。正常时 VS 的控制台输出 `Now listening on: http://localhost:18080`；打开 `http://localhost:18080/admin/`，使用用户名和密码登录，先检查后台和作品列表，再在微信开发者工具中启动小程序联调。
 
-`launchSettings.json` 只保存端口、公开本地地址和 Development 开关，不包含密钥；数据库密码、会话密钥与管理员令牌走 VS **用户机密**，不会被提交到 Git。若本机已有同名系统环境变量，它们可能覆盖用户机密，需要避免冲突。
+`launchSettings.json` 只保存端口、公开本地地址和 Development 开关，不包含密钥；数据库密码、会话密钥与一次性管理员初始化凭据走 VS **用户机密**，不会被提交到 Git。若本机已有同名系统环境变量，它们可能覆盖用户机密，需要避免冲突。
 
 **真机不能直接用 localhost**（手机里的 localhost 是手机自身）；真机联调要改为局域网可达地址或微信认可的 HTTPS 合法域名。微信开发者工具本机模拟器已经配置 `urlCheck: false` 供开发使用，不能据此推断真机也能使用 HTTP。
 
@@ -72,7 +73,8 @@ $env:ASPNETCORE_URLS = "http://localhost:8080"
 $env:DB_DRIVER = "postgres"
 $env:DB_CONNECTION_STRING = "Host=localhost;Port=5432;Database=tongyin;Username=postgres;Password=填写你的本地密码"
 $env:SESSION_SECRET = "填写旧Go的同一SESSION_SECRET或新本地开发专用长密钥"
-$env:ADMIN_TOKEN = "填写仅本地使用的管理员令牌"
+$env:ADMIN_BOOTSTRAP_USER = "admin"
+$env:ADMIN_BOOTSTRAP_PASSWORD = "填写仅本地使用的随机强密码"
 $env:DATA_DIR = "./data"
 $env:PUBLIC_URL = "http://localhost:8080"
 $env:DEV_MODE = "true"
@@ -82,7 +84,7 @@ dotnet run --project backend-dotnet/src/Tongyin.Api --no-launch-profile
 
 如使用 MySQL，将 `DB_DRIVER` 改为 `mysql`，`DB_CONNECTION_STRING` 改为 `Server=localhost;Port=3306;Database=tongyin;User ID=你的账号;Password=你的密码;`。不要让 Go 与 .NET 后台同时处理同一开发数据库的 AI 任务，避免重复调用外部付费模型。数据库应先包含旧业务表（例如 `ty_works`、`ty_orders`、`ty_store_lock`、`ty_audit`、`ty_ai_providers`、`ty_ai_prompts`、`ty_users`），以及按数据库类型执行 `backend-dotnet/sql/{postgres|mysql}/001_system_settings.sql` 创建的 `ty_system_settings`。
 
-启动成功后先打开 **http://localhost:8080/admin/**，使用 `ADMIN_TOKEN` 验证作品、超时任务、订单和物流页面；如有端口冲突，修改 `ASPNETCORE_URLS` 和 `PUBLIC_URL` 到相同端口。小程序在微信开发者工具中将 API 基址指向 .NET 服务并按需关闭仅供本地调试的合法域名校验；真机必须使用已配置的合法 HTTPS 域名。实际 AI/支付还需要服务商密钥、回调与真实环境联调，**457 项自动测试通过不代表真机已验收或已经成功收款**。
+启动成功后先打开 **http://localhost:8080/admin/**，使用用户名和密码验证作品、超时任务、订单和物流页面；如有端口冲突，修改 `ASPNETCORE_URLS` 和 `PUBLIC_URL` 到相同端口。小程序在微信开发者工具中将 API 基址指向 .NET 服务并按需关闭仅供本地调试的合法域名校验；真机必须使用已配置的合法 HTTPS 域名。实际 AI/支付还需要服务商密钥、回调与真实环境联调，**自动测试通过不代表真机已验收或已经成功收款**。
 
 测试项目中的 `Microsoft.Data.Sqlite` 从 10.0.0 升级至 10.0.13；NuGet 高危安全警告 `NU1903` 在 CI 中视为错误，避免旧的 `SQLitePCLRaw.lib.e_sqlite3 2.1.11` 重新混入。生产 API 仍使用 PostgreSQL/MySQL，而非测试用 SQLite。
 
@@ -224,7 +226,7 @@ WX_PAY_NOTIFY_URL=https://你的域名/api/pay/notify
 
 - `GET /api/admin/system/wechat`：仅返回 `{"app_id":"wx...","has_app_secret":true}`。
 - `PUT /api/admin/system/wechat`：发送 `{"app_id":"wx...","app_secret":"新密钥"}`，留空 `app_secret` 表示保留原有密钥。
-- 管理接口使用已有 `X-Admin-Token` 管理员认证；未授权返回 401，且绝不回显明文、密文。
+- 管理接口使用管理员登录后的独立 Bearer 会话认证；未授权返回 401，且绝不回显明文、密文。
 - AppSecret 使用 AES-256-GCM 加密后存储在 `ty_system_settings.payload`，由服务端现有 `SESSION_SECRET` 派生用途隔离的加密密钥。数据库本身不保存解密根密钥；修改主密钥前必须安排数据重新加密。
 - 更新配置后后续微信登录立即读取新值，不重启后端，也不再有环境变量回退。缺少配置时登录返回 503。
 - `SESSION_SECRET` **暂时仍是服务端主密钥**，继续用于 Token、媒体签名、已存 AI Key 的加密；本轮不修改它的存储，以免破坏旧数据。它与可在线修改的 AppID、AppSecret 不是同一类设置。
@@ -239,7 +241,7 @@ WX_PAY_NOTIFY_URL=https://你的域名/api/pay/notify
 - `GET /api/me` 使用 `[WechatAuthorize]` 校验 Bearer Token 和启用状态，按认证身份读取 `ty_users`，返回 `{"id":"...","created_at":"...","works":0,"orders":0}`，不暴露 OpenID。作品和订单数量按 `owner_id` 独立统计，不计入其他用户。
 - 已存在的 Go 档案保留原内部 ID、创建时间及未知扩展字段，登录只刷新 `last_login`；停用用户不会被重新激活。
 
-本轮后台配置入口仅提供 API。现有共享 `ADMIN_TOKEN` 无法标识具体管理员，因此**正式给多人开放配置页面前必须完成独立管理员身份和审计**；不得把这个 API 暴露给不可信管理人员。
+微信配置 API 只允许已登录管理员操作。当前是单管理员账号，正式供多人使用前需加入独立账号、角色授权和每人审计，不能共用密码。
 
 开发模拟登录仅在 `ASPNETCORE_ENVIRONMENT=Development` **同时** `DEV_MODE=true` 时允许 `{"code":"DEV_LOGIN"}`。生产环境无论 `DEV_MODE` 如何设置都拒绝模拟登录。
 
@@ -249,7 +251,7 @@ WX_PAY_NOTIFY_URL=https://你的域名/api/pay/notify
 
 
 
-`WechatSessionAuthenticationHandler` 使用 ASP.NET Core 的 `AddAuthentication` 验证服务器签发的 Bearer 令牌，写入 `HttpContext.User` 中的 `ClaimTypes.NameIdentifier`（微信 OpenID）。**微信小程序与管理后台是两套独立身份体系**：小程序通过 `WechatSessionAuthenticationHandler`（独立认证方案 `WechatSession`）和具名的 `AuthorizationPolicies.Wechat` 策略进行认证授权。该策略要求微信用户已登录，并通过 `EnabledWechatUserRequirement` 校验 `ty_users` 中账号存在且未停用。小程序业务 Controller 使用 `[WechatAuthorize]`，不在控制器动作内解析 Token。**`[WechatAuthorize]` 只是对 `AuthorizationPolicies.Wechat` 的强类型封装，不会创建新的 Token 处理逻辑**。**不把微信认证设置为全局默认授权策略**，避免未来后台登录错误地套用微信账号检查。后台的认证方案、登录接口及管理员专属授权策略须单独实现；目前尚未迁移后台登录。未认证返回 401，令牌有效但无权访问返回 403；签名媒体链接 `GET /media/{file}` 不启用此策略，继续由媒体签名保护。
+`WechatSessionAuthenticationHandler` 使用 ASP.NET Core 的 `AddAuthentication` 验证服务器签发的 Bearer 令牌，写入 `HttpContext.User` 中的 `ClaimTypes.NameIdentifier`（微信 OpenID）。**微信小程序与管理后台是两套独立身份体系**：小程序通过 `WechatSessionAuthenticationHandler`（独立认证方案 `WechatSession`）和具名的 `AuthorizationPolicies.Wechat` 策略进行认证授权。该策略要求微信用户已登录，并通过 `EnabledWechatUserRequirement` 校验 `ty_users` 中账号存在且未停用。小程序业务 Controller 使用 `[WechatAuthorize]`，不在控制器动作内解析 Token。**`[WechatAuthorize]` 只是对 `AuthorizationPolicies.Wechat` 的强类型封装，不会创建新的 Token 处理逻辑**。**不把微信认证设置为全局默认授权策略**，避免未来后台登录错误地套用微信账号检查。后台通过独立 `AdminSession` 认证、`POST /api/admin/account/login` 登录和 `AuthorizationPolicies.Admin` 策略管理权限。未认证返回 401，令牌有效但无权访问返回 403；签名媒体链接 `GET /media/{file}` 不启用此策略，继续由媒体签名保护。
 
 ## API 层 Controller 约定
 
@@ -349,12 +351,13 @@ SQL 仓储使用与 Go 共用的 `ty_store_lock` 事务锁；在锁内读取作�
 
 .NET 已提供 **`GET /api/admin/ai/stalled-image-tasks`**，只读列出开始时间至少超过 **15 分钟**、状态仍为 `image_pending` 的已认领图片任务（最多 100 条，最早开始的排在前面）。兼容 .NET 的 `ai_execution_claim_id` 和旧 Go 的 `ai_task_stage=image` / `ai_started_at`；任务必须有非空 `generation_id`、有效时间、匹配的认领编号（或旧 Go 空认领编号）才会出现。时间按含时区的实际时刻比较，不允许因为异常文本把任务自动判失败或重新调用模型。
 
-请求必须携带与现有 Go 后台相同的 `X-Admin-Token: <ADMIN_TOKEN>` 请求头。认证已采用 ASP.NET Core 标准的 `AdminTokenAuthenticationHandler`（独立 Scheme）、`AuthorizationPolicies.Admin` 以及 `[AdminAuthorize]` 属性，令牌验证由认证管线完成，Controller 只负责业务查询；管理员与微信 `WechatAuthorize` 方案完全隔离。若 .NET 未配置非空 `ADMIN_TOKEN`，或令牌不匹配，一律返回 401，且不会查询任务数据。仅迁移了旧 Go 的令牌认证模式，**暂不支持 Go 的管理员账号/密码登录会话，也未修改后台 Web UI**。不要将此令牌放进微信小程序、浏览器公开脚本或 Git 仓库；建议只从受控管理终端通过 HTTPS 访问。
+后台业务接口由 `AdminSessionAuthenticationHandler` 校验登录后的短期 Bearer 会话，和微信用户权限完全隔离。旧版 `X-Admin-Token` 不再有效；先使用 `POST /api/admin/account/login` 认证，再以 `Authorization: Bearer <session>` 请求管理 API。生产必须使用 HTTPS。
 
-示例（在已配置 `ADMIN_TOKEN` 的受控管理环境）：
+示例（在受控环境中先完成管理员登录）：
 
 ```powershell
-$headers = @{ "X-Admin-Token" = $env:ADMIN_TOKEN }
+$login = Invoke-RestMethod -Method Post -Uri "https://YOUR_DOMAIN/api/admin/account/login" -ContentType "application/json" -Body (@{ username = "admin"; password = "替换为当前密码" } | ConvertTo-Json)
+$headers = @{ Authorization = "Bearer $($login.token)" }
 Invoke-RestMethod -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks" -Headers $headers
 ```
 
@@ -371,17 +374,18 @@ Invoke-RestMethod -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks" -H
 
 两个操作都会在**同一事务**中更新现有 `ty_works` 和写入 Go 兼容 `ty_audit`：`action=ai.image.review.failed` 或 `ai.image.review.completed`，`target` 为作品 ID，`detail` 记录任务编号、核实依据和补录文件名。完成、失败、过期编号、时间不足、错误认领编号、重复处理都会被阻止覆盖；缺少审计表时作品更新也会回滚。所有处理**绝不调用 Seedream、不自动重新生成或释放认领**。
 
-当前管理员授权只支持共享 `ADMIN_TOKEN`，审计 actor 只能标识令牌凭据（`admin-token`），**不能准确追溯到具体员工**。正式多人使用前应迁移现有 Go 管理员账号会话、角色限制与每人独立审计身份。数据库提交发生未知结果时，补录文件失败清理可能与已经成功提交的数据库引用不一致；上线前仍需补故障恢复和孤儿文件巡检。本阶段不包含运营 Web UI，也不开放小程序的自动生成接口。
+管理员已采用单账号的短期会话认证，审计记录当前登录用户名。尚未支持多员工账户及各自独立角色。数据库提交发生未知结果时，补录文件失败清理可能与已经成功提交的数据库引用不一致，正式上线前仍需补充孤儿文件巡检。
 
 受控环境使用示例：
 
 ```powershell
-$headers = @{ "X-Admin-Token" = $env:ADMIN_TOKEN }
+$login = Invoke-RestMethod -Method Post -Uri "https://YOUR_DOMAIN/api/admin/account/login" -ContentType "application/json" -Body (@{ username = "admin"; password = "替换为当前密码" } | ConvertTo-Json)
+$headers = @{ Authorization = "Bearer $($login.token)" }
 $body = @{ generation_id = "job-id"; reason = "已确认服务商生成失败" } | ConvertTo-Json
 Invoke-RestMethod -Method Post -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks/work-id/fail" -Headers $headers -ContentType "application/json" -Body $body
 
 # 仅在有本地生成图片且人工核实成功时执行：
-curl.exe -X POST "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks/work-id/complete" -H "X-Admin-Token: $env:ADMIN_TOKEN" -F "generation_id=job-id" -F "reason=已确认服务商生成成功" -F "file=@C:\\images\\recovered.png"
+curl.exe -X POST "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks/work-id/complete" -H "Authorization: Bearer $($login.token)" -F "generation_id=job-id" -F "reason=已确认服务商生成成功" -F "file=@C:\\images\\recovered.png"
 ```
 
 ## 图片生成入口与数据库驱动的派发
