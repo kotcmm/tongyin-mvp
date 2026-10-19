@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -20,8 +21,15 @@ public sealed class AdminAccountController(
     /// <summary>获取同源防 CSRF 请求令牌，供登录及后台全部写操作使用。</summary>
     [HttpGet("csrf")]
     [AllowAnonymous]
-    public IActionResult Csrf()
+    public async Task<IActionResult> Csrf()
     {
+        // 未设置全局认证方案，避免把管理后台 Cookie 当成微信登录。
+        // 此处显式读取管理员 Cookie，确保防 CSRF 令牌绑定当前管理员。
+        var auth = await HttpContext.AuthenticateAsync(IdentityConstants.ApplicationScheme);
+        if (auth.Succeeded && auth.Principal is not null)
+        {
+            HttpContext.User = auth.Principal;
+        }
         var token = antiforgery.GetAndStoreTokens(HttpContext);
         Response.Headers.CacheControl = "no-store";
         return Ok(new { token = token.RequestToken });

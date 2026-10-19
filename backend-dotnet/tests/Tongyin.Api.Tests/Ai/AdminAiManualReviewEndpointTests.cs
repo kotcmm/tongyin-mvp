@@ -49,7 +49,7 @@ public sealed class AdminAiManualReviewEndpointTests
 
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
         Assert.Equal("job-1", app.Repository.GenerationId);
-        Assert.Equal("admin-token", app.Repository.Actor);
+        Assert.Equal("admin", app.Repository.Actor);
         Assert.Equal("已核对服务商无结果", app.Repository.Reason);
     }
 

@@ -74,7 +74,7 @@ public sealed class AdminModelRecoveryEndpointTests
         Assert.Contains("模型生成失败", work.RootElement.GetProperty("note").GetString());
         using var audit = JsonDocument.Parse(Assert.Single(app.Audits()));
         Assert.Equal("ai.model.review.failed", audit.RootElement.GetProperty("action").GetString());
-        Assert.Equal("admin-token", audit.RootElement.GetProperty("owner").GetString());
+        Assert.Equal("admin", audit.RootElement.GetProperty("owner").GetString());
         using var detail = JsonDocument.Parse(audit.RootElement.GetProperty("detail").GetString()!);
         Assert.Equal(GenerationId, detail.RootElement.GetProperty("generation_id").GetString());
         Assert.Equal("已核查模型服务无结果", detail.RootElement.GetProperty("reason").GetString());
