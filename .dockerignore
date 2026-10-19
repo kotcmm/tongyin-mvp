@@ -1,6 +1,0 @@
-**/.env
-**/data
-runtime-data
-secrets
-.git
-*.zip
