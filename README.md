@@ -21,7 +21,7 @@
 ## 本地启动（Visual Studio）
 
 1. 从 `feat/dotnet-clean-skeleton` 分支拉取代码，VS 2026 打开 `backend-dotnet/Tongyin.slnx`，设置 `Tongyin.Api` 为启动项目。
-2. 连接现有 PostgreSQL 本地数据库。新数据库按 `backend-dotnet/sql/postgres/` 的 `000_baseline.sql`、`001_system_settings.sql`、`003_identity_admin.sql` 顺序初始化。
+2. 连接现有 PostgreSQL 本地数据库。新数据库按 `backend-dotnet/sql/postgres/` 的 `000_baseline.sql`、`001_system_settings.sql`、`003_identity_admin.sql`、`004_media_cleanup.sql` 顺序初始化。
 3. 在 Visual Studio 的 **管理用户机密** 中配置 `DB_CONNECTION_STRING`、`SESSION_SECRET`、`DATA_DIR`、管理员首次初始化账号。详见 [后端使用说明](backend-dotnet/README.md)。
 4. 使用“童印 API · 本地 18080”配置 **F5** 启动；后台访问 `http://localhost:18080/admin/`。
 5. 微信开发者工具导入 `miniprogram/`；当前开发态 `API_BASE` 为 `http://localhost:18080`，与本地 API 一致。手机真机不能使用 localhost。
@@ -49,6 +49,12 @@ node scripts/check-ui-utils.cjs
 `backend-dotnet/sql/postgres/900_drop_legacy_admin_tables.sql`
 
 它不会删除作品、订单、微信用户、媒体元数据或审计记录。**`ty_system_settings` 仍是必需表**：如果在数据库管理工具里没有看到，请运行 `001_system_settings.sql` 补齐，而不是删除相关代码。
+
+## 删除作品与本地媒体
+
+小程序删除没有订单关联、没有已认领 AI 任务的作品后，系统会在同一数据库事务中登记原画、图片候选、预览图和 GLB 的回收任务。
+后台 `MediaCleanupPollingService` 默认每 10 秒检查一次持久化队列，处理前核对其它作品和历史订单是否仍然引用这些文件；仅删除无引用、位于 `DATA_DIR/media/` 下的安全媒体名称。磁盘删除失败会留下队列记录，下次重试。重启不会丢失任务。
+**升级旧数据库必须先执行 `backend-dotnet/sql/postgres/004_media_cleanup.sql`**，否则 DELETE API 会因队列表不存在而失败并回滚。执行 SQL 不会立即删除任何历史文件；只回收升级后删除作品时登记的文件，不会全盘清理历史孤儿媒体。
 
 ## 当前范围
 

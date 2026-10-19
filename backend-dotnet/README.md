@@ -46,12 +46,21 @@ PostgreSQL：
 | 1 | `sql/postgres/000_baseline.sql` | 现役业务表：作品、订单、地址、微信用户、AI 服务商/提示词、审计与事务锁 |
 | 2 | `sql/postgres/001_system_settings.sql` | 微信 AppID / AppSecret 等系统配置 |
 | 3 | `sql/postgres/003_identity_admin.sql` | ASP.NET Core Identity 管理员账号 |
+| 4 | `sql/postgres/004_media_cleanup.sql` | 已删除作品的媒体回收持久化队列 |
 
 已存在这些业务表的旧库可重复执行 `CREATE TABLE IF NOT EXISTS` 的初始化脚本，但应先做完整备份；脚本不会修改业务表原有列结构。MySQL 对应文件在 `sql/mysql/`。数据层使用 Dapper，不需要 EF Core 数据库上下文。
 
 **注意：**你的截图中有 `ty_admin_identity`，但没有 `ty_system_settings`；后者仍用于微信系统设置，应执行对应的 `001_system_settings.sql` 补齐。
 
 旧 Go 后台用户表 `ty_admins`、临时自写登录的 `ty_admin_credentials` **不再使用**。确认新 Identity 管理员已初始化，并先执行数据库备份后，可人工执行 `sql/postgres/900_drop_legacy_admin_tables.sql`。脚本会检查管理员是否存在，没有确认就拒绝删除；不使用 CASCADE，不会删除订单、作品、微信用户等表。
+
+## 删除作品与媒体回收
+
+`DELETE /api/works/{id}` 会校验作品归属、订单和已认领的生成任务；有订单或任务正在执行时不允许删除。可删除时，在作品数据库删除事务内，将 `original`、`candidates`、`preview`、`model` 里符合安全规则的媒体文件名去重写入 `ty_media_cleanup`。
+
+`MediaCleanupPollingService` 每 10 秒最多处理 16 条任务，使用与作品写入相同的 `ty_store_lock` 数据库锁再次核对当前作品和订单 JSON。文件仍被引用时跳过物理删除；无引用时才删除 `DATA_DIR/media/` 内的本地文件。失败时事务回滚，任务保留供重试；重启可继续处理。不会删除整个 `media` 文件夹、外部 URL 或任意目录路径。
+
+**已在使用的旧数据库必须先执行 `sql/postgres/004_media_cleanup.sql`（MySQL 对应 `sql/mysql/`）**。此脚本仅创建待清理队列表，不会主动删除旧素材。只处理新发生的作品删除；过去遗留的孤儿文件不会被自动批量删除，避免误删迁移时尚未关联的数据。无须改动前端 API。
 
 ## 管理后台登录
 
