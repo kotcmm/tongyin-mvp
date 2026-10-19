@@ -86,19 +86,20 @@ public sealed class SqlAdminImageReviewRepositoryTests
         Assert.Empty(await db.AuditsAsync());
     }
 
-    /// <summary>
-    /// 旧 Go 的图片任务只有开始时间标记时也可以人工核查。
-    /// </summary>
+    /// <summary>没有正式认领编号的任务不能人工核查或更改作品状态。</summary>
     [Fact]
-    public async Task ResolveAsync_LegacyGoStartedTask_AllowsReview()
+    public async Task ResolveAsync_MissingClaimId_Rejects()
     {
         using var db = new TestDatabase();
         await db.SeedAsync("work-1", "image_pending", "job-1", "", Now.AddHours(-2));
+        var original = await db.WorkAsync("work-1");
 
-        var result = await new SqlAdminImageReviewRepository(db.Connect)
-            .ResolveAsync("work-1", "job-1", "legacy-token", "已确认失败", null, Now);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new SqlAdminImageReviewRepository(db.Connect)
+                .ResolveAsync("work-1", "job-1", "admin", "已确认失败", null, Now));
 
-        Assert.Equal("failed", result.Status);
+        Assert.Equal(original, await db.WorkAsync("work-1"));
+        Assert.Empty(await db.AuditsAsync());
     }
 
     /// <summary>
