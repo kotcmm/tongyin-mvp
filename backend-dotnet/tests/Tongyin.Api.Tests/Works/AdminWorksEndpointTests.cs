@@ -41,7 +41,7 @@ public sealed class AdminWorksEndpointTests
 
     /// <summary>管理员能看到不同家长的作品与状态，但响应不得包含 OpenID 或未经签名的裸文件名。</summary>
     [Fact]
-    public async Task AdminWorks_TokenListsAcrossOwnersWithSignedMedia()
+    public async Task AdminWorks_TokenListsAcrossOwnersWithSignedSameOriginMedia()
     {
         using var app = new WorksFactory();
         app.Seed("work-a", "openid-a", "image_pending", createdAt: "2026-10-17T09:00:00+08:00");
@@ -57,14 +57,15 @@ public sealed class AdminWorksEndpointTests
         Assert.Equal("image_pending", works[1].GetProperty("status").GetString());
         Assert.Equal(-1, works[1].GetProperty("selected").GetInt32());
         var original = works[0].GetProperty("original").GetString()!;
-        Assert.StartsWith("http://localhost/media/original.png?expires=", original);
+        Assert.StartsWith("/media/original.png?expires=", original);
         Assert.Contains("&signature=", original);
         var candidate = works[0].GetProperty("candidates")[0].GetString()!;
-        Assert.Contains("/media/cartoon.png?expires=", candidate);
+        Assert.StartsWith("/media/cartoon.png?expires=", candidate);
         Assert.Equal(1, works[0].GetProperty("candidates").GetArrayLength());
-        Assert.Contains("/media/figure.glb?expires=", works[0].GetProperty("model").GetString());
+        Assert.StartsWith("/media/figure.glb?expires=", works[0].GetProperty("model").GetString());
         Assert.False(works[0].TryGetProperty("owner", out _));
         Assert.False(works[1].TryGetProperty("owner_id", out _));
+        Assert.DoesNotContain("wrong-origin.example", await response.Content.ReadAsStringAsync());
         Assert.DoesNotContain("openid-a", await response.Content.ReadAsStringAsync());
         Assert.DoesNotContain("openid-b", await response.Content.ReadAsStringAsync());
     }
@@ -79,7 +80,8 @@ public sealed class AdminWorksEndpointTests
         using var response = await client.SendAsync(Admin());
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var url = document.RootElement[0].GetProperty("original").GetString()!;
-        var local = new Uri(url).PathAndQuery;
+        Assert.StartsWith("/media/", url);
+        var local = url;
         using var image = await client.GetAsync(local);
         Assert.Equal(HttpStatusCode.OK, image.StatusCode);
         using var forged = await client.GetAsync(local.Replace("signature=", "signature=X"));
@@ -148,7 +150,7 @@ public sealed class AdminWorksEndpointTests
                 ["DB_DRIVER"] = "postgres",
                 ["DB_CONNECTION_STRING"] = "unused-for-test",
                 ["ADMIN_TOKEN"] = "test-admin-token",
-                ["PUBLIC_URL"] = "http://localhost",
+                ["PUBLIC_URL"] = "https://wrong-origin.example:443",
                 ["DATA_DIR"] = _directory,
                 ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60",
                 ["AI_MODEL_DISPATCH_POLL_SECONDS"] = "60"
