@@ -156,6 +156,7 @@ public sealed class DeleteWorkEndpointTests
                 INSERT INTO ty_store_lock(id) VALUES (1);
                 CREATE TABLE ty_works(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,created_at TEXT NOT NULL,payload TEXT NOT NULL);
                 CREATE TABLE ty_orders(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,created_at TEXT NOT NULL,payload TEXT NOT NULL);
+                CREATE TABLE ty_media_cleanup(file_name TEXT PRIMARY KEY,requested_at TEXT NOT NULL);
                 CREATE TABLE ty_users(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,created_at TEXT NOT NULL,payload TEXT NOT NULL);
                 """);
         }
