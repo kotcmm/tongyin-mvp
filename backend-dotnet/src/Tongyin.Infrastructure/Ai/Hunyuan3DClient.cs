@@ -8,7 +8,7 @@ namespace Tongyin.Infrastructure.Ai;
 /// 腾讯混元生 3D 专业版 OpenAI 兼容接口；提交 ImageUrl Base64 并按 JobId 查询。
 /// 不依赖第三方回调或本机公网地址，不自动重试收费提交。
 /// </summary>
-public sealed class Hunyuan3DClient(HttpClient client, GoAiKeyDecryptor credentials) : IHunyuan3DClient
+public sealed class Hunyuan3DClient(HttpClient client, AiCredentialProtector credentials) : IHunyuan3DClient
 {
     private static readonly Uri SubmitUri = new("https://api.ai3d.cloud.tencent.com/v1/ai3d/submit");
     private static readonly Uri QueryUri = new("https://api.ai3d.cloud.tencent.com/v1/ai3d/query");

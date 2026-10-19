@@ -7,7 +7,7 @@ namespace Tongyin.Infrastructure.Ai;
 
 /// <summary>在已有 ty_ai_providers / ty_ai_prompts 业务表中维护图片、模型阶段的默认服务商与提示词。</summary>
 public sealed class SqlAdminAiSettingsStore(
-    Func<DbConnection> connectionFactory, GoAiKeyDecryptor protector) : IAdminAiSettingsStore
+    Func<DbConnection> connectionFactory, AiCredentialProtector protector) : IAdminAiSettingsStore
 {
     private const string ProvidersSql = "SELECT id AS Id, payload AS Payload FROM ty_ai_providers ORDER BY created_at, id";
 
@@ -38,6 +38,8 @@ public sealed class SqlAdminAiSettingsStore(
         var keyCipher = string.IsNullOrWhiteSpace(request.ApiKey)
             ? previous?.Provider.ApiKeyCipher ?? string.Empty
             : protector.Encrypt(request.ApiKey);
+        if (!string.IsNullOrEmpty(keyCipher) && !AiCredentialProtector.IsCurrentCipher(keyCipher))
+            throw new InvalidOperationException("旧版密钥格式已停用，请重新填写 API Key");
         if (request.Enabled && string.IsNullOrWhiteSpace(keyCipher))
         {
             throw new InvalidOperationException("启用前需要先填写 API Key");
@@ -166,7 +168,7 @@ public sealed class SqlAdminAiSettingsStore(
             ? "https://ark.cn-beijing.volces.com/api/v3/images/generations" : "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit"),
         Model = provider?.Model ?? string.Empty,
         Enabled = provider?.Enabled == true && provider.Default,
-        HasApiKey = !string.IsNullOrWhiteSpace(provider?.ApiKeyCipher),
+        HasApiKey = AiCredentialProtector.IsCurrentCipher(provider?.ApiKeyCipher),
         PromptTemplate = prompt.Template,
         PromptVersion = prompt.Version
     };

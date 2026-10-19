@@ -198,8 +198,8 @@ builder.Services.AddScoped<GetWork>();
 builder.Services.AddScoped<IAiGenerationSettingsReader, SqlAiGenerationSettingsReader>();
 builder.Services.AddScoped<IAdminAiSettingsStore, SqlAdminAiSettingsStore>();
 builder.Services.AddScoped<ManageAiStageSettings>();
-builder.Services.AddSingleton(services =>
-    new GoAiKeyDecryptor(services.GetRequiredService<IConfiguration>()["SESSION_SECRET"]!));
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<AiCredentialProtector>();
 builder.Services.AddHttpClient<SeedreamImageGenerator>(client => client.Timeout = TimeSpan.FromSeconds(190))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
     {

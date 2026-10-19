@@ -62,7 +62,7 @@ public sealed class AdminAiSettingsEndpointTests
         using var scope = factory.Services.CreateScope();
         var settings = await scope.ServiceProvider.GetRequiredService<IAiGenerationSettingsReader>().GetAsync("image");
         Assert.True(settings.CanGenerateImage());
-        Assert.Equal(key, new GoAiKeyDecryptor(SettingsFactory.Secret).Decrypt(settings.Provider!.ApiKeyCipher));
+        Assert.Equal(key, scope.ServiceProvider.GetRequiredService<AiCredentialProtector>().Decrypt(settings.Provider!.ApiKeyCipher));
         Assert.DoesNotContain(key, factory.GetAuditPayload());
     }
 
