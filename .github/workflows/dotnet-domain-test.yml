@@ -19,5 +19,5 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
-      - name: Verify Domain, Application and Infrastructure tests
+      - name: Run complete .NET solution tests
         run: dotnet test backend-dotnet/Tongyin.slnx -c Release -p:NuGetAudit=true -p:WarningsAsErrors=NU1903

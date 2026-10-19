@@ -9,7 +9,6 @@ const wxml=read('miniprogram/pages/preview/index.wxml')
 const app=JSON.parse(read('miniprogram/app.json'))
 const config=JSON.parse(read('miniprogram/pages/preview/index.json'))
 const pageSource=read('miniprogram/pages/preview/index.js')
-const admin=['core.js','views.js','actions.js'].map(name=>read('backend/webadmin/'+name)).join('\n')
 for(const s of ['type="webgl"','id="modelCanvas"','canvasTouchStart','canvasTouchMove','viewerLoading','viewerError','toggleFullscreen','fullscreen-gallery','model-toolbar','zoomIn','zoomOut','resetView']){
  assert(wxml.includes(s),'missing viewer UI: '+s)
 }
@@ -21,7 +20,6 @@ assert(wxml.includes('<page-meta page-style='),'full screen page scroll lock mis
 assert((wxml.match(/id="modelCanvas"/g)||[]).length===1,'full screen must reuse a single canvas')
 assert(wxml.includes('退出全屏'),'missing close-fullscreen action')
 assert(!config.usingComponents,'native XR Frame dependency remains')
-assert(!admin.includes('renderExisting('),'admin still requires static preview generator')
 for(const p of ['miniprogram/vendor/threejs-miniprogram/index.js','miniprogram/vendor/threejs-miniprogram/gltf-loader.js','miniprogram/vendor/threejs-miniprogram/LICENSE']){
  assert(fs.existsSync(path.join(root,p)),'vendor asset missing: '+p)
 }

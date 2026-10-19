@@ -1,12 +1,18 @@
-backend/data/
-backend/.env
+# 本机密钥、开发环境与运行数据
+.env
+.env.*
+!.env.example
 *.log
 .DS_Store
+.vs/
+*.user
+*.suo
 miniprogram/project.private.config.json
 
-# Visual Studio / .NET generated files
-.vs/
+# .NET 产物与本机媒体
 backend-dotnet/**/bin/
 backend-dotnet/**/obj/
+backend-dotnet/data/
 backend-dotnet/**/appsettings.Development.json
-/backend-dotnet/data
+__pycache__/
+*.pyc

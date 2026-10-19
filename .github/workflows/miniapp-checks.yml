@@ -1,0 +1,32 @@
+name: WeChat mini-program checks
+
+on:
+  push:
+    paths:
+      - "miniprogram/**"
+      - "scripts/**"
+      - ".github/workflows/miniapp-checks.yml"
+  pull_request:
+    paths:
+      - "miniprogram/**"
+      - "scripts/**"
+      - ".github/workflows/miniapp-checks.yml"
+  workflow_dispatch:
+
+jobs:
+  miniapp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check mini-program JavaScript syntax
+        run: find miniprogram -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Verify mini-program behavior and modules
+        run: |
+          node scripts/check-miniapp-3d.cjs
+          node scripts/check-miniapp-identity.cjs
+          node scripts/check-miniapp-modules.cjs
+          node scripts/check-order-flow.cjs
+          node scripts/check-ui-utils.cjs
