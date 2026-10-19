@@ -22,7 +22,7 @@ public sealed class ControllerDirectoryTests
             ],
             ["Admin"] =
             [
-                "AdminAiTasksController", "AdminOrdersController", "AdminWorksController",
+                "AdminAccountController", "AdminAiTasksController", "AdminOrdersController", "AdminWorksController",
                 "WechatSystemSettingsController"
             ],
             ["Internal"] = ["AiResultController", "WechatPayNotifyController"],
@@ -58,7 +58,7 @@ public sealed class ControllerDirectoryTests
                 "MiniappConfig", "OrderTracking", "Orders", "ShippingAddress",
                 "WechatAuth", "WechatPayment", "WechatProfile", "WorkOrder", "Works"
             ],
-            ["Admin"] = ["AdminAiTasks", "AdminOrders", "AdminWorks", "WechatSystemSettings"],
+            ["Admin"] = ["AdminAccount", "AdminAiTasks", "AdminOrders", "AdminWorks", "WechatSystemSettings"],
             ["Internal"] = ["AiResult", "WechatPayNotify"],
             ["Shared"] = ["Media"]
         };
@@ -79,6 +79,7 @@ public sealed class ControllerDirectoryTests
     {
         var routes = new Dictionary<string, string>
         {
+            ["AdminAccountController"] = "api/admin/account",
             ["AdminAiTasksController"] = "api/admin/ai",
             ["AdminOrdersController"] = "api/admin/orders",
             ["AdminWorksController"] = "api/admin/works",

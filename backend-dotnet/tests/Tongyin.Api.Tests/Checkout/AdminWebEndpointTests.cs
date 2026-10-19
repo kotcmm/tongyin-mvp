@@ -28,7 +28,7 @@ public sealed class AdminWebEndpointTests
 
     /// <summary>后台页面由 .NET 服务提供，登录使用 ADMIN_TOKEN 而非尚未迁移的管理员账号接口。</summary>
     [Fact]
-    public async Task AdminConsole_ServesTokenLoginAndOrdersAssets()
+    public async Task AdminConsole_ServesUsernamePasswordLoginAndOrdersAssets()
     {
         using var app = new AdminWebFactory();
         using var client = app.CreateClient();
@@ -36,7 +36,7 @@ public sealed class AdminWebEndpointTests
         var html = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("text/html", response.Content.Headers.ContentType?.MediaType);
-        Assert.Contains("id=\"adminToken\"", html);
+        Assert.Contains("id=\"adminUsername\"", html);
         Assert.Contains("/admin/orders.js", html);
         Assert.Contains("/admin/app.css", html);
         Assert.DoesNotContain("/api/admin/auth/login", html);
@@ -110,7 +110,7 @@ public sealed class AdminWebEndpointTests
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
-                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("test-admin-token"));
+                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("test-admin-secret"));
                 services.RemoveAll<IOrderFulfillmentRepository>();
                 services.AddSingleton<IOrderFulfillmentRepository>(Orders);
             });
