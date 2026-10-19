@@ -61,7 +61,7 @@ public sealed class WechatCodeExchangerTests
         var settings = new FakeSettingsStore();
         using var exchanger = new DevelopmentWechatCodeExchanger(new WechatCodeExchanger(client, settings));
 
-        Assert.Equal("dev-openid", await exchanger.ExchangeAsync("DEV_LOGIN"));
+        Assert.Equal("dev-user", await exchanger.ExchangeAsync("DEV_LOGIN"));
         Assert.Equal(0, settings.ReadCount);
         Assert.Null(handler.RequestUri);
     }
