@@ -15,15 +15,16 @@ public sealed class ModelGenerationService(
     /// <summary>一轮优先查询已提交的 JobId；没有已提交任务才认领一笔新任务，避免重复付费。</summary>
     public async Task ProcessNextAsync(CancellationToken ct = default)
     {
-        var settings = await settingsReader.GetAsync("model", ct);
-        if (!settings.CanGenerateModel()) return;
-
+        // 已提交的 JobId 必须先继续查询，即使后台临时停用了新任务派发。
         var active = await jobs.GetNextSubmittedAsync(ct);
         if (active is not null)
         {
-            await PollAsync(active, settings, ct);
+            await PollAsync(active, ct);
             return;
         }
+
+        var settings = await settingsReader.GetAsync("model", ct);
+        if (!settings.CanGenerateModel()) return;
 
         var queued = await queue.ListAsync(1, ct);
         if (queued.Count == 0) return;
@@ -35,12 +36,25 @@ public sealed class ModelGenerationService(
         // 认领与状态“submitting”已经持久化；即便网络中断，也不能自动二次收费。
         var image = await images.ReadImageAsync(work.Candidates[0], ct);
         var jobId = await hunyuan.SubmitAsync(settings, image, ct);
-        await jobs.RecordSubmittedAsync(task.GenerationId, jobId, ct);
+        await jobs.RecordSubmittedAsync(task.GenerationId, jobId,
+            settings.Provider!.ApiKeyCipher, settings.Provider.Model, ct);
     }
 
     /// <summary>查询已持久化的 JobId，WAIT/RUN 只更新状态；DONE 下载 GLB，FAIL 登记失败。</summary>
-    private async Task PollAsync(ModelGenerationJob job, AiGenerationSettings settings, CancellationToken ct)
+    private async Task PollAsync(ModelGenerationJob job, CancellationToken ct)
     {
+        // 轮询使用提交时保存的加密凭据和模型版本，不会被管理员更改配置影响。
+        var settings = new AiGenerationSettings
+        {
+            Stage = "model", PromptTemplate = string.Empty, PromptVersion = 1,
+            Provider = new AiProviderSettings
+            {
+                Id = job.ProviderId, Stage = "model", Adapter = "hunyuan3d",
+                Endpoint = "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit",
+                Model = job.Model, ApiKeyCipher = job.ApiKeyCipher,
+                Enabled = true, Default = true
+            }
+        };
         var result = await hunyuan.QueryAsync(settings, job.ProviderJobId, ct);
         switch (result.Status)
         {

@@ -14,23 +14,29 @@ public sealed class SqlModelGenerationJobRepository(Func<DbConnection> connectio
         await db.OpenAsync(ct);
         return await db.QuerySingleOrDefaultAsync<ModelGenerationJob>(new CommandDefinition("""
             SELECT work_id AS WorkId, generation_id AS GenerationId,
-                provider_job_id AS ProviderJobId, provider_id AS ProviderId
+                provider_job_id AS ProviderJobId, provider_id AS ProviderId,
+                api_key_cipher AS ApiKeyCipher, model AS Model
             FROM ty_model_jobs WHERE status IN ('WAIT', 'RUN')
             ORDER BY updated_at ASC, generation_id ASC LIMIT 1
             """, cancellationToken: ct));
     }
 
     /// <summary>仅允许把一次已确认的提交响应变为可轮询状态。</summary>
-    public async Task RecordSubmittedAsync(string generationId, string providerJobId, CancellationToken ct = default)
+    public async Task RecordSubmittedAsync(string generationId, string providerJobId,
+        string apiKeyCipher, string model, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(providerJobId) || providerJobId.Length > 128)
+        if (string.IsNullOrWhiteSpace(providerJobId) || providerJobId.Length > 128
+            || !apiKeyCipher.StartsWith("dp1:", StringComparison.Ordinal)
+            || model is not ("3.0" or "3.1"))
             throw new InvalidDataException("混元返回的 JobId 无效");
         await using var db = connections();
         await db.OpenAsync(ct);
         var changed = await db.ExecuteAsync(new CommandDefinition("""
-            UPDATE ty_model_jobs SET provider_job_id=@JobId, status='WAIT', updated_at=@At
+            UPDATE ty_model_jobs SET provider_job_id=@JobId, api_key_cipher=@Cipher,
+                model=@Model, status='WAIT', updated_at=@At
             WHERE generation_id=@Id AND status='submitting' AND provider_job_id IS NULL
-            """, new { Id = generationId, JobId = providerJobId, At = DateTimeOffset.UtcNow.ToString("O") },
+            """, new { Id = generationId, JobId = providerJobId, Cipher = apiKeyCipher, Model = model,
+                At = DateTimeOffset.UtcNow.ToString("O") },
             cancellationToken: ct));
         if (changed != 1) throw new InvalidOperationException("模型提交记录已失效或重复");
     }

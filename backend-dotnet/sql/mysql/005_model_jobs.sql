@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS ty_model_jobs (
     provider_id VARCHAR(64) NOT NULL,
     prompt_version INTEGER NOT NULL,
     provider_job_id VARCHAR(128) NULL,
+    api_key_cipher TEXT NULL,
+    model VARCHAR(32) NULL,
     status VARCHAR(16) NOT NULL,
     created_at VARCHAR(40) NOT NULL,
     updated_at VARCHAR(40) NOT NULL,
