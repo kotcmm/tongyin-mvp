@@ -8,7 +8,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Authorization;
 using Tongyin.Api.Auth;
-using Tongyin.Api.Controllers;
+using Tongyin.Api.Controllers.Miniapp;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;

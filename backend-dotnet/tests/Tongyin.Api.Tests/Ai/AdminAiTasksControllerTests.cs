@@ -11,7 +11,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Tongyin.Api.Auth;
-using Tongyin.Api.Controllers;
+using Tongyin.Api.Controllers.Admin;
 using Tongyin.Application.Works;
 using Xunit;
 

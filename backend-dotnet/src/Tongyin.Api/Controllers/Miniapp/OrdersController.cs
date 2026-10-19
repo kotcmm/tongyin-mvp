@@ -3,7 +3,7 @@ using Tongyin.Api.Auth;
 using Tongyin.Api.ViewModels.Checkout;
 using Tongyin.Application.Checkout;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Miniapp;
 
 /// <summary>微信用户待付款订单创建、本人查询、收货地址修改及安全取消。</summary>
 [ApiController]

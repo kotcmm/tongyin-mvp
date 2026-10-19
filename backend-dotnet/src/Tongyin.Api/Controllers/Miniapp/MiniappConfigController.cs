@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Tongyin.Application.Checkout;
 using Tongyin.Application.Ai;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Miniapp;
 
 /// <summary>小程序可公开读取的业务配置，不包含模型 API Key 和其他服务端秘密。</summary>
 [ApiController]

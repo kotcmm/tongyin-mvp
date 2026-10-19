@@ -4,7 +4,7 @@ using Tongyin.Api.Auth;
 using Tongyin.Api.ViewModels.Checkout;
 using Tongyin.Application.Checkout;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Admin;
 
 /// <summary>运营人员订单制作与实际发货入口，禁止微信普通用户使用。</summary>
 [ApiController]

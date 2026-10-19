@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
 using Tongyin.Application.Checkout;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Miniapp;
 
 /// <summary>微信用户本人已发货订单的物流查询入口。</summary>
 [ApiController]

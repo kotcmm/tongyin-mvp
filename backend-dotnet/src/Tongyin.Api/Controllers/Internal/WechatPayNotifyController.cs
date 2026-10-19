@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Tongyin.Application.Payments;
 using Tongyin.Infrastructure.Payments;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Internal;
 
 /// <summary>微信支付异步通知入口，不接受微信会话/管理员令牌作为资金凭据。</summary>
 [ApiController]

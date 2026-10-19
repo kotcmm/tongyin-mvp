@@ -4,7 +4,7 @@ using System.Text.Json;
 using Tongyin.Api.ViewModels.Auth;
 using Tongyin.Application.Auth;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Miniapp;
 
 /// <summary>
 /// 小程序微信登录入口，采用服务端会话签发，不返回微信 session_key 或 OpenID。

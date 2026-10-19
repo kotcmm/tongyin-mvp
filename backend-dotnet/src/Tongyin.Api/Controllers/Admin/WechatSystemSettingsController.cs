@@ -3,7 +3,7 @@ using Tongyin.Api.Auth;
 using Tongyin.Api.ViewModels.Auth;
 using Tongyin.Application.Auth;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Admin;
 
 /// <summary>管理员专用微信小程序凭据配置接口，绝不返回明文 AppSecret。</summary>
 [ApiController]

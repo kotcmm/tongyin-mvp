@@ -4,7 +4,7 @@ using Tongyin.Api.ViewModels.Works;
 using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Media;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Admin;
 
 /// <summary>运营人员跨用户检查原画、AI 形象和 GLB 模型的只读接口。</summary>
 [ApiController]

@@ -5,7 +5,7 @@ using Tongyin.Api.Auth;
 using Tongyin.Api.Http;
 using Tongyin.Application.Works;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Admin;
 
 /// <summary>
 /// 管理员 AI 任务核查入口，只允许人工确认失败或补录已生成图片，禁止重新调用模型。

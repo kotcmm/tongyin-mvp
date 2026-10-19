@@ -3,7 +3,7 @@ using Tongyin.Api.Auth;
 using Tongyin.Api.ViewModels.Ai;
 using Tongyin.Application.Works;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Internal;
 
 /// <summary>接受可信 worker 的 3D 生成结果，调用应用层保存模型或登记失败。</summary>
 [ApiController]

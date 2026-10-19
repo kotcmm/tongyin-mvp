@@ -3,7 +3,7 @@ using Tongyin.Api.Auth;
 using Tongyin.Api.ViewModels.Checkout;
 using Tongyin.Application.Checkout;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Miniapp;
 
 /// <summary>微信用户自己的默认收货地址，支持首次填写和后续更新。</summary>
 [ApiController]

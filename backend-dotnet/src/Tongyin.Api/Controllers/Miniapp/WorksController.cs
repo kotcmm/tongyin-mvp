@@ -7,7 +7,7 @@ using Tongyin.Api.ViewModels.Works;
 using Tongyin.Application.Works;
 using Tongyin.Infrastructure.Media;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Miniapp;
 
 /// <summary>
 /// 微信小程序作品接口，复用微信授权策略，只负责 HTTP 请求、业务调用及响应转换。

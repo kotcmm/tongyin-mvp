@@ -3,7 +3,7 @@ using Tongyin.Api.Auth;
 using Tongyin.Application.Checkout;
 using Tongyin.Application.Works;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Miniapp;
 
 /// <summary>小程序在作品预览页读取已存在订单，避免用户重复创建订单。</summary>
 [ApiController]

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
 using Tongyin.Application.Payments;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Miniapp;
 
 /// <summary>微信小程序本人订单 JSAPI 预下单入口，不读取或接受客户端报价。</summary>
 [ApiController]

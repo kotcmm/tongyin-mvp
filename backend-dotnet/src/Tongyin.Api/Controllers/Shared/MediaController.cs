@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Tongyin.Infrastructure.Media;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Shared;
 
 /// <summary>
 /// 对外提供带签名且有有效期的媒体下载，与微信用户及后台管理员登录分别隔离。

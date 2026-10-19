@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Tongyin.Api.Auth;
 using Tongyin.Application.Auth;
 
-namespace Tongyin.Api.Controllers;
+namespace Tongyin.Api.Controllers.Miniapp;
 
 /// <summary>微信小程序用户个人信息接口，身份从认证 Claims 中读取。</summary>
 [ApiController]
