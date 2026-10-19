@@ -40,6 +40,7 @@ Page({
     filters: FILTERS,
     filter: 'all',
     loading: true,
+    deletingId: '',
     error: '',
     ongoing: 0
   },
@@ -95,6 +96,37 @@ Page({
         ? 'preview'
         : 'choose'
     wx.navigateTo({ url: '/pages/' + path + '/index?id=' + w.id })
+  },
+  confirmDelete(e) {
+    const id = e.currentTarget.dataset.id
+    if (!id || this.data.deletingId || !this.data.all.some((w) => w.id === id)) return
+    wx.showModal({
+      title: '删除作品',
+      content: '删除后作品将从列表中移除，无法恢复。已有订单或正在执行生成任务的作品暂不能删除。',
+      confirmText: '删除',
+      confirmColor: '#BF6653',
+      success: ({ confirm }) => {
+        if (confirm) this.deleteWork(id)
+      }
+    })
+  },
+  async deleteWork(id) {
+    if (this.data.deletingId) return
+    this.setData({ deletingId: id })
+    try {
+      await request('DELETE', '/api/works/' + encodeURIComponent(id))
+      const all = this.data.all.filter((work) => work.id !== id)
+      this.setData({
+        all,
+        items: all.filter((work) => match(work, this.data.filter)),
+        ongoing: all.filter((work) => match(work, 'ongoing')).length,
+        deletingId: ''
+      })
+      wx.showToast({ title: '作品已删除', icon: 'success' })
+    } catch (error) {
+      this.setData({ deletingId: '' })
+      tip(error)
+    }
   },
   create() {
     wx.navigateTo({ url: '/pages/create/index' })

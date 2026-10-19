@@ -29,4 +29,5 @@ jobs:
           node scripts/check-miniapp-identity.cjs
           node scripts/check-miniapp-modules.cjs
           node scripts/check-order-flow.cjs
+          node scripts/check-works-delete.cjs
           node scripts/check-ui-utils.cjs
