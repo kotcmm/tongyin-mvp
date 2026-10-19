@@ -39,7 +39,6 @@ public sealed class AdminGenerationTaskListTests
         var items = doc.RootElement.EnumerateArray().ToDictionary(x => x.GetProperty("work_id").GetString()!);
         Assert.Equal(5, items.Count);
         Assert.Equal("queued", items["queued"].GetProperty("status").GetString());
-        Assert.False(items["queued"].GetProperty("is_legacy_go").GetBoolean());
         Assert.Equal("processing", items["active"].GetProperty("status").GetString());
         Assert.Equal("stalled", items["stalled"].GetProperty("status").GetString());
         Assert.True(items["stalled"].GetProperty("can_review").GetBoolean());

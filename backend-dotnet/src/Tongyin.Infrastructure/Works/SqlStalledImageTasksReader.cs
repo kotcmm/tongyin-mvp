@@ -7,12 +7,12 @@ using Tongyin.Application.Works;
 namespace Tongyin.Infrastructure.Works;
 
 /// <summary>
-/// 从 Go 兼容的 ty_works JSON 读取已认领且超时的图片任务，绝不修改原始记录。
+/// 从作品表的 ty_works JSON 读取已认领且超时的图片任务，绝不修改原始记录。
 /// </summary>
 public sealed class SqlStalledImageTasksReader(Func<DbConnection> connectionFactory) : IStalledImageTasksReader
 {
     /// <summary>
-    /// 只筛选仍处于 image_pending 的旧 Go 或 .NET 图片任务，返回最早的有限条目。
+    /// 只筛选仍处于 image_pending 的已认领的 .NET 图片任务，返回最早的有限条目。
     /// </summary>
     public async Task<IReadOnlyList<StalledImageTask>> ListAsync(DateTimeOffset startedBefore, int limit, CancellationToken cancellationToken = default)
     {
@@ -23,7 +23,7 @@ public sealed class SqlStalledImageTasksReader(Func<DbConnection> connectionFact
 
         await using var connection = connectionFactory();
         await connection.OpenAsync(cancellationToken);
-        // Go 把状态保存在 TEXT JSON 中，不能使用只支持单一数据库的 JSON 操作符。
+        // 作品状态保存在 TEXT JSON 中，不能使用只支持单一数据库的 JSON 操作符。
         var payloads = await connection.QueryAsync<string>(new CommandDefinition(
             "SELECT payload FROM ty_works ORDER BY created_at DESC, id DESC",
             cancellationToken: cancellationToken));
@@ -49,8 +49,7 @@ public sealed class SqlStalledImageTasksReader(Func<DbConnection> connectionFact
                 GenerationId = work.GenerationId,
                 StartedAt = startedAt,
                 ImageAttempts = work.ImageAttempts,
-                ProviderId = work.AiProviderId,
-                IsLegacyGo = string.IsNullOrEmpty(work.AiExecutionClaimId)
+                ProviderId = work.AiProviderId
             });
         }
 

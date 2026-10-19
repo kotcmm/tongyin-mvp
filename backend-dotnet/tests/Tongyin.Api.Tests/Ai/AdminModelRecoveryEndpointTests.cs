@@ -51,7 +51,6 @@ public sealed class AdminModelRecoveryEndpointTests
         Assert.Equal(WorkId, task.GetProperty("work_id").GetString());
         Assert.Equal(GenerationId, task.GetProperty("generation_id").GetString());
         Assert.Equal(1, task.GetProperty("image_attempts").GetInt32());
-        Assert.False(task.GetProperty("is_legacy_go").GetBoolean());
         Assert.DoesNotContain("openid-", json.RootElement.ToString());
     }
 

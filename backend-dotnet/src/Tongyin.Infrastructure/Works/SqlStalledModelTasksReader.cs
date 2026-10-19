@@ -45,8 +45,7 @@ public sealed class SqlStalledModelTasksReader(Func<DbConnection> connectionFact
                 GenerationId = work.GenerationId,
                 StartedAt = startedAt,
                 ImageAttempts = work.ImageAttempts,
-                ProviderId = work.AiProviderId,
-                IsLegacyGo = false
+                ProviderId = work.AiProviderId
             });
         }
 

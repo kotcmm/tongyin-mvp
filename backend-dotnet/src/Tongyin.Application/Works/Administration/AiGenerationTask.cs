@@ -57,7 +57,4 @@ public sealed class AiGenerationTask
     [JsonPropertyName("provider_job_id")]
     public required string ProviderJobId { get; init; }
 
-    /// <summary>仅为兼容现有前端列表接口而保留，当前不再支持 Go 任务适配。</summary>
-    [JsonPropertyName("is_legacy_go")]
-    public required bool IsLegacyGo { get; init; }
 }

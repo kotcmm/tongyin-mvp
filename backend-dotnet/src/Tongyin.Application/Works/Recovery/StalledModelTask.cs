@@ -25,7 +25,4 @@ public sealed class StalledModelTask
     [JsonPropertyName("provider_id")]
     public required string ProviderId { get; init; }
 
-    /// <summary>是否为不带 .NET 认领编号的旧 Go 模型任务。</summary>
-    [JsonPropertyName("is_legacy_go")]
-    public required bool IsLegacyGo { get; init; }
 }

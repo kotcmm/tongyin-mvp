@@ -43,8 +43,6 @@ public sealed class SqlAiGenerationTaskReader(Func<DbConnection> connections) : 
         {
             using var record = JsonDocument.Parse(payload);
             var root = record.RootElement;
-            var hasDotnetQueueMarker = root.TryGetProperty("ai_execution_claim_id", out var marker)
-                && marker.ValueKind == JsonValueKind.String;
             var work = root.Deserialize<WorkSnapshot>()
                 ?? throw new JsonException("作品记录不是合法的 JSON 对象");
             var hasImageResult = work.Candidates.Count > 0;
@@ -76,7 +74,7 @@ public sealed class SqlAiGenerationTaskReader(Func<DbConnection> connections) : 
             var stale = !complete && !failed && hasClaim &&
                 started.HasValue && started.Value <= now.AddMinutes(-15);
 
-            // 人工核查端还有更严格的任务编号、阶段和旧 Go 兼容校验。
+            // 人工核查端还会验证任务编号、阶段及数据库认领状态。
             var canReview = stale && !string.IsNullOrWhiteSpace(work.GenerationId)
                 && (string.IsNullOrWhiteSpace(work.AiExecutionClaimId) || recordedClaim)
                 && (stage == "image" || work.Selected == 0 && hasImageResult);
@@ -121,8 +119,7 @@ public sealed class SqlAiGenerationTaskReader(Func<DbConnection> connections) : 
                 ImageAttempts = work.ImageAttempts,
                 Note = failed || stale ? work.Note : string.Empty,
                 CanReview = canReview,
-                ProviderJobId = stage == "model" ? providerJob?.ProviderJobId ?? string.Empty : string.Empty,
-                IsLegacyGo = false
+                ProviderJobId = stage == "model" ? providerJob?.ProviderJobId ?? string.Empty : string.Empty
             });
         }
 

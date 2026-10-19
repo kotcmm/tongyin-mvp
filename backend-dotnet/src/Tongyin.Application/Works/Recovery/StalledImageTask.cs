@@ -27,7 +27,4 @@ public sealed class StalledImageTask
     [JsonPropertyName("provider_id")]
     public required string ProviderId { get; init; }
 
-    /// <summary>是否为仅含 Go 执行开始标记、尚无 .NET 认领标记的任务。</summary>
-    [JsonPropertyName("is_legacy_go")]
-    public required bool IsLegacyGo { get; init; }
 }

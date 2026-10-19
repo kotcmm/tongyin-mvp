@@ -237,7 +237,6 @@ function taskTable(tasks, stage) {
     return '<tr><td><strong class="task-id">' + id + '</strong><div class="task-secondary">任务 ' +
       generation + '</div>' + providerJob + '</td>' +
       '<td><span class="pill ' + tone + '">' + label + '</span>' +
-      (task.is_legacy_go && task.status === 'queued' ? '<div class="task-secondary">旧任务，可能无法自动派发</div>' : '') +
       '</td><td><div class="task-phase">' + phase + '</div>' + note + '</td>' +
       '<td><div>' + provider + '</div><div class="task-secondary">提示词 ' + version +
       (stage === 'image' ? ' · 生成次数 ' + h(task.image_attempts) : '') + '</div></td>' +
