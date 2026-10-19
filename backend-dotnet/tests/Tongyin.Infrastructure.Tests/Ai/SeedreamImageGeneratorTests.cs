@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.DataProtection;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -15,7 +16,6 @@ public sealed class SeedreamImageGeneratorTests
 {
     private const string SessionSecret = "local-test-session-secret-with-32bytes";
     private const string ApiKey = "sk-test-seedream-integration-only";
-    private const string Ciphertext = "AAECAwQFBgcICQoLFkRZbdrMiruCoYKTyXHCm3HBPbxrvcvda+/r93mi6gFxiUpRWmFg0KM6s97ChFWQ3w";
     private const string OfficialEndpoint = "https://ark.cn-beijing.volces.com/api/v3/images/generations";
     private static readonly byte[] Png = [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0];
 
@@ -23,7 +23,7 @@ public sealed class SeedreamImageGeneratorTests
     /// 正确请求必须提供 Bearer、原画 Data URL、模型和提示词，并要求单张 2K 无水印输出。
     /// </summary>
     [Fact]
-    public async Task GenerateAsync_Png_SendsGoCompatibleBodyAndReturnsSingleUrl()
+    public async Task GenerateAsync_Png_SendsOfficialSeedreamBodyAndReturnsSingleUrl()
     {
         var handler = new StubHandler(async (request, cancellationToken) =>
         {
@@ -47,7 +47,7 @@ public sealed class SeedreamImageGeneratorTests
             return Json(HttpStatusCode.OK, """{"data":[{"url":"https://images.example/generated.png"}]}""");
         });
         using var http = new HttpClient(handler);
-        var adapter = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var adapter = new SeedreamImageGenerator(http, CreateProtector());
 
         var url = await adapter.GenerateAsync(ImageSettings(), Png);
 
@@ -63,7 +63,7 @@ public sealed class SeedreamImageGeneratorTests
     {
         var handler = new StubHandler((_, _) => throw new Exception("不应发送请求"));
         using var http = new HttpClient(handler);
-        var adapter = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var adapter = new SeedreamImageGenerator(http, CreateProtector());
         var settings = new AiGenerationSettings { Stage = "image", PromptTemplate = "提示词", PromptVersion = 1 };
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => adapter.GenerateAsync(settings, Png));
@@ -80,7 +80,7 @@ public sealed class SeedreamImageGeneratorTests
     {
         var handler = new StubHandler((_, _) => throw new Exception("不应发送请求"));
         using var http = new HttpClient(handler);
-        var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var generator = new SeedreamImageGenerator(http, CreateProtector());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             generator.GenerateAsync(ImageSettings(stage: stage, adapter: adapter), Png));
@@ -100,7 +100,7 @@ public sealed class SeedreamImageGeneratorTests
     {
         var handler = new StubHandler((_, _) => throw new Exception("不应发送请求"));
         using var http = new HttpClient(handler);
-        var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var generator = new SeedreamImageGenerator(http, CreateProtector());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             generator.GenerateAsync(ImageSettings(endpoint: endpoint), Png));
@@ -115,7 +115,7 @@ public sealed class SeedreamImageGeneratorTests
     {
         var handler = new StubHandler((_, _) => throw new Exception("不应发送请求"));
         using var http = new HttpClient(handler);
-        var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var generator = new SeedreamImageGenerator(http, CreateProtector());
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             generator.GenerateAsync(ImageSettings(), Encoding.UTF8.GetBytes("not a picture")));
@@ -131,7 +131,7 @@ public sealed class SeedreamImageGeneratorTests
     {
         var handler = new StubHandler((_, _) => throw new Exception("不应发送请求"));
         using var http = new HttpClient(handler);
-        var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var generator = new SeedreamImageGenerator(http, CreateProtector());
 
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             generator.GenerateAsync(ImageSettings(), new byte[(10 * 1024 * 1024) + 1]));
@@ -147,7 +147,7 @@ public sealed class SeedreamImageGeneratorTests
         var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.BadRequest,
             """{"error":{"code":"InvalidParameter.Image","message":"key sk-test-seedream-integration-only; https://private.example/media/x?signature=secret; data:image/png;base64,aGVsbG8="}}""")));
         using var http = new HttpClient(handler);
-        var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var generator = new SeedreamImageGenerator(http, CreateProtector());
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => generator.GenerateAsync(ImageSettings(), Png));
 
@@ -171,7 +171,7 @@ public sealed class SeedreamImageGeneratorTests
     {
         var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.OK, responseJson)));
         using var http = new HttpClient(handler);
-        var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var generator = new SeedreamImageGenerator(http, CreateProtector());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => generator.GenerateAsync(ImageSettings(), Png));
     }
@@ -185,7 +185,7 @@ public sealed class SeedreamImageGeneratorTests
         var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.OK,
             """{"data":[{"url":"http://localhost/media/test.png"}]}""")));
         using var http = new HttpClient(handler);
-        var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var generator = new SeedreamImageGenerator(http, CreateProtector());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => generator.GenerateAsync(ImageSettings(), Png));
     }
@@ -198,7 +198,7 @@ public sealed class SeedreamImageGeneratorTests
     {
         var handler = new StubHandler((_, _) => Task.FromResult(Json(HttpStatusCode.OK, "NOT JSON sk-test-seedream-integration-only")));
         using var http = new HttpClient(handler);
-        var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var generator = new SeedreamImageGenerator(http, CreateProtector());
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => generator.GenerateAsync(ImageSettings(), Png));
         Assert.DoesNotContain(ApiKey, error.ToString());
@@ -215,11 +215,15 @@ public sealed class SeedreamImageGeneratorTests
             Headers = { Location = new Uri("https://evil.example/capture") }
         }));
         using var http = new HttpClient(handler);
-        var generator = new SeedreamImageGenerator(http, new GoAiKeyDecryptor(SessionSecret));
+        var generator = new SeedreamImageGenerator(http, CreateProtector());
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => generator.GenerateAsync(ImageSettings(), Png));
         Assert.Equal(1, handler.Calls);
     }
+
+    private static readonly IDataProtectionProvider _keys =
+        DataProtectionProvider.Create(new DirectoryInfo(Path.Combine(Path.GetTempPath(), "tongyin-seedream-unit-keys")));
+    private static AiCredentialProtector CreateProtector() => new(_keys);
 
     private static AiGenerationSettings ImageSettings(string stage = "image", string adapter = "seedream", string endpoint = OfficialEndpoint)
         => new()
@@ -236,7 +240,7 @@ public sealed class SeedreamImageGeneratorTests
                 Model = "seedream-test-v1",
                 Enabled = true,
                 Default = true,
-                ApiKeyCipher = Ciphertext
+                ApiKeyCipher = CreateProtector().Encrypt(ApiKey)
             }
         };
 

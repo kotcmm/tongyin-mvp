@@ -39,7 +39,8 @@ public sealed class SelectImageEndpointTests
         Assert.Equal("model_pending", root.GetProperty("status").GetString());
         Assert.Equal(0, root.GetProperty("selected").GetInt32());
         Assert.Equal("one.png", Assert.Single(root.GetProperty("candidates").EnumerateArray()).GetString());
-        Assert.Equal("image-gen-id", root.GetProperty("generation_id").GetString());
+        Assert.NotEqual("image-gen-id", root.GetProperty("generation_id").GetString());
+        Assert.True(Guid.TryParseExact(root.GetProperty("generation_id").GetString(), "N", out _));
         Assert.Equal("保留", root.GetProperty("custom_field").GetString());
         Assert.Equal(string.Empty, root.GetProperty("model").GetString());
         Assert.Empty(root.GetProperty("preview").EnumerateArray());

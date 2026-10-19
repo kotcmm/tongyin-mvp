@@ -8,7 +8,7 @@ using Xunit;
 namespace Tongyin.Infrastructure.Tests.Ai;
 
 /// <summary>
-/// 验证 .NET 能直接读取 Go 运营后台保存的图片及模型生成配置。
+/// 验证 .NET 能直接读取 童印运营后台保存的图片及模型生成配置。
 /// </summary>
 public sealed class SqlAiGenerationSettingsReaderTests
 {
@@ -31,7 +31,7 @@ public sealed class SqlAiGenerationSettingsReaderTests
         });
         await db.InsertProviderAsync("model-default", new
         {
-            id = "model-default", stage = "model", adapter = "worker", endpoint = "https://model.example/api",
+            id = "model-default", stage = "model", adapter = "hunyuan3d", endpoint = "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit",
             model = "model-v1", enabled = true, @default = true, api_key_cipher = "other-cipher"
         });
         await db.InsertProviderAsync("image-default", new
@@ -55,7 +55,7 @@ public sealed class SqlAiGenerationSettingsReaderTests
     }
 
     /// <summary>
-    /// 没有启用且默认的图片服务商时，不误选其他服务商，并沿用 Go 的默认提示词。
+    /// 没有启用且默认的图片服务商时，不误选其他服务商，并沿用 默认提示词。
     /// </summary>
     [Fact]
     public async Task GetAsync_ImageWithoutDefault_UsesOriginalDefaultPrompt()
@@ -96,7 +96,7 @@ public sealed class SqlAiGenerationSettingsReaderTests
     /// 模型阶段必须使用 model 配置，不能错误复用 image 模型或提示词。
     /// </summary>
     [Fact]
-    public async Task GetAsync_Model_SelectsModelStageWithLegacyDefaultPrompt()
+    public async Task GetAsync_Model_SelectsModelStageWithDefaultPrompt()
     {
         using var db = new TestDatabase();
         await db.InsertProviderAsync("image-default", new
@@ -108,15 +108,15 @@ public sealed class SqlAiGenerationSettingsReaderTests
         await db.InsertProviderAsync("model-default", new
         {
             id = "model-default", stage = "model", enabled = true, @default = true,
-            adapter = "worker", endpoint = "https://worker.example/api",
-            model = "3d-v1", api_key_cipher = "model-cipher"
+            adapter = "hunyuan3d", endpoint = "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit",
+            model = "3.0", api_key_cipher = "model-cipher"
         });
 
         var result = await new SqlAiGenerationSettingsReader(db.CreateConnection).GetAsync("model");
 
         Assert.Equal("model", result.Stage);
         Assert.Equal("model-default", result.Provider?.Id);
-        Assert.Equal("worker", result.Provider?.Adapter);
+        Assert.Equal("hunyuan3d", result.Provider?.Adapter);
         Assert.Equal(1, result.PromptVersion);
         Assert.Contains("GLB", result.PromptTemplate);
         Assert.Contains("可3D打印", result.PromptTemplate);
