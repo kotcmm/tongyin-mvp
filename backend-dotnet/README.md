@@ -72,6 +72,15 @@ PostgreSQL：
 
 后台配置请求使用 Identity Cookie 和 CSRF 安全令牌，只允许已登录管理员操作。检查失败时应先确认数据库存在 `ty_ai_providers`、`ty_ai_prompts`、`ty_audit`、`ty_store_lock` 和 `ty_system_settings`。
 
+### 图片生成：唯一应用入口
+
+`src/Tongyin.Application/Works/ImageGeneration/ImageGenerationService.cs` 是图片生成流程的唯一应用服务：
+- `QueueAsync`：小程序发起任务时验证当前服务商并原子登记，不直接调用 AI。
+- `ProcessNextAsync`：后台定时器触发，检查配置、读取待处理任务、原子认领、读取原画、调用 Seedream、下载一张结果图并写回作品；同一次处理只读取一次 AI 配置。
+- `SeedreamImageGenerator` 是具体 HTTP 适配器；`SqlQueuedImageGenerationReader` 和 `IWorkRepository` 的实现仍负责数据库安全，`GeneratedImageDownloader` 负责防 SSRF 下载。
+
+不再存在 `StartImageGeneration`、`DispatchQueuedImageGeneration`、`ExecuteImageGeneration` 或 `SaveImageGenerationResult` 四层用例包装。任务仍由后端后台服务异步处理，网络错误可能已经计费，因此已认领任务不会自动重试，保留运营核查入口。
+
 ## 功能与接口分组
 
 - `Controllers/Miniapp/`：微信登录、用户资料、作品上传、图片确认、GLB、订单及支付

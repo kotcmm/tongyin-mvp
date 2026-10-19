@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Tongyin.Application.Works;
-using Tongyin.Application.Ai;
 
 namespace Tongyin.Api.Hosting;
 
@@ -24,16 +23,8 @@ public sealed class ImageGenerationPollingService(IServiceScopeFactory scopeFact
                 try
                 {
                     await using var scope = scopeFactory.CreateAsyncScope();
-                    var aiSettingsReader = scope.ServiceProvider.GetRequiredService<IAiGenerationSettingsReader>();
-                    var settings = await aiSettingsReader.GetAsync("image", stoppingToken);
-                    if (!settings.CanGenerateImage())
-                    {
-                        diagnostics.Reset();
-                        continue;
-                    }
-
-                    var dispatcher = scope.ServiceProvider.GetRequiredService<DispatchQueuedImageGeneration>();
-                    await dispatcher.DispatchNextAsync(stoppingToken);
+                    var generation = scope.ServiceProvider.GetRequiredService<ImageGenerationService>();
+                    await generation.ProcessNextAsync(stoppingToken);
                     diagnostics.Reset();
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

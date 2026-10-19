@@ -15,9 +15,8 @@ public sealed class WorksDirectoryStructureTests
         ],
         ["ImageGeneration"] =
         [
-            "DispatchQueuedImageGeneration", "ExecuteImageGeneration",
-            "IGeneratedImageStore", "IQueuedImageGenerationReader", "QueuedImageGeneration",
-            "SaveImageGenerationResult", "StartImageGeneration"
+            "ImageGenerationService", "ImageGenerationUnavailableException",
+            "IGeneratedImageStore", "IQueuedImageGenerationReader", "QueuedImageGeneration"
         ],
         ["ModelGeneration"] =
         [
@@ -51,7 +50,7 @@ public sealed class WorksDirectoryStructureTests
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(37, expected.Length);
+        Assert.Equal(35, expected.Length);
         Assert.Equal(expected, actual);
     }
 
@@ -60,7 +59,7 @@ public sealed class WorksDirectoryStructureTests
     public void Works_PublicTypeNamespacesRemainBackwardCompatible()
     {
         Assert.Equal("Tongyin.Application.Works", typeof(CreateWork).Namespace);
-        Assert.Equal("Tongyin.Application.Works", typeof(StartImageGeneration).Namespace);
+        Assert.Equal("Tongyin.Application.Works", typeof(ImageGenerationService).Namespace);
         Assert.Equal("Tongyin.Application.Works", typeof(SaveModelGenerationResult).Namespace);
         Assert.Equal("Tongyin.Application.Works", typeof(ReviewStalledImageTask).Namespace);
         Assert.Equal("Tongyin.Application.Works", typeof(IAdminWorksReader).Namespace);
