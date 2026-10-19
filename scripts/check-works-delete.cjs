@@ -14,11 +14,10 @@ const detailStart = wxml.indexOf('class="work-detail"')
 const actionsStart = wxml.indexOf('class="work-actions"')
 assert.ok(mainStart > 0 && detailStart > mainStart && actionsStart > detailStart, '卡片主内容和底部操作区应明确分区')
 assert.match(wxml, /<\/view>\s*<view class="work-actions"/, '操作区必须与卡片左右内容平级，不能挤压文字列')
-assert.match(wxss, /\\.work-card\\s*\\{[^}]*flex-direction:\\s*column/, '作品卡片应上下分区，避免操作区挤窄文字')
-assert.match(wxss, /\\.work-main\\s*\\{[^}]*display:\\s*flex/, '原画与详情应保持横向布局')
-assert.match(wxss, /\\.work-link\\s*\\{[^}]*white-space:\\s*nowrap/, '查看进度必须保持一行显示')
-assert.match(wxss, /\\.work-delete\\s*\\{[^}]*width:\\s*1[0-9]{2}rpx/, '删除按钮应有受控宽度，不能撑满卡片')
-
+assert.match(wxss, /\.work-card\s*\{[^}]*flex-direction:\s*column/, '作品卡片应上下分区，避免操作区挤窄文字')
+assert.match(wxss, /\.work-main\s*\{[^}]*display:\s*flex/, '原画与详情应保持横向布局')
+assert.match(wxss, /\.work-link\s*\{[^}]*white-space:\s*nowrap/, '查看进度必须保持一行显示')
+assert.match(wxss, /\.work-delete\s*\{[^}]*width:\s*1[0-9]{2}rpx/, '删除按钮应有受控宽度，不能撑满卡片')
 
 const calls = []
 const messages = []
