@@ -30,17 +30,43 @@
     <button wx:if="{{all.length===0}}" class="btn" bindtap="create">上传一张画 <text>↗</text></button>
   </view>
   <view wx:else class="work-list">
-    <view wx:for="{{items}}" wx:for-item="work" wx:key="id" class="work-card" data-id="{{work.id}}" bindtap="open">
-      <view class="work-picture"><image wx:if="{{work.cover}}" src="{{work.cover}}" mode="aspectFill" lazy-load/><view wx:else class="picture-fallback"></view><view class="picture-label">童印 · {{work.shortid}}</view></view>
-      <view class="work-detail">
-        <view class="status-pill {{work.state.tone}}"><view class="tiny-dot"></view>{{work.state.title}}</view>
-        <view class="work-title">{{work.status==='image_pending'?'等待奇思妙想变身':work.status==='image_ready'?'来选喜欢的形象':work.status==='model_pending'?'立体模型正在准备':work.status==='model_ready'?'你的白模已就绪':'这幅作品需要处理'}}</view>
-        <view class="work-hint">{{work.state.hint}}</view>
-        <view class="work-date">{{work.date}}</view>
-        <view class="work-actions">
-          <view class="work-link">{{work.status==='image_ready'||work.status==='model_ready'?'继续确认':'查看进度'}} <text>→</text></view>
-          <button class="work-delete" data-id="{{work.id}}" catchtap="confirmDelete" disabled="{{!!deletingId}}" aria-label="删除作品">{{deletingId===work.id?'删除中…':'删除'}}</button>
+    <view
+      wx:for="{{items}}"
+      wx:for-item="work"
+      wx:key="id"
+      class="work-card"
+      data-id="{{work.id}}"
+      bindtap="open"
+    >
+      <view class="work-main">
+        <view class="work-picture">
+          <image wx:if="{{work.cover}}" src="{{work.cover}}" mode="aspectFill" lazy-load />
+          <view wx:else class="picture-fallback"></view>
+          <view class="picture-label">童印 · {{work.shortid}}</view>
         </view>
+        <view class="work-detail">
+          <view class="status-pill {{work.state.tone}}">
+            <view class="tiny-dot"></view>
+            {{work.state.title}}
+          </view>
+          <view class="work-title">{{work.status==='image_pending'?'等待奇思妙想变身':work.status==='image_ready'?'来选喜欢的形象':work.status==='model_pending'?'立体模型正在准备':work.status==='model_ready'?'你的白模已就绪':'这幅作品需要处理'}}</view>
+          <view class="work-hint">{{work.state.hint}}</view>
+          <view class="work-date">{{work.date}}</view>
+        </view>
+      </view>
+      <view class="work-actions">
+        <view class="work-link">
+          <text>{{work.status==='image_ready'||work.status==='model_ready'?'继续确认':'查看进度'}}</text>
+          <text class="work-arrow">→</text>
+        </view>
+        <button
+          class="work-delete"
+          data-id="{{work.id}}"
+          catchtap="confirmDelete"
+          disabled="{{!!deletingId}}"
+          hover-class="work-delete-hover"
+          aria-label="删除作品"
+        >{{deletingId===work.id?'删除中…':'删除'}}</button>
       </view>
     </view>
   </view>
