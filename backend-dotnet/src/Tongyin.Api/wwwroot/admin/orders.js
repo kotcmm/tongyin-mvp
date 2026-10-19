@@ -7,7 +7,7 @@ const statusLabels = {
   awaiting_payment: '待付款', paid: '已支付', printing: '制作中',
   shipped: '已发货', completed: '已完成', canceled: '已取消'
 };
-const state = { authenticated: false, csrf: '', username: '', tab: 'orders', orders: [], works: [], reviews: [], modelReviews: [], page: 1, pageSize: 12, busy: false };
+const state = { authenticated: false, csrf: '', username: '', tab: 'orders', aiStage: 'image', orders: [], works: [], reviews: [], modelReviews: [], page: 1, pageSize: 12, busy: false };
 
 async function refreshCsrf() {
   const response = await fetch('/api/admin/account/csrf', { credentials: 'same-origin', cache: 'no-store' });
@@ -69,6 +69,10 @@ function setBusy(value) {
 
 async function reload() {
   if (!state.authenticated || state.busy || state.tab === 'account') return;
+  if (['wechat-settings', 'image-settings', 'model-settings'].includes(state.tab)) {
+    await loadConfiguration();
+    return;
+  }
   setBusy(true);
   $('pageMessage').textContent = state.tab === 'works' ? '正在读取最新作品…' :
     state.tab === 'review' ? '正在读取超时图片任务…' :
@@ -438,14 +442,118 @@ function orderCard(o) {
     '<div class="row" style="margin-top:14px">' + actions + '</div></article>';
 }
 
+const configurationTabs = ['wechat-settings', 'image-settings', 'model-settings'];
+
+async function loadConfiguration() {
+  if (!state.authenticated || state.busy || !configurationTabs.includes(state.tab)) return;
+  setBusy(true);
+  $('pageMessage').textContent = '正在读取配置…';
+  try {
+    if (state.tab === 'wechat-settings') {
+      const settings = await api('/api/admin/system/wechat');
+      $('wechatAppId').value = settings.app_id || '';
+      $('wechatAppSecret').value = '';
+      $('wechatKeyStatus').textContent = settings.has_app_secret ? '已配置' : '未配置';
+      $('wechatSettingsError').textContent = '';
+    } else {
+      const stage = state.tab === 'image-settings' ? 'image' : 'model';
+      state.aiStage = stage;
+      const config = await api('/api/admin/ai/settings/' + stage);
+      $('aiEndpoint').value = config.endpoint || '';
+      $('aiModel').value = config.model || '';
+      $('aiApiKey').value = '';
+      $('aiKeyStatus').textContent = config.hasApiKey ? '已配置' : '未配置';
+      $('aiEnabled').checked = Boolean(config.enabled);
+      $('aiPrompt').value = config.promptTemplate || '';
+      $('aiPromptVersion').textContent = '版本 v' + String(config.promptVersion || 1);
+      $('aiSettingsError').textContent = '';
+    }
+    $('lastLoaded').textContent = new Date().toLocaleTimeString();
+    $('pageMessage').textContent = '';
+  } catch (error) {
+    $('pageMessage').textContent = error.message;
+    if (error.status === 401) logout(false);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function saveWechatSettings(event) {
+  event.preventDefault();
+  if (!state.authenticated || state.busy) return;
+  $('wechatSettingsError').textContent = '';
+  setBusy(true);
+  try {
+    const result = await api('/api/admin/system/wechat', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        app_id: $('wechatAppId').value.trim(),
+        app_secret: $('wechatAppSecret').value
+      })
+    });
+    $('wechatAppSecret').value = '';
+    $('wechatKeyStatus').textContent = result.has_app_secret ? '已配置' : '未配置';
+    toast('微信小程序配置已保存');
+  } catch (error) {
+    $('wechatSettingsError').textContent = error.message;
+    if (error.status === 401) logout(false);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function saveAiSettings(event) {
+  event.preventDefault();
+  if (!state.authenticated || state.busy) return;
+  const stage = state.aiStage;
+  $('aiSettingsError').textContent = '';
+  setBusy(true);
+  try {
+    const result = await api('/api/admin/ai/settings/' + stage, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: $('aiEndpoint').value.trim(), model: $('aiModel').value.trim(),
+        api_key: $('aiApiKey').value,
+        enabled: $('aiEnabled').checked, prompt_template: $('aiPrompt').value.trim()
+      })
+    });
+    $('aiApiKey').value = '';
+    $('aiKeyStatus').textContent = result.hasApiKey ? '已配置' : '未配置';
+    $('aiPromptVersion').textContent = '版本 v' + String(result.promptVersion);
+    toast(stage === 'image' ? 'AI 图片配置已保存' : '3D Worker 配置已保存');
+  } catch (error) {
+    $('aiSettingsError').textContent = error.message;
+    if (error.status === 401) logout(false);
+  } finally {
+    setBusy(false);
+  }
+}
+
 function openTab(tab) {
-  if (!['works', 'orders', 'shipping', 'review', 'model-review', 'account'].includes(tab)) return;
+  if (!['works', 'orders', 'shipping', 'review', 'model-review', 'account', ...configurationTabs].includes(tab)) return;
   state.tab = tab;
   state.page = 1;
+  const settingsMode = tab === 'account' || configurationTabs.includes(tab);
   $('accountPanel').classList.toggle('hidden', tab !== 'account');
-  $('listToolbar').classList.toggle('hidden', tab === 'account');
-  $('listResults').classList.toggle('hidden', tab === 'account');
-  $('listPager').classList.toggle('hidden', tab === 'account');
+  $('wechatSettingsPanel').classList.toggle('hidden', tab !== 'wechat-settings');
+  $('aiSettingsPanel').classList.toggle('hidden', !['image-settings', 'model-settings'].includes(tab));
+  $('listToolbar').classList.toggle('hidden', settingsMode);
+  $('listResults').classList.toggle('hidden', settingsMode);
+  $('listPager').classList.toggle('hidden', settingsMode);
+  if (tab === 'image-settings' || tab === 'model-settings') {
+    const imageMode = tab === 'image-settings';
+    state.aiStage = imageMode ? 'image' : 'model';
+    $('aiSettingsTitle').textContent = imageMode ? 'AI 图片生成配置' : 'AI 3D 模型生成配置';
+    $('aiSettingsHelp').textContent = imageMode
+      ? '上传儿童画后由火山方舟 Seedream 生成一张卡通形象。'
+      : '确认卡通形象后提交给支持童印异步 Worker 回调协议的 3D 服务。';
+    $('aiAdapterDescription').textContent = imageMode
+      ? '当前适配器：Seedream。只支持火山方舟官方图片 API，不可直接填入其他模型聚合平台地址。'
+      : '当前适配器：3D Worker。需可公网访问的 HTTPS API，并通过 /api/internal/ai-result 回调。不是任意文生 3D API 均可直接使用。';
+    $('aiEndpoint').placeholder = imageMode
+      ? 'https://ark.cn-beijing.volces.com/api/v3/images/generations'
+      : 'https://你的-worker-域名/api/model';
+  }
   if (tab === 'account') $('newAdminUsername').value = state.username;
   $('keyword').value = '';
   const filter = $('statusFilter');
@@ -459,11 +567,17 @@ function openTab(tab) {
       Object.entries(workStatusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('')
     : '<option value="">全部状态</option>' +
       Object.entries(statusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('');
-  $('pageTitle').textContent = tab === 'account' ? '账号设置' :
+  $('pageTitle').textContent = tab === 'wechat-settings' ? '微信小程序配置' :
+    tab === 'image-settings' ? 'AI 图片生成配置' :
+    tab === 'model-settings' ? 'AI 3D 模型配置' :
+    tab === 'account' ? '账号设置' :
     tab === 'model-review' ? '3D 模型异常' :
     tab === 'review' ? '超时图片任务' :
     tab === 'works' ? '作品管理' : tab === 'shipping' ? '物流发货' : '全部订单';
-  $('pageIntro').textContent = tab === 'account' ? '维护管理员用户名与密码' :
+  $('pageIntro').textContent = tab === 'wechat-settings' ? '配置小程序 AppID 与加密保存的 AppSecret' :
+    tab === 'image-settings' ? '设置图片 API、模型、密钥及提示词' :
+    tab === 'model-settings' ? '设置 3D Worker API、密钥与 GLB 提示词' :
+    tab === 'account' ? '维护管理员用户名与密码' :
     tab === 'model-review' ? '人工核实 Worker 结果，确认失败或补录实际 GLB 模型' :
     tab === 'review' ? '人工核实结果后，确认失败或补录实际生成图片' :
     tab === 'works' ? '原画 → AI 形象 → GLB 白模，当前为只读核查' :
@@ -605,6 +719,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('loginForm').addEventListener('submit', login);
   $('logout').addEventListener('click', () => logout(true));
   $('accountForm').addEventListener('submit', saveAdminAccount);
+  $('wechatSettingsForm').addEventListener('submit', saveWechatSettings);
+  $('aiSettingsForm').addEventListener('submit', saveAiSettings);
   $('refresh').addEventListener('click', () => reload().catch((error) => toast(error.message)));
   $('keyword').addEventListener('input', () => { state.page = 1; render(); });
   $('statusFilter').addEventListener('change', () => { state.page = 1; render(); });

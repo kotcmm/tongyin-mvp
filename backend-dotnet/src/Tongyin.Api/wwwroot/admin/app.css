@@ -475,3 +475,18 @@ button.nav-item:hover { background:#f1f6f0; }
 .account-form label { font-weight: 600; margin-top: 8px; }
 .account-form input { width: 100%; }
 #accountError { color: #b25d47; }
+
+/* 服务商与微信配置与现有运营后台保持一致。 */
+.nav-section-label { padding:18px 15px 8px; color:#97a89a; font-size:12px; letter-spacing:1px; }
+.settings-panel { max-width:840px; }
+.settings-header { margin:0 0 23px; }
+.settings-header h2 { margin:0 0 7px; font-size:22px; color:#304a37; }
+.settings-form { display:grid; gap:11px; max-width:680px; }
+.settings-form > label { font-weight:650; margin-top:9px; color:#354f3b; }
+.settings-form > input, .settings-form > textarea { width:100%; }
+.settings-form textarea { resize:vertical; line-height:1.6; }
+.settings-status { font-size:12px; color:#648a6d; font-weight:500; }
+.settings-error { color:#b25d47; }
+.settings-form .settings-toggle { display:flex; align-items:center; gap:10px; cursor:pointer; }
+.settings-form .settings-toggle input { width:18px; height:18px; }
+.settings-panel .row { margin-top:15px; }
