@@ -17,6 +17,6 @@ public sealed class AdminWorksController(ListAdminWorks listWorks, LocalMediaSto
     public async Task<ActionResult<WorkResponse[]>> ListAsync(CancellationToken cancellationToken)
     {
         var works = await listWorks.ExecuteAsync(cancellationToken);
-        return Ok(works.Select(work => WorkResponse.FromSnapshot(work, media.SignUrl)).ToArray());
+        return Ok(works.Select(work => WorkResponse.FromSnapshot(work, media.SignRelativeUrl)).ToArray());
     }
 }

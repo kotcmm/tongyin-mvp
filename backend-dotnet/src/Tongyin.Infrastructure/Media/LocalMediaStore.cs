@@ -153,6 +153,12 @@ public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader,
     }
 
     /// <summary>
+    /// 返回当前网站可访问的相对签名媒体地址，用于运营后台避免配置域名或端口与实际访问来源不一致。
+    /// </summary>
+    public string SignRelativeUrl(string fileName)
+        => SignUrl(fileName)[_publicUrl.Length..];
+
+    /// <summary>
     /// 验证签名和文件名称后，返回对应的本地媒体路径和内容类型。
     /// </summary>
     public bool TryGet(string fileName, string expires, string signature, out string path, out string contentType)
