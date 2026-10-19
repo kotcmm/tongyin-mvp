@@ -1,5 +1,6 @@
 const { API_BASE, DEV_LOGIN } = require('./config')
-const TOKEN_KEY = DEV_LOGIN ? 'ty_token_dev' : 'ty_token_prod'
+// 新版 DEV_LOGIN 沿用旧 Go 的 dev-user；更换缓存键避免继续使用 dev-openid 旧令牌。
+const TOKEN_KEY = DEV_LOGIN ? 'ty_token_dev_go_compat' : 'ty_token_prod'
 App({
   globalData: { apiBase: API_BASE, token: '' },
   onLaunch() {

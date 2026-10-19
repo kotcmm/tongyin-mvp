@@ -102,7 +102,8 @@ public sealed class AdminModelRecoveryEndpointTests
         using var data = JsonDocument.Parse(await listing.Content.ReadAsStringAsync());
         var signed = data.RootElement[0].GetProperty("model").GetString()!;
         Assert.Contains("/media/" + model + "?expires=", signed);
-        using var downloaded = await client.GetAsync(new Uri(signed).PathAndQuery);
+        Assert.StartsWith("/media/", signed);
+        using var downloaded = await client.GetAsync(signed);
         Assert.Equal(ValidGlb(), await downloaded.Content.ReadAsByteArrayAsync());
         using var audit = JsonDocument.Parse(Assert.Single(app.Audits()));
         Assert.Equal("ai.model.review.completed", audit.RootElement.GetProperty("action").GetString());

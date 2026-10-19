@@ -9,7 +9,7 @@ public sealed class DevelopmentWechatCodeExchanger(IWechatCodeExchanger actual) 
 {
     /// <summary>开发测试 code 返回固定身份，正常 code 仍要求微信服务器验证。</summary>
     public Task<string> ExchangeAsync(string code, CancellationToken cancellationToken = default)
-        => code == "DEV_LOGIN" ? Task.FromResult("dev-openid") : actual.ExchangeAsync(code, cancellationToken);
+        => code == "DEV_LOGIN" ? Task.FromResult("dev-user") : actual.ExchangeAsync(code, cancellationToken);
 
     /// <summary>释放持有的真实微信交换适配器。</summary>
     public void Dispose()
