@@ -10,8 +10,8 @@ namespace Tongyin.Infrastructure.Ai;
 /// </summary>
 public sealed class SqlAiGenerationSettingsReader(Func<DbConnection> connectionFactory) : IAiGenerationSettingsReader
 {
-    private const string ImageDefaultPrompt = "严格参考上传的儿童画，保留原画主体的轮廓、颜色、标志性装饰和稚拙特色，转换成单个全身、正面、立体感清晰的可爱卡通角色；纯净背景，造型简单完整，避免细小悬空零件，适合进一步生成3D打印白模。只输出一张图片，不添加文字、水印或额外角色。";
-    private const string ModelDefaultPrompt = "将参考卡通形象转换为单个可3D打印的完整角色模型，保留脸部和服饰的核心辨识特征，结构完整稳定，避免悬浮部件、过薄的四肢和无法打印的细节；输出可预览的 GLB 模型。";
+    public const string ImageDefaultPrompt = "严格参考上传的儿童画，保留原画主体的轮廓、颜色、标志性装饰和稚拙特色，转换成单个全身、正面、立体感清晰的可爱卡通角色；纯净背景，造型简单完整，避免细小悬空零件，适合进一步生成3D打印白模。只输出一张图片，不添加文字、水印或额外角色。";
+    public const string ModelDefaultPrompt = "将参考卡通形象转换为单个可3D打印的完整角色模型，保留脸部和服饰的核心辨识特征，结构完整稳定，避免悬浮部件、过薄的四肢和无法打印的细节；输出可预览的 GLB 模型。";
 
     /// <summary>
     /// 读取指定阶段已启用的默认服务商及提示词，保持 Go 后台配置格式不变。
