@@ -192,7 +192,7 @@ public sealed class AdminModelRecoveryEndpointTests
     private static HttpRequestMessage Admin(HttpMethod method, string path)
     {
         var request = new HttpRequestMessage(method, path);
-        request.Headers.Add("X-Admin-Token", "model-admin-key");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "model-admin-key");
         return request;
     }
 
@@ -278,6 +278,8 @@ public sealed class AdminModelRecoveryEndpointTests
             }));
             builder.ConfigureTestServices(services =>
             {
+                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
+                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("model-admin-key"));
                 services.RemoveAll<Func<DbConnection>>();
                 services.AddSingleton<Func<DbConnection>>(_ => Connect);
             });

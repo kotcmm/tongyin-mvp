@@ -147,7 +147,7 @@ public sealed class FulfillmentEndpointTests
     private static HttpRequestMessage Admin(HttpMethod method, string path, object? payload = null)
     {
         var request = new HttpRequestMessage(method, path);
-        request.Headers.Add("X-Admin-Token", "test-admin-token");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-admin-token");
         if (payload is not null) request.Content = JsonContent.Create(payload);
         return request;
     }
@@ -194,6 +194,8 @@ public sealed class FulfillmentEndpointTests
             }));
             builder.ConfigureTestServices(services =>
             {
+                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
+                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("test-admin-token"));
                 services.RemoveAll<Func<DbConnection>>();
                 services.AddSingleton<Func<DbConnection>>(_ => Connect);
                 services.RemoveAll<IQueuedImageGenerationReader>();

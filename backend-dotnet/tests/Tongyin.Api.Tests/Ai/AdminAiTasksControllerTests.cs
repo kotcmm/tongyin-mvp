@@ -48,7 +48,7 @@ public sealed class AdminAiTasksControllerTests
         using var app = new AdminAiApiFactory("test-admin-secret");
         using var client = app.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, Url);
-        request.Headers.Add("X-Admin-Token", "wrong-secret");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "wrong-secret");
 
         using var response = await client.SendAsync(request);
 
@@ -65,7 +65,7 @@ public sealed class AdminAiTasksControllerTests
         using var app = new AdminAiApiFactory(null);
         using var client = app.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, Url);
-        request.Headers.Add("X-Admin-Token", "anything");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "anything");
 
         using var response = await client.SendAsync(request);
 
@@ -82,7 +82,7 @@ public sealed class AdminAiTasksControllerTests
         using var app = new AdminAiApiFactory("test-admin-secret");
         using var client = app.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, Url);
-        request.Headers.Add("X-Admin-Token", "test-admin-secret");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-admin-secret");
         var before = DateTimeOffset.UtcNow;
 
         using var response = await client.SendAsync(request);
@@ -106,7 +106,7 @@ public sealed class AdminAiTasksControllerTests
         using var app = new AdminAiApiFactory("test-admin-secret");
         using var client = app.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/works");
-        request.Headers.Add("X-Admin-Token", "test-admin-secret");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-admin-secret");
 
         using var response = await client.SendAsync(request);
 
@@ -126,7 +126,7 @@ public sealed class AdminAiTasksControllerTests
         var policy = await policies.GetPolicyAsync(AuthorizationPolicies.Admin);
 
         Assert.NotNull(policy);
-        Assert.Contains(AdminTokenAuthenticationHandler.SchemeName, policy.AuthenticationSchemes);
+        Assert.Contains(AdminSessionAuthenticationHandler.SchemeName, policy.AuthenticationSchemes);
         Assert.DoesNotContain(WechatSessionAuthenticationHandler.SchemeName, policy.AuthenticationSchemes);
         Assert.Contains(policy.Requirements, requirement => requirement is DenyAnonymousAuthorizationRequirement);
     }
@@ -157,6 +157,8 @@ public sealed class AdminAiTasksControllerTests
             }));
             builder.ConfigureTestServices(services =>
             {
+                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
+                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier(adminToken));
                 services.RemoveAll<IStalledImageTasksReader>();
                 services.AddSingleton<IStalledImageTasksReader>(Reader);
             });

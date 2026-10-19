@@ -60,7 +60,7 @@ public sealed class AdminWebEndpointTests
         Assert.Contains("/api/admin/orders", script);
         Assert.Contains("/status", script);
         Assert.Contains("/shipment", script);
-        Assert.Contains("X-Admin-Token", script);
+        Assert.Contains("/api/admin/account/login", script);
         Assert.DoesNotContain("/api/admin/auth/login", script);
         Assert.DoesNotContain("test-admin-secret", script);
     }
@@ -83,7 +83,7 @@ public sealed class AdminWebEndpointTests
         using var app = new AdminWebFactory();
         using var client = app.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/admin/orders");
-        request.Headers.Add("X-Admin-Token", "test-admin-secret");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-admin-secret");
         using var response = await client.SendAsync(request);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var json = await response.Content.ReadAsStringAsync();
@@ -109,6 +109,8 @@ public sealed class AdminWebEndpointTests
             }));
             builder.ConfigureTestServices(services =>
             {
+                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
+                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("test-admin-token"));
                 services.RemoveAll<IOrderFulfillmentRepository>();
                 services.AddSingleton<IOrderFulfillmentRepository>(Orders);
             });

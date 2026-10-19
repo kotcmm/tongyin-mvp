@@ -43,7 +43,7 @@ public sealed class AdminAiManualReviewEndpointTests
         {
             Content = JsonContent.Create(new { generation_id = "job-1", reason = "已核对服务商无结果" })
         };
-        request.Headers.Add("X-Admin-Token", "test-admin-key");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-admin-key");
 
         using var result = await client.SendAsync(request);
 
@@ -63,7 +63,7 @@ public sealed class AdminAiManualReviewEndpointTests
         {
             Content = JsonContent.Create(new { generation_id = "job-1", reason = "" })
         };
-        request.Headers.Add("X-Admin-Token", "test-admin-key");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-admin-key");
 
         using var result = await client.SendAsync(request);
 
@@ -82,7 +82,7 @@ public sealed class AdminAiManualReviewEndpointTests
         multipart.Add(new StringContent("模型后台已核实成功"), "reason");
         multipart.Add(new ByteArrayContent([137,80,78,71,13,10,26,10,1,2,3,4]), "file", "recovered.png");
         using var request = new HttpRequestMessage(HttpMethod.Post, Route + "/complete") { Content = multipart };
-        request.Headers.Add("X-Admin-Token", "test-admin-key");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-admin-key");
 
         using var result = await client.SendAsync(request);
 
@@ -125,6 +125,8 @@ public sealed class AdminAiManualReviewEndpointTests
             }));
             builder.ConfigureTestServices(services =>
             {
+                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
+                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("test-admin-key"));
                 services.RemoveAll<IAdminImageReviewRepository>();
                 services.AddSingleton<IAdminImageReviewRepository>(Repository);
                 services.RemoveAll<IOriginalImageStore>();

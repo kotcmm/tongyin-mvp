@@ -107,7 +107,7 @@ public sealed class AdminWorksEndpointTests
     private static HttpRequestMessage Admin(string token = "test-admin-token")
     {
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/admin/works");
-        request.Headers.Add("X-Admin-Token", token);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         return request;
     }
 
@@ -157,6 +157,8 @@ public sealed class AdminWorksEndpointTests
             }));
             builder.ConfigureTestServices(services =>
             {
+                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
+                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("test-admin-token"));
                 services.RemoveAll<Func<DbConnection>>();
                 services.AddSingleton<Func<DbConnection>>(_ => Connect);
             });
