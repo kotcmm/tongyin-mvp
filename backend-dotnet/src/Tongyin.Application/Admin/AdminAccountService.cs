@@ -5,7 +5,7 @@ using System.Text;
 namespace Tongyin.Application.Admin;
 
 /// <summary>单管理员用户名密码登录、凭据变更及签名会话管理；不依赖 HTTP 或具体数据库。</summary>
-public sealed class AdminAccountService(IAdminCredentialsStore store, string secret, string? bootstrapUsername, string? bootstrapPassword)
+public sealed class AdminAccountService(IAdminCredentialsStore store, string secret, string? bootstrapUsername, string? bootstrapPassword) : IAdminSessionVerifier
 {
     private const int Iterations = 210_000;
     private static readonly TimeSpan _lifetime = TimeSpan.FromHours(8);

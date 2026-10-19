@@ -62,6 +62,7 @@ builder.Services.AddScoped<IWechatCodeExchanger>(services =>
         : actual;
 });
 builder.Services.AddScoped<IAdminCredentialsStore, SqlAdminCredentialsStore>();
+builder.Services.AddScoped<IAdminSessionVerifier>(services => services.GetRequiredService<AdminAccountService>());
 builder.Services.AddScoped(services =>
 {
     var config = services.GetRequiredService<IConfiguration>();

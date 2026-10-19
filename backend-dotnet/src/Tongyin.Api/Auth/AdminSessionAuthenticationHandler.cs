@@ -9,7 +9,7 @@ namespace Tongyin.Api.Auth;
 /// <summary>以数据库校验的管理员短期 Bearer 会话认证后台操作，不接受旧 X-Admin-Token。</summary>
 public sealed class AdminSessionAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger,
-    UrlEncoder encoder, AdminAccountService accounts) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    UrlEncoder encoder, IAdminSessionVerifier accounts) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     /// <summary>管理员专用认证方案名称，与微信会话和 AI 回调严格隔离。</summary>
     public const string SchemeName = "AdminSession";
