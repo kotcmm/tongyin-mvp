@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Tongyin.Infrastructure.Media;
 using Dapper;
 using System.Globalization;
 using System.Text.Json;
@@ -472,6 +473,53 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
         if (deleted != 1)
         {
             throw new InvalidOperationException("作品删除状态发生变化，请重试");
+        }
+
+        // 将本次作品引用的媒体登记到待清理队列；提交失败时记录和作品删除一起回滚。
+        // 不直接删除磁盘：媒体可能被其它作品共用，且 DB 与文件系统不能形成同一个事务。
+        using (var removed = JsonDocument.Parse(payload))
+        {
+            var root = removed.RootElement;
+            var files = new HashSet<string>(StringComparer.Ordinal);
+            static void Remember(JsonElement parent, string property, HashSet<string> results)
+            {
+                if (!parent.TryGetProperty(property, out var item)) return;
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    var name = item.GetString();
+                    if (LocalMediaStore.IsStoredMediaName(name)) results.Add(name!);
+                }
+                else if (item.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var value in item.EnumerateArray())
+                    {
+                        if (value.ValueKind == JsonValueKind.String
+                            && LocalMediaStore.IsStoredMediaName(value.GetString()))
+                        {
+                            results.Add(value.GetString()!);
+                        }
+                    }
+                }
+            }
+
+            Remember(root, "original", files);
+            Remember(root, "candidates", files);
+            Remember(root, "preview", files);
+            Remember(root, "model", files);
+
+            foreach (var file in files)
+            {
+                var exists = await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+                    "SELECT COUNT(*) FROM ty_media_cleanup WHERE file_name=@File",
+                    new { File = file }, transaction: transaction, cancellationToken: cancellationToken));
+                if (exists == 0)
+                {
+                    await connection.ExecuteAsync(new CommandDefinition(
+                        "INSERT INTO ty_media_cleanup(file_name,requested_at) VALUES(@File,@At)",
+                        new { File = file, At = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture) },
+                        transaction: transaction, cancellationToken: cancellationToken));
+                }
+            }
         }
 
         await transaction.CommitAsync(cancellationToken);

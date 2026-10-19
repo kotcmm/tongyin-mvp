@@ -143,6 +143,47 @@ public sealed class LocalMediaStore : IOriginalImageStore, IOriginalImageReader,
     }
 
     /// <summary>
+    /// 检查媒体是否为明确的本地 JPG/PNG/WebP/GLB 文件名，不接受目录穿越或外部 URL。
+    /// </summary>
+    public static bool IsStoredMediaName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Length > 100
+            || name.Contains("..", StringComparison.Ordinal)
+            || name.Contains('/') || name.Contains('\\'))
+        {
+            return false;
+        }
+
+        var dot = name.LastIndexOf('.');
+        if (dot < 1 || dot > 90)
+        {
+            return false;
+        }
+
+        var extension = name[dot..].ToLowerInvariant();
+        if (extension is not (".png" or ".jpg" or ".jpeg" or ".webp" or ".glb"))
+        {
+            return false;
+        }
+
+        return name.AsSpan(0, dot).IndexOfAnyExcept("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") < 0;
+    }
+
+    /// <summary>
+    /// 仅限持久化媒体清理器调用；拒绝任意相对/绝对路径。
+    /// 不存在的文件可重复删除，失败时让后台任务保留以便重试。
+    /// </summary>
+    public void DeleteStoredMedia(string fileName)
+    {
+        if (!IsStoredMediaName(fileName))
+        {
+            throw new InvalidDataException("不允许删除不安全的媒体文件名");
+        }
+
+        File.Delete(Path.Combine(_directory, fileName));
+    }
+
+    /// <summary>
     /// 为已存储的媒体签发有效期为 48 小时的访问地址。
     /// </summary>
     public string SignUrl(string fileName)

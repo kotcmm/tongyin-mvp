@@ -189,6 +189,7 @@ builder.Services.AddSingleton(services =>
 });
 builder.Services.AddScoped<ListWorks>();
 builder.Services.AddScoped<DeleteWork>();
+builder.Services.AddScoped<PendingMediaCleanup>();
 builder.Services.AddScoped<IAdminWorksReader, SqlAdminWorksReader>();
 builder.Services.AddScoped<ListAdminWorks>();
 builder.Services.AddScoped<GetWork>();
@@ -241,6 +242,7 @@ builder.Services.AddScoped<IQueuedImageGenerationReader, SqlQueuedImageGeneratio
 // 图片任务是否可派发由数据库中的默认服务商启用状态控制；没有可用服务商时不派发或计费。
 builder.Services.AddHostedService<ImageGenerationPollingService>();
 builder.Services.AddHostedService<ModelGenerationPollingService>();
+builder.Services.AddHostedService<MediaCleanupPollingService>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
