@@ -115,7 +115,7 @@ public sealed class WechatLoginEndpointTests
         using var response = await client.PostAsync("/api/auth/wechat", JsonContent("DEV_LOGIN"));
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Equal(0, app.UserCount("dev-openid"));
+        Assert.Equal(0, app.UserCount("dev-user"));
     }
 
     /// <summary>开发环境未显式启用 DEV_MODE 时不得使用模拟登录。</summary>
@@ -130,9 +130,9 @@ public sealed class WechatLoginEndpointTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    /// <summary>开发环境明确授权时可以创建固定的本地测试账号。</summary>
+    /// <summary>开发登录必须复用 Go 历史开发用户 dev-user，而不是再创建新的 dev-openid。</summary>
     [Fact]
-    public async Task Development_ExplicitDevLogin_RegistersLocalUser()
+    public async Task Development_ExplicitDevLogin_RegistersGoCompatibleLocalUser()
     {
         using var app = new LoginFactory(fakeWechat: false, devMode: true);
         using var client = app.CreateClient();
@@ -140,7 +140,34 @@ public sealed class WechatLoginEndpointTests
         using var response = await client.PostAsync("/api/auth/wechat", JsonContent("DEV_LOGIN"));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(1, app.UserCount("dev-openid"));
+        Assert.Equal(1, app.UserCount("dev-user"));
+        Assert.Equal(0, app.UserCount("dev-openid"));
+    }
+
+    /// <summary>Go 遗留的模拟用户作品在迁移后仍须可见，同时严格隔离其他账号的作品。</summary>
+    [Fact]
+    public async Task Development_DevLogin_CanListLegacyGoWorksWithoutLeakingOtherOwners()
+    {
+        using var app = new LoginFactory(fakeWechat: false, devMode: true);
+        app.SeedProfile("dev-user", "dev-user", "0123456789abcdef01234567", "2026-10-01T00:00:00+08:00");
+        app.SeedLegacyWork("legacy-dev-work", "dev-user");
+        app.SeedLegacyWork("other-users-work", "another-owner");
+        using var client = app.CreateClient();
+        using var login = await client.PostAsync("/api/auth/wechat", JsonContent("DEV_LOGIN"));
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        using var loginBody = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
+        var token = loginBody.RootElement.GetProperty("token").GetString();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/works");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var works = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var onlyWork = Assert.Single(works.RootElement.EnumerateArray());
+        Assert.Equal("legacy-dev-work", onlyWork.GetProperty("id").GetString());
+        Assert.Equal(1, app.UserCount("dev-user"));
+        Assert.Equal(0, app.UserCount("dev-openid"));
     }
 
     /// <summary>首次微信登录创建兼容 Go 主键和 24 位内部 ID 的档案，随即可以通过认证获取个人信息。</summary>
@@ -400,6 +427,25 @@ public sealed class WechatLoginEndpointTests
                 cmd.Parameters.Add(new SqliteParameter("@owner", owner));
                 cmd.ExecuteNonQuery();
             }
+        }
+
+        public void SeedLegacyWork(string id, string owner)
+        {
+            using var db = Connect();
+            db.Open();
+            using var cmd = db.CreateCommand();
+            cmd.CommandText = "INSERT INTO ty_works(id,owner_id,created_at,payload) VALUES(@id,@owner,@created,@payload)";
+            cmd.Parameters.Add(new SqliteParameter("@id", id));
+            cmd.Parameters.Add(new SqliteParameter("@owner", owner));
+            cmd.Parameters.Add(new SqliteParameter("@created", "2026-10-01T00:00:00+08:00"));
+            cmd.Parameters.Add(new SqliteParameter("@payload", JsonSerializer.Serialize(new
+            {
+                id, owner, created_at = "2026-10-01T00:00:00+08:00",
+                original = "existing.png", candidates = Array.Empty<string>(),
+                selected = -1, preview = Array.Empty<string>(), model = "",
+                status = "image_pending", image_attempts = 0, generation_id = "", note = ""
+            })));
+            cmd.ExecuteNonQuery();
         }
 
         public string UserPrimaryKey(string owner)
