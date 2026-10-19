@@ -1,5 +1,24 @@
 # 童印 .NET 后端最小整洁架构
 
+## 运营后台用户名密码认证
+
+旧版 `ADMIN_TOKEN` / `X-Admin-Token` 已废弃。部署新版本前，必须在数据库中执行对应的 `backend-dotnet/sql/postgres/002_admin_credentials.sql` 或 `backend-dotnet/sql/mysql/002_admin_credentials.sql`。
+
+首次登录需在 **Visual Studio → Tongyin.Api → 管理用户机密** 中添加（下方密码仅为说明文字，必须替换为自己生成的强密码）：
+
+```json
+{
+  "ADMIN_BOOTSTRAP_USER": "admin",
+  "ADMIN_BOOTSTRAP_PASSWORD": "请填写你自己的不少于12位的强密码"
+}
+```
+
+然后按 F5，在 `http://localhost:18080/admin/` 使用此用户名和密码登录。数据库无管理员账号时，第一次成功登录才会建立账号；密码以随机盐和 PBKDF2-SHA256 派生摘要保存。**初始化成功后，应从用户机密和生产环境变量中移除 `ADMIN_BOOTSTRAP_PASSWORD`。**这组初始化配置不会覆盖已存在的用户名或密码，也不能用于找回密码。
+
+登录后，左侧“账号设置”可以修改用户名或密码，需再次提供当前密码；成功后所有设备需要重新登录。后台会话有效期 8 小时，仅存在浏览器内存，主动退出会废止已有会话。登录接口每 IP 每分钟最多 6 次。**生产环境必须使用 HTTPS，禁止公开 HTTP 管理页面。**当前只支持一位管理员，不包含多账户角色管理或自助找回密码。
+
+---
+
 ## Visual Studio F5 调试（与微信小程序 localhost:18080 对齐）
 
 小程序 `miniprogram/config.js` 当前为 `API_BASE: 'http://localhost:18080'`，请保持不变。API 已提供 **「童印 API · 本地 18080」** 启动配置，选择此配置后 Visual Studio 按 **F5** 使用 Kestrel 监听 `http://localhost:18080`，浏览器打开 `/admin/`。**要求 Visual Studio 2026（18.0）或更新版本，安装 .NET 10 SDK 与“ASP.NET 和 Web 开发”工作负载。**

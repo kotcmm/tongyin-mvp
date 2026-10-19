@@ -13,11 +13,13 @@
       <div class="logo">童</div>
       <h1>童印运营中心</h1>
       <p class="muted">订单制作与发货管理（.NET 版）</p>
-      <label for="adminToken">后台管理令牌</label>
-      <input id="adminToken" type="password" required autocomplete="off" placeholder="请输入服务器配置的 ADMIN_TOKEN">
+      <label for="adminUsername">用户名</label>
+      <input id="adminUsername" type="text" name="username" required autocomplete="username" maxlength="40" placeholder="请输入管理员用户名">
+      <label for="adminPassword">密码</label>
+      <input id="adminPassword" type="password" name="password" required autocomplete="current-password" placeholder="请输入管理员密码">
       <button type="submit" id="loginSubmit">进入运营后台</button>
       <p id="loginError" class="small" role="alert"></p>
-      <div class="note small">此阶段使用 .NET 的 ADMIN_TOKEN 认证；管理员账号与角色登录尚未迁移。令牌只保存在本页面内存，刷新或退出后需重新输入。请通过 HTTPS 使用后台。</div>
+      <div class="note small">首次登录请使用服务器初始化的账号。登录后可在“账号设置”修改用户名或密码，操作需验证当前密码。正式环境请通过 HTTPS 访问。</div>
     </form>
   </div>
 
@@ -30,9 +32,10 @@
         <button type="button" class="nav-item" data-tab="model-review"><span class="glyph">⬡</span>3D 模型异常</button>
         <button type="button" class="nav-item active" data-tab="orders"><span class="glyph">▤</span>全部订单</button>
         <button type="button" class="nav-item" data-tab="shipping"><span class="glyph">◇</span>物流发货</button>
+        <button type="button" class="nav-item" data-tab="account"><span class="glyph">⚙</span>账号设置</button>
       </nav>
       <div class="account">
-        <div>管理员令牌会话</div>
+        <div id="adminCurrentUser">管理员账户</div>
         <div class="row" style="margin-top:12px"><button id="logout" type="button" class="ghost">退出登录</button></div>
       </div>
     </aside>
@@ -54,7 +57,23 @@
           超时不代表失败；操作前须在服务商确认任务结果。补录必须上传与当前任务匹配的真实 GLB（最大 100 MiB）。
           不自动重新调用模型，也不能对排队中、已完成或旧编号任务操作。
         </div>
-        <div class="toolbar">
+        <section id="accountPanel" class="hidden">
+          <h2>账号设置</h2>
+          <p class="muted">更改用户名或密码需要输入当前密码，修改成功后所有已登录设备的旧会话都会失效。</p>
+          <form id="accountForm" class="account-form" autocomplete="off">
+            <label for="newAdminUsername">用户名</label>
+            <input id="newAdminUsername" required maxlength="40" autocomplete="username">
+            <label for="currentAdminPassword">当前密码</label>
+            <input id="currentAdminPassword" type="password" required autocomplete="current-password">
+            <label for="newAdminPassword">新密码（如不修改请留空，至少 12 位）</label>
+            <input id="newAdminPassword" type="password" minlength="12" maxlength="128" autocomplete="new-password">
+            <label for="confirmAdminPassword">确认新密码</label>
+            <input id="confirmAdminPassword" type="password" minlength="12" maxlength="128" autocomplete="new-password">
+            <p id="accountError" class="small" role="alert"></p>
+            <button type="submit">保存账号</button>
+          </form>
+        </section>
+        <div class="toolbar" id="listToolbar">
           <label class="sr-only" for="keyword">搜索订单</label>
           <input id="keyword" type="search" placeholder="订单编号、作品、收件人、快递单号">
           <label class="sr-only" for="statusFilter">订单状态</label>
@@ -70,7 +89,7 @@
         </div>
         <p id="pageMessage" class="small muted" role="status"></p>
         <div id="listResults" aria-live="polite"></div>
-        <div class="pager">
+        <div class="pager" id="listPager">
           <span id="pagerText" class="small muted"></span>
           <button id="previous" type="button" class="ghost">上一页</button>
           <button id="next" type="button" class="ghost">下一页</button>
