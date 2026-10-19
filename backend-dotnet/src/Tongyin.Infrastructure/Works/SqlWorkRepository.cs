@@ -334,7 +334,7 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
             ?? throw new JsonException("更新后的模型记录不是合法的 JSON 对象");
     }
 
-    /// <summary>持久化认领模型任务，不给旧任务或已认领任务再次派发的资格。</summary>
+    /// <summary>原子认领模型任务并创建混元任务记录，已认领的任务绝不重复提交。</summary>
     public async Task<WorkSnapshot?> ClaimAsync(string workId, string owner, string generationId, string providerId, int promptVersion, DateTimeOffset startedAt, CancellationToken cancellationToken = default)
     {
         await using var connection = _connectionFactory();
@@ -352,12 +352,6 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
 
         var document = JsonNode.Parse(payload) as JsonObject
             ?? throw new JsonException("作品记录不是合法的 JSON 对象");
-        if (!document.ContainsKey("ai_execution_claim_id"))
-        {
-            // 避免旧 Go 生成任务被 .NET 误派发。
-            return null;
-        }
-
         var work = JsonSerializer.Deserialize<WorkSnapshot>(payload)
             ?? throw new JsonException("作品记录不是合法的 JSON 对象");
         if (work.Status != "model_pending" || work.GenerationId != generationId
