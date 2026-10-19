@@ -1,5 +1,33 @@
 # 童印 .NET 后端最小整洁架构
 
+## Visual Studio F5 调试（与微信小程序 localhost:18080 对齐）
+
+小程序 \`miniprogram/config.js\` 当前为 \`API_BASE: 'http://localhost:18080'\`，请保持不变。API 已提供 **「童印 API · 本地 18080」** 启动配置，选择此配置后 Visual Studio 按 **F5** 使用 Kestrel 监听 \`http://localhost:18080\`，浏览器打开 \`/admin/\`。**要求 Visual Studio 2026（18.0）或更新版本，安装 .NET 10 SDK 与“ASP.NET 和 Web 开发”工作负载。**
+
+操作：
+
+1. 在 VS 中打开 \`backend-dotnet/Tongyin.slnx\`，将 \`Tongyin.Api\` 设为**启动项目**；顶部启动配置选择 **「童印 API · 本地 18080」**（不要选 IIS Express）。
+2. 在“解决方案资源管理器”中**右击 \`Tongyin.Api\` → 管理用户机密（Manage User Secrets）**。VS 将打开仅本机存储的 \`secrets.json\`。输入实际本地配置，例如：
+
+   \`\`\`json
+   {
+     "DB_CONNECTION_STRING": "Host=localhost;Port=5432;Database=tongyin;Username=postgres;Password=你的本地数据库密码",
+     "SESSION_SECRET": "填写至少24位的真实本地开发会话密钥",
+     "ADMIN_TOKEN": "填写仅自己使用的后台管理令牌",
+     "DATA_DIR": "E:\\童印\\tongyin-mvp\\backend\\data"
+   }
+   \`\`\`
+
+   上面路径仅为**示例**，必须改为本机真正的原 Go 媒体目录；若不复用既有媒体，也可以换成新目录。如果连接的是原 Go 开发数据库，\`SESSION_SECRET\` 必须复用原值，以便读取既有加密配置。用户名和密码不要复制到 Git 仓库中的 \`launchSettings.json\`、\`appsettings.json\` 或源码。
+3. 本地 PostgreSQL 需已经存在童印业务表，并执行 \`backend-dotnet/sql/postgres/001_system_settings.sql\` 的数据库迁移（已执行过则不用重复）。**不要同时运行旧 Go 后端占用 \`18080\`，也不要让新旧服务同时派发同一数据库的收费 AI 任务。**
+4. 按 **F5** 启动。正常时 VS 的控制台输出 \`Now listening on: http://localhost:18080\`；打开 \`http://localhost:18080/admin/\`，输入 \`ADMIN_TOKEN\`，先检查后台和作品列表，再在微信开发者工具中启动小程序联调。
+
+\`launchSettings.json\` 只保存端口、公开本地地址和 Development 开关，不包含密钥；数据库密码、会话密钥与管理员令牌走 VS **用户机密**，不会被提交到 Git。若本机已有同名系统环境变量，它们可能覆盖用户机密，需要避免冲突。
+
+**真机不能直接用 localhost**（手机里的 localhost 是手机自身）；真机联调要改为局域网可达地址或微信认可的 HTTPS 合法域名。微信开发者工具本机模拟器已经配置 \`urlCheck: false\` 供开发使用，不能据此推断真机也能使用 HTTP。
+
+
+
 ## 本地 .NET 调试快速开始（2026-10-19）
 
 **开发分支：`feat/dotnet-clean-skeleton`；运行 .NET 10 API，不要运行仓库根目录旧 Go Dockerfile/compose.yaml。**
