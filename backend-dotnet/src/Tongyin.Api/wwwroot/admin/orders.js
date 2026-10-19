@@ -7,12 +7,12 @@ const statusLabels = {
   awaiting_payment: '待付款', paid: '已支付', printing: '制作中',
   shipped: '已发货', completed: '已完成', canceled: '已取消'
 };
-const state = { token: '', tab: 'orders', orders: [], works: [], reviews: [], modelReviews: [], page: 1, pageSize: 12, busy: false };
+const state = { token: '', username: '', tab: 'orders', orders: [], works: [], reviews: [], modelReviews: [], page: 1, pageSize: 12, busy: false };
 
 async function api(path, options = {}) {
-  const headers = { 'X-Admin-Token': state.token, ...(options.headers || {}) };
+  const headers = { ...(state.token ? { Authorization: 'Bearer ' + state.token } : {}), ...(options.headers || {}) };
   const response = await fetch(path, { ...options, headers, cache: 'no-store', credentials: 'omit' });
-  const data = await response.json().catch(() => ({ error: '服务器响应格式异常' }));
+  const data = response.status === 204 ? {} : await response.json().catch(() => ({ error: '服务器响应格式异常' }));
   if (!response.ok) {
     const error = new Error(data.error || ('请求失败 HTTP ' + response.status));
     error.status = response.status;
@@ -27,17 +27,25 @@ function toast(message) {
   window.setTimeout(() => $('toast').classList.add('hidden'), 3500);
 }
 
-function logout() {
+async function logout(revoke = false) {
+  if (revoke && state.token) {
+    try { await api('/api/admin/account/logout', { method: 'POST' }); }
+    catch (error) { toast(error.message); }
+  }
   state.token = '';
+  state.username = '';
   state.orders = [];
   state.works = [];
   state.reviews = [];
   state.modelReviews = [];
-  $('adminToken').value = '';
+  $('adminPassword').value = '';
+  $('currentAdminPassword').value = '';
+  $('newAdminPassword').value = '';
+  $('confirmAdminPassword').value = '';
   $('app').classList.add('hidden');
   $('loginWrap').classList.remove('hidden');
   $('modalContainer').replaceChildren();
-  $('adminToken').focus();
+  $('adminUsername').focus();
 }
 
 function setBusy(value) {
@@ -47,7 +55,7 @@ function setBusy(value) {
 }
 
 async function reload() {
-  if (!state.token || state.busy) return;
+  if (!state.token || state.busy || state.tab === 'account') return;
   setBusy(true);
   $('pageMessage').textContent = state.tab === 'works' ? '正在读取最新作品…' :
     state.tab === 'review' ? '正在读取超时图片任务…' :
@@ -70,7 +78,7 @@ async function reload() {
     render();
   } catch (error) {
     $('pageMessage').textContent = error.message;
-    if (error.status === 401) logout();
+    if (error.status === 401) logout(false);
     throw error;
   } finally {
     setBusy(false);
@@ -80,16 +88,29 @@ async function reload() {
 async function login(event) {
   event.preventDefault();
   $('loginError').textContent = '';
-  state.token = $('adminToken').value.trim();
-  if (!state.token) return;
+  const username = $('adminUsername').value.trim();
+  const password = $('adminPassword').value;
+  if (!username || !password) return;
+  $('loginSubmit').disabled = true;
   try {
-    await reload();
-    $('adminToken').value = '';
+    const result = await api('/api/admin/account/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    state.token = result.token;
+    state.username = result.username;
+    $('adminCurrentUser').textContent = '管理员：' + state.username;
+    $('adminPassword').value = '';
     $('loginWrap').classList.add('hidden');
     $('app').classList.remove('hidden');
+    await reload();
   } catch (error) {
-    $('loginError').textContent = error.status === 401 ? '后台令牌无效或服务端未配置 ADMIN_TOKEN' : error.message;
+    $('loginError').textContent = error.status === 429 ? '尝试过于频繁，请稍后再试' : error.message;
     state.token = '';
+    $('app').classList.add('hidden');
+    $('loginWrap').classList.remove('hidden');
+  } finally {
+    $('loginSubmit').disabled = false;
   }
 }
 
@@ -235,7 +256,7 @@ async function submitReview(event) {
     toast(complete ? '图片已补录，作品进入待确认状态' : '已标记失败，操作已写入审计');
   } catch (error) {
     toast(error.message);
-    if (error.status === 401) logout();
+    if (error.status === 401) logout(false);
     return;
   } finally {
     setBusy(false);
@@ -340,7 +361,7 @@ async function submitModelReview(event) {
     toast(complete ? '真实 GLB 已补录，作品进入模型就绪' : '模型失败已登记并审计');
   } catch (error) {
     toast(error.message);
-    if (error.status === 401) logout();
+    if (error.status === 401) logout(false);
     return;
   } finally {
     setBusy(false);
@@ -404,9 +425,14 @@ function orderCard(o) {
 }
 
 function openTab(tab) {
-  if (!['works', 'orders', 'shipping', 'review', 'model-review'].includes(tab)) return;
+  if (!['works', 'orders', 'shipping', 'review', 'model-review', 'account'].includes(tab)) return;
   state.tab = tab;
   state.page = 1;
+  $('accountPanel').classList.toggle('hidden', tab !== 'account');
+  $('listToolbar').classList.toggle('hidden', tab === 'account');
+  $('listResults').classList.toggle('hidden', tab === 'account');
+  $('listPager').classList.toggle('hidden', tab === 'account');
+  if (tab === 'account') $('newAdminUsername').value = state.username;
   $('keyword').value = '';
   const filter = $('statusFilter');
   filter.hidden = ['review', 'model-review'].includes(tab);
@@ -419,17 +445,19 @@ function openTab(tab) {
       Object.entries(workStatusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('')
     : '<option value="">全部状态</option>' +
       Object.entries(statusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('');
-  $('pageTitle').textContent = tab === 'model-review' ? '3D 模型异常' :
+  $('pageTitle').textContent = tab === 'account' ? '账号设置' :
+    tab === 'model-review' ? '3D 模型异常' :
     tab === 'review' ? '超时图片任务' :
     tab === 'works' ? '作品管理' : tab === 'shipping' ? '物流发货' : '全部订单';
-  $('pageIntro').textContent = tab === 'model-review' ? '人工核实 Worker 结果，确认失败或补录实际 GLB 模型' :
+  $('pageIntro').textContent = tab === 'account' ? '维护管理员用户名与密码' :
+    tab === 'model-review' ? '人工核实 Worker 结果，确认失败或补录实际 GLB 模型' :
     tab === 'review' ? '人工核实结果后，确认失败或补录实际生成图片' :
     tab === 'works' ? '原画 → AI 形象 → GLB 白模，当前为只读核查' :
     tab === 'shipping' ? '制作中、已发货及已完成订单' : '收款后制作 → 核实运单 → 发货';
   document.querySelectorAll('[data-tab]').forEach((node) =>
     node.classList.toggle('active', node.dataset.tab === tab));
   // 切换时重新读取相应业务数据，避免作品页和订单页使用彼此的缓存。
-  reload().catch((error) => toast(error.message));
+  if (tab !== 'account') reload().catch((error) => toast(error.message));
 }
 
 async function requestChange(path, body) {
@@ -482,7 +510,7 @@ async function handleListClick(event) {
       await requestChange('/api/admin/orders/' + encodeURIComponent(id) + '/status', { status: 'printing' });
     } catch (error) {
       toast(error.message);
-      if (error.status === 401) logout();
+      if (error.status === 401) logout(false);
     }
   }
 }
@@ -503,13 +531,48 @@ async function ship(event) {
     $('modalContainer').replaceChildren();
   } catch (error) {
     toast(error.message);
-    if (error.status === 401) logout();
+    if (error.status === 401) logout(false);
+  }
+}
+
+async function saveAdminAccount(event) {
+  event.preventDefault();
+  if (!state.token || state.busy) return;
+  $('accountError').textContent = '';
+  const newUsername = $('newAdminUsername').value.trim();
+  const currentPassword = $('currentAdminPassword').value;
+  const newPassword = $('newAdminPassword').value;
+  if (newPassword !== $('confirmAdminPassword').value) {
+    $('accountError').textContent = '两次输入的新密码不一致';
+    return;
+  }
+  if (newUsername === state.username && !newPassword) {
+    $('accountError').textContent = '请输入新用户名或新密码';
+    return;
+  }
+  setBusy(true);
+  try {
+    const payload = { currentPassword };
+    if (newUsername !== state.username) payload.newUsername = newUsername;
+    if (newPassword) payload.newPassword = newPassword;
+    await api('/api/admin/account', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    await logout(false);
+    toast('账号已更新，请使用新的用户名和密码重新登录');
+  } catch (error) {
+    $('accountError').textContent = error.message;
+    if (error.status === 401) await logout(false);
+  } finally {
+    setBusy(false);
   }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   $('loginForm').addEventListener('submit', login);
-  $('logout').addEventListener('click', logout);
+  $('logout').addEventListener('click', () => logout(true));
+  $('accountForm').addEventListener('submit', saveAdminAccount);
   $('refresh').addEventListener('click', () => reload().catch((error) => toast(error.message)));
   $('keyword').addEventListener('input', () => { state.page = 1; render(); });
   $('statusFilter').addEventListener('change', () => { state.page = 1; render(); });
