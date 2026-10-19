@@ -7,11 +7,23 @@ const statusLabels = {
   awaiting_payment: '待付款', paid: '已支付', printing: '制作中',
   shipped: '已发货', completed: '已完成', canceled: '已取消'
 };
-const state = { token: '', username: '', tab: 'orders', orders: [], works: [], reviews: [], modelReviews: [], page: 1, pageSize: 12, busy: false };
+const state = { authenticated: false, csrf: '', username: '', tab: 'orders', orders: [], works: [], reviews: [], modelReviews: [], page: 1, pageSize: 12, busy: false };
+
+async function refreshCsrf() {
+  const response = await fetch('/api/admin/account/csrf', { credentials: 'same-origin', cache: 'no-store' });
+  if (!response.ok) throw new Error('无法获取安全验证令牌');
+  const result = await response.json();
+  state.csrf = result.token;
+}
 
 async function api(path, options = {}) {
-  const headers = { ...(state.token ? { Authorization: 'Bearer ' + state.token } : {}), ...(options.headers || {}) };
-  const response = await fetch(path, { ...options, headers, cache: 'no-store', credentials: 'omit' });
+  const method = (options.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD' && !state.csrf) await refreshCsrf();
+  const headers = {
+    ...(method !== 'GET' && method !== 'HEAD' ? { 'X-CSRF-TOKEN': state.csrf } : {}),
+    ...(options.headers || {})
+  };
+  const response = await fetch(path, { ...options, headers, cache: 'no-store', credentials: 'same-origin' });
   const data = response.status === 204 ? {} : await response.json().catch(() => ({ error: '服务器响应格式异常' }));
   if (!response.ok) {
     const error = new Error(data.error || ('请求失败 HTTP ' + response.status));
@@ -28,11 +40,12 @@ function toast(message) {
 }
 
 async function logout(revoke = false) {
-  if (revoke && state.token) {
+  if (revoke && state.authenticated) {
     try { await api('/api/admin/account/logout', { method: 'POST' }); }
     catch (error) { toast(error.message); }
   }
-  state.token = '';
+  state.authenticated = false;
+  state.csrf = '';
   state.username = '';
   state.orders = [];
   state.works = [];
@@ -55,7 +68,7 @@ function setBusy(value) {
 }
 
 async function reload() {
-  if (!state.token || state.busy || state.tab === 'account') return;
+  if (!state.authenticated || state.busy || state.tab === 'account') return;
   setBusy(true);
   $('pageMessage').textContent = state.tab === 'works' ? '正在读取最新作品…' :
     state.tab === 'review' ? '正在读取超时图片任务…' :
@@ -97,8 +110,9 @@ async function login(event) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
-    state.token = result.token;
+    state.authenticated = true;
     state.username = result.username;
+    await refreshCsrf();
     $('adminCurrentUser').textContent = '管理员：' + state.username;
     $('adminPassword').value = '';
     $('loginWrap').classList.add('hidden');
@@ -106,7 +120,7 @@ async function login(event) {
     await reload();
   } catch (error) {
     $('loginError').textContent = error.status === 429 ? '尝试过于频繁，请稍后再试' : error.message;
-    state.token = '';
+    state.authenticated = false;
     $('app').classList.add('hidden');
     $('loginWrap').classList.remove('hidden');
   } finally {
@@ -537,7 +551,7 @@ async function ship(event) {
 
 async function saveAdminAccount(event) {
   event.preventDefault();
-  if (!state.token || state.busy) return;
+  if (!state.authenticated || state.busy) return;
   $('accountError').textContent = '';
   const newUsername = $('newAdminUsername').value.trim();
   const currentPassword = $('currentAdminPassword').value;
@@ -569,7 +583,25 @@ async function saveAdminAccount(event) {
   }
 }
 
+async function resumeSession() {
+  try {
+    const result = await api('/api/admin/account');
+    state.authenticated = true;
+    state.username = result.username;
+    await refreshCsrf();
+    $('adminCurrentUser').textContent = '管理员：' + state.username;
+    $('loginWrap').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    await reload();
+  } catch {
+    state.authenticated = false;
+    $('loginWrap').classList.remove('hidden');
+    $('app').classList.add('hidden');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  resumeSession();
   $('loginForm').addEventListener('submit', login);
   $('logout').addEventListener('click', () => logout(true));
   $('accountForm').addEventListener('submit', saveAdminAccount);
