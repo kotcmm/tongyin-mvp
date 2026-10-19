@@ -157,8 +157,7 @@ public sealed class AdminWorksEndpointTests
             }));
             builder.ConfigureTestServices(services =>
             {
-                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
-                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("test-admin-token"));
+                Tongyin.Api.Tests.Auth.TestAdminAuthExtensions.AddTestAdminAuthentication(services, "test-admin-token");
                 services.RemoveAll<Func<DbConnection>>();
                 services.AddSingleton<Func<DbConnection>>(_ => Connect);
             });

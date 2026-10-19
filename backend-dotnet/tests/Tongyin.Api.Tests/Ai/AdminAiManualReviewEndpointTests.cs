@@ -125,8 +125,7 @@ public sealed class AdminAiManualReviewEndpointTests
             }));
             builder.ConfigureTestServices(services =>
             {
-                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
-                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("test-admin-key"));
+                Tongyin.Api.Tests.Auth.TestAdminAuthExtensions.AddTestAdminAuthentication(services, "test-admin-key");
                 services.RemoveAll<IAdminImageReviewRepository>();
                 services.AddSingleton<IAdminImageReviewRepository>(Repository);
                 services.RemoveAll<IOriginalImageStore>();

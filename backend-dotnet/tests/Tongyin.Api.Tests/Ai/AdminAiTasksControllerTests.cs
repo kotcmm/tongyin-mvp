@@ -126,7 +126,7 @@ public sealed class AdminAiTasksControllerTests
         var policy = await policies.GetPolicyAsync(AuthorizationPolicies.Admin);
 
         Assert.NotNull(policy);
-        Assert.Contains(AdminSessionAuthenticationHandler.SchemeName, policy.AuthenticationSchemes);
+        Assert.Contains(Tongyin.Api.Tests.Auth.TestAdminAuthHandler.SchemeName, policy.AuthenticationSchemes);
         Assert.DoesNotContain(WechatSessionAuthenticationHandler.SchemeName, policy.AuthenticationSchemes);
         Assert.Contains(policy.Requirements, requirement => requirement is DenyAnonymousAuthorizationRequirement);
     }
@@ -157,8 +157,7 @@ public sealed class AdminAiTasksControllerTests
             }));
             builder.ConfigureTestServices(services =>
             {
-                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
-                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier(adminToken));
+                Tongyin.Api.Tests.Auth.TestAdminAuthExtensions.AddTestAdminAuthentication(services, adminToken);
                 services.RemoveAll<IStalledImageTasksReader>();
                 services.AddSingleton<IStalledImageTasksReader>(Reader);
             });

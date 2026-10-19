@@ -130,8 +130,7 @@ public sealed class AdminWebEndpointTests
             }));
             builder.ConfigureTestServices(services =>
             {
-                services.RemoveAll<Tongyin.Application.Admin.IAdminSessionVerifier>();
-                services.AddScoped<Tongyin.Application.Admin.IAdminSessionVerifier>(_ => new Tongyin.Api.Tests.Auth.TestAdminSessionVerifier("test-admin-secret"));
+                Tongyin.Api.Tests.Auth.TestAdminAuthExtensions.AddTestAdminAuthentication(services, "test-admin-secret");
                 services.RemoveAll<IOrderFulfillmentRepository>();
                 services.AddSingleton<IOrderFulfillmentRepository>(Orders);
             });
