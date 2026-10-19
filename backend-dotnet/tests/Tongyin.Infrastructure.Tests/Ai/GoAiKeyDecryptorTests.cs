@@ -92,6 +92,20 @@ public sealed class GoAiKeyDecryptorTests
         Assert.Throws<InvalidOperationException>(() => decryptor.Decrypt(truncated));
     }
 
+    /// <summary>运营后台保存的随机加密 API Key 必须可按旧 Go 格式解密，且不能明文入库。</summary>
+    [Fact]
+    public void Encrypt_RoundTrip_UsesCompatibleEncryptedPayload()
+    {
+        var protector = new GoAiKeyDecryptor(SessionSecret);
+        var first = protector.Encrypt(PlainApiKey);
+        var second = protector.Encrypt(PlainApiKey);
+
+        Assert.NotEqual(first, second);
+        Assert.DoesNotContain(PlainApiKey, first);
+        Assert.Equal(PlainApiKey, protector.Decrypt(first));
+        Assert.Equal(PlainApiKey, protector.Decrypt(second));
+    }
+
     /// <summary>
     /// 空会话密钥不可用于解密现有后台配置。
     /// </summary>
