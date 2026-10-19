@@ -85,16 +85,16 @@ public sealed class AdminAiSettingsEndpointTests
         Assert.True(settings.CanGenerateImage());
     }
 
-    /// <summary>3D Worker 的 HTTPS 公网协议配置应写入实际 Worker 读取的表。</summary>
+    /// <summary>混元 3D 的 HTTPS 公网协议配置应写入实际 Worker 读取的表。</summary>
     [Fact]
-    public async Task ModelSettings_SaveWorkerAndPrompt_CanDispatchModel()
+    public async Task ModelSettings_SaveHunyuanAndPrompt_CanDispatchModel()
     {
         using var factory = new SettingsFactory();
         using var client = factory.CreateClient();
         using var saved = await client.SendAsync(AdminPut("model", new
         {
-            endpoint = "https://worker.example.com/api/model",
-            model = "child-3d-v1", enabled = true, api_key = "worker-private-key",
+            endpoint = "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit",
+            model = "3.0", enabled = true, api_key = "hunyuan-private-key",
             prompt_template = "保留五官，生成可打印 GLB"
         }));
         Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
@@ -104,7 +104,7 @@ public sealed class AdminAiSettingsEndpointTests
         Assert.Equal("保留五官，生成可打印 GLB", settings.PromptTemplate);
         using var read = await client.SendAsync(AdminGet("model"));
         var response = await read.Content.ReadAsStringAsync();
-        Assert.DoesNotContain("worker-private-key", response);
+        Assert.DoesNotContain("hunyuan-private-key", response);
     }
 
     /// <summary>无效主机、缺失 Key 以及不支持的模型阶段不能被启用。</summary>

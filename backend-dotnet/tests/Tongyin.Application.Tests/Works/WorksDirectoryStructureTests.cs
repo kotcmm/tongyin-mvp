@@ -21,9 +21,9 @@ public sealed class WorksDirectoryStructureTests
         ],
         ["ModelGeneration"] =
         [
-            "DispatchQueuedModelGeneration", "IGeneratedModelStore", "IModelGenerationClaimRepository",
+            "ModelGenerationService", "ModelGenerationJob", "IModelGenerationJobRepository", "IGeneratedModelStore", "IModelGenerationClaimRepository",
             "IModelGenerationResultRepository", "IModelUploadStore", "IQueuedModelGenerationReader",
-            "QueuedModelGeneration", "SaveModelGenerationResult"
+            "QueuedModelGeneration"
         ],
         ["Media"] = ["IOriginalImageReader", "IOriginalImageStore", "ImageFileLimits"],
         ["Administration"] = ["AiGenerationTask", "IAiGenerationTaskReader", "IAdminWorksReader", "ListAdminWorks"],
@@ -51,7 +51,7 @@ public sealed class WorksDirectoryStructureTests
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(40, expected.Length);
+        Assert.Equal(41, expected.Length);
         Assert.Equal(expected, actual);
     }
 
@@ -61,7 +61,7 @@ public sealed class WorksDirectoryStructureTests
     {
         Assert.Equal("Tongyin.Application.Works", typeof(CreateWork).Namespace);
         Assert.Equal("Tongyin.Application.Works", typeof(ImageGenerationService).Namespace);
-        Assert.Equal("Tongyin.Application.Works", typeof(SaveModelGenerationResult).Namespace);
+        Assert.Equal("Tongyin.Application.Works", typeof(ModelGenerationService).Namespace);
         Assert.Equal("Tongyin.Application.Works", typeof(ReviewStalledImageTask).Namespace);
         Assert.Equal("Tongyin.Application.Works", typeof(IAdminWorksReader).Namespace);
     }

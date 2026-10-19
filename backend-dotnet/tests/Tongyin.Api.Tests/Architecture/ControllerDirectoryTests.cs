@@ -25,7 +25,7 @@ public sealed class ControllerDirectoryTests
                 "AdminAccountController", "AdminAiSettingsController", "AdminAiTasksController", "AdminOrdersController", "AdminWorksController",
                 "WechatSystemSettingsController"
             ],
-            ["Internal"] = ["AiResultController", "WechatPayNotifyController"],
+            ["Internal"] = ["WechatPayNotifyController"],
             ["Shared"] = ["MediaController"]
         };
 
@@ -59,7 +59,7 @@ public sealed class ControllerDirectoryTests
                 "WechatAuth", "WechatPayment", "WechatProfile", "WorkOrder", "Works"
             ],
             ["Admin"] = ["AdminAccount", "AdminAiSettings", "AdminAiTasks", "AdminOrders", "AdminWorks", "WechatSystemSettings"],
-            ["Internal"] = ["AiResult", "WechatPayNotify"],
+            ["Internal"] = ["WechatPayNotify"],
             ["Shared"] = ["Media"]
         };
 
@@ -73,7 +73,7 @@ public sealed class ControllerDirectoryTests
         }
     }
 
-    /// <summary>重构后保留小程序、后台、Worker 与支付回调的 HTTP 地址，不破坏现有调用方。</summary>
+    /// <summary>重构后保留小程序、后台、支付回调的 HTTP 地址，不破坏现有调用方。</summary>
     [Fact]
     public void ControllerBaseRoutes_RemainCompatible()
     {
@@ -85,7 +85,6 @@ public sealed class ControllerDirectoryTests
             ["AdminOrdersController"] = "api/admin/orders",
             ["AdminWorksController"] = "api/admin/works",
             ["WechatSystemSettingsController"] = "api/admin/system/wechat",
-            ["AiResultController"] = "api/internal/ai-result",
             ["WechatPayNotifyController"] = "api/pay/notify",
             ["MiniappConfigController"] = "api/config",
             ["OrderTrackingController"] = "api/orders",

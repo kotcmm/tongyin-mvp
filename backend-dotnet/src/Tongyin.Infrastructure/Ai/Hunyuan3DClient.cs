@@ -101,8 +101,8 @@ public sealed class Hunyuan3DClient(HttpClient client, GoAiKeyDecryptor credenti
 
     private static string? DetectMime(ReadOnlySpan<byte> image)
     {
-        if (image.StartsWith([137, 80, 78, 71, 13, 10, 26, 10])) return "image/png";
-        if (image.StartsWith([0xff, 0xd8, 0xff])) return "image/jpeg";
+        if (image.StartsWith(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })) return "image/png";
+        if (image.StartsWith(new byte[] { 0xff, 0xd8, 0xff })) return "image/jpeg";
         if (image.Length >= 12 && image[..4].SequenceEqual("RIFF"u8) &&
             image.Slice(8, 4).SequenceEqual("WEBP"u8)) return "image/webp";
         return null;

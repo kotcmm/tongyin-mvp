@@ -36,18 +36,17 @@ public sealed class SqlQueuedModelGenerationReaderTests
             "provider-1", 7, DateTimeOffset.UtcNow));
     }
 
-    /// <summary>旧 Go 没有 .NET 认领标记，不能被新调度器再次派发。</summary>
+    /// <summary>没有旧版人工标记也可以认领合法模型任务，新的任务表负责幂等性。</summary>
     [Fact]
-    public async Task LegacyGoPendingWork_IsNotDispatchedOrClaimed()
+    public async Task PendingWorkWithoutCompatibilityMarker_IsDispatchedOnce()
     {
         using var database = new ModelTaskDatabase();
         database.Seed("model_pending", marker: false);
-        var original = database.Read();
-
+        var next = Assert.Single(await new SqlQueuedModelGenerationReader(database.Connect).ListAsync(1));
+        var result = await new SqlWorkRepository(database.Connect).ClaimAsync(
+            next.WorkId, next.Owner, next.GenerationId, "provider-1", 1, DateTimeOffset.UtcNow);
+        Assert.NotNull(result);
         Assert.Empty(await new SqlQueuedModelGenerationReader(database.Connect).ListAsync(1));
-        Assert.Null(await new SqlWorkRepository(database.Connect).ClaimAsync(
-            "work-1", "owner-1", "job-1", "provider-1", 1, DateTimeOffset.UtcNow));
-        Assert.Equal(original, database.Read());
     }
 
     /// <summary>图片尚未确认、错误任务编号、其他微信用户均无资格认领。</summary>
@@ -76,7 +75,7 @@ public sealed class SqlQueuedModelGenerationReaderTests
         {
             using var db = Connect();
             db.Open();
-            db.Execute("CREATE TABLE ty_works(id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL); CREATE TABLE ty_store_lock(id INTEGER PRIMARY KEY); INSERT INTO ty_store_lock(id) VALUES (1)");
+            db.Execute("CREATE TABLE ty_works(id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL); CREATE TABLE ty_store_lock(id INTEGER PRIMARY KEY); INSERT INTO ty_store_lock(id) VALUES (1); CREATE TABLE ty_model_jobs(generation_id TEXT PRIMARY KEY, work_id TEXT,owner_id TEXT,provider_id TEXT,prompt_version INTEGER,provider_job_id TEXT,status TEXT,created_at TEXT,updated_at TEXT)");
         }
 
         public DbConnection Connect() => new SqliteConnection($"Data Source={_file};Pooling=False");

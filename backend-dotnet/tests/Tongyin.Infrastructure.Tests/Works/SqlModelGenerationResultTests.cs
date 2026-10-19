@@ -68,7 +68,7 @@ public sealed class SqlModelGenerationResultTests
         {
             using var db = CreateConnection();
             db.Open();
-            db.Execute("CREATE TABLE ty_works (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL); CREATE TABLE ty_store_lock (id INTEGER PRIMARY KEY); INSERT INTO ty_store_lock(id) VALUES (1)");
+            db.Execute("CREATE TABLE ty_works (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL); CREATE TABLE ty_store_lock (id INTEGER PRIMARY KEY); INSERT INTO ty_store_lock(id) VALUES (1); CREATE TABLE ty_model_jobs(generation_id TEXT PRIMARY KEY,status TEXT NOT NULL,updated_at TEXT NOT NULL)");
         }
 
         public DbConnection CreateConnection() => new SqliteConnection($"Data Source={_file};Pooling=False");
