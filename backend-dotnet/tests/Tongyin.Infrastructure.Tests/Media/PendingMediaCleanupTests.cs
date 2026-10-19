@@ -83,7 +83,7 @@ public sealed class PendingMediaCleanupTests
         // 模拟磁盘对象无法被删除：同名目录会让 File.Delete 抛出 IOException。
         File.Delete(f.PathFor(image));
         Directory.CreateDirectory(f.PathFor(image));
-        await Assert.ThrowsAnyAsync<IOException>(() => f.Cleaner.ProcessNextAsync());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => f.Cleaner.ProcessNextAsync());
         Assert.Equal(1, f.PendingCount());
         Directory.Delete(f.PathFor(image));
         Assert.True(await f.Cleaner.ProcessNextAsync());
