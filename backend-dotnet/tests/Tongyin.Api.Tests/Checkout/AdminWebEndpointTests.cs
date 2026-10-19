@@ -87,6 +87,31 @@ public sealed class AdminWebEndpointTests
         Assert.DoesNotContain("adminToken", html);
     }
 
+    /// <summary>微信、图片和 3D 生成配置必须能从后台导航直接进入并保存。</summary>
+    [Fact]
+    public async Task AdminConsole_ProvidesWechatImageAndModelSettingsForms()
+    {
+        using var app = new AdminWebFactory();
+        using var client = app.CreateClient();
+        var html = await client.GetStringAsync("/admin/");
+        var script = await client.GetStringAsync("/admin/orders.js");
+        foreach (var tab in new[] { "wechat-settings", "image-settings", "model-settings" })
+        {
+            Assert.Contains("data-tab=\"" + tab + "\"", html);
+        }
+
+        Assert.Contains("id=\"wechatSettingsForm\"", html);
+        Assert.Contains("id=\"aiSettingsForm\"", html);
+        Assert.Contains("id=\"aiPrompt\"", html);
+        Assert.Contains("id=\"aiEnabled\"", html);
+        Assert.Contains("/api/admin/system/wechat", script);
+        Assert.Contains("/api/admin/ai/settings/", script);
+        Assert.Contains("hasApiKey", script);
+        Assert.Contains("prompt_template", script);
+        Assert.Contains("api_key", script);
+        Assert.DoesNotContain("api_key_cipher", script);
+    }
+
     /// <summary>静态页可供登录，但未认证不能读取包含个人收货信息的后台订单。</summary>
     [Fact]
     public async Task AdminOrders_WithoutToken_RejectsPersonalData()
