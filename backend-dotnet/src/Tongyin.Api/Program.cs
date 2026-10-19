@@ -1,7 +1,9 @@
 using System.Data.Common;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Antiforgery;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
-using Tongyin.Application.Admin;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Tongyin.Api.Auth;
@@ -61,13 +63,50 @@ builder.Services.AddScoped<IWechatCodeExchanger>(services =>
         ? new DevelopmentWechatCodeExchanger(actual)
         : actual;
 });
-builder.Services.AddScoped<IAdminCredentialsStore, SqlAdminCredentialsStore>();
-builder.Services.AddScoped<IAdminSessionVerifier>(services => services.GetRequiredService<AdminAccountService>());
-builder.Services.AddScoped(services =>
+builder.Services.AddScoped<IUserStore<IdentityUser>, SqlIdentityUserStore>();
+builder.Services.AddScoped<AdminIdentityBootstrapper>();
+builder.Services.AddIdentityCore<IdentityUser>(options =>
 {
-    var config = services.GetRequiredService<IConfiguration>();
-    return new AdminAccountService(services.GetRequiredService<IAdminCredentialsStore>(),
-        config["SESSION_SECRET"]!, config["ADMIN_BOOTSTRAP_USER"], config["ADMIN_BOOTSTRAP_PASSWORD"]);
+    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._";
+    options.Password.RequiredLength = 12;
+    options.Password.RequireDigit = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
+})
+.AddSignInManager();
+builder.Services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.Zero);
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.Name = "Tongyin.Admin";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+    options.SlidingExpiration = false;
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        return Task.CompletedTask;
+    };
+});
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+    options.Cookie.Name = "Tongyin.Admin.Csrf";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -205,17 +244,16 @@ builder.Services.AddHostedService<ModelGenerationPollingService>();
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
         WechatSessionAuthenticationHandler.SchemeName, _ => { })
-    .AddScheme<AuthenticationSchemeOptions, AdminSessionAuthenticationHandler>(
-        AdminSessionAuthenticationHandler.SchemeName, _ => { })
     .AddScheme<AuthenticationSchemeOptions, AiWebhookAuthenticationHandler>(
         AiWebhookAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddAuthentication().AddIdentityCookies();
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AuthorizationPolicies.Wechat, new AuthorizationPolicyBuilder(WechatSessionAuthenticationHandler.SchemeName)
         .RequireAuthenticatedUser()
         .AddRequirements(new EnabledWechatUserRequirement())
         .Build());
-    options.AddPolicy(AuthorizationPolicies.Admin, new AuthorizationPolicyBuilder(AdminSessionAuthenticationHandler.SchemeName)
+    options.AddPolicy(AuthorizationPolicies.Admin, new AuthorizationPolicyBuilder(IdentityConstants.ApplicationScheme)
         .RequireAuthenticatedUser()
         .Build());
     options.AddPolicy(AuthorizationPolicies.AiWebhook, new AuthorizationPolicyBuilder(AiWebhookAuthenticationHandler.SchemeName)
@@ -273,6 +311,28 @@ app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+// 后台全部写操作验证防 CSRF 令牌，拒绝跨站借用身份 Cookie 操作订单。
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/admin")
+        && !HttpMethods.IsGet(context.Request.Method)
+        && !HttpMethods.IsHead(context.Request.Method)
+        && !HttpMethods.IsOptions(context.Request.Method))
+    {
+        try
+        {
+            await context.RequestServices.GetRequiredService<IAntiforgery>()
+                .ValidateRequestAsync(context);
+        }
+        catch (AntiforgeryValidationException)
+        {
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await context.Response.WriteAsJsonAsync(new { error = "安全验证过期，请刷新后台重试" });
+            return;
+        }
+    }
+    await next();
+});
 
 app.MapControllers();
 app.Run();

@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Dapper" Version="2.1.89" />
     <ProjectReference Include="../Tongyin.Application/Tongyin.Application.csproj" />
   </ItemGroup>
