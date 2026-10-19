@@ -11,7 +11,7 @@ public static class AuthorizationPolicies
     public const string Wechat = "Wechat";
 
     /// <summary>
-    /// 管理员：必须通过独立的管理员令牌认证，不接受微信用户会话替代。
+    /// 管理员：必须通过独立的管理员登录会话认证，不接受微信用户会话替代。
     /// </summary>
     public const string Admin = "Admin";
 

@@ -9,7 +9,7 @@ namespace Tongyin.Api.Auth;
 public sealed class AdminAuthorizeAttribute : AuthorizeAttribute
 {
     /// <summary>
-    /// 通过 Admin 授权策略启用管理员令牌认证。
+    /// 通过 Admin 授权策略启用管理员登录会话认证。
     /// </summary>
     public AdminAuthorizeAttribute()
     {

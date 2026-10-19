@@ -1,4 +1,7 @@
 using System.Data.Common;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using Tongyin.Application.Admin;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Tongyin.Api.Auth;
@@ -58,8 +61,23 @@ builder.Services.AddScoped<IWechatCodeExchanger>(services =>
         ? new DevelopmentWechatCodeExchanger(actual)
         : actual;
 });
-builder.Services.AddSingleton(services =>
-    new AdminTokenValidator(services.GetRequiredService<IConfiguration>()["ADMIN_TOKEN"]));
+builder.Services.AddScoped<IAdminCredentialsStore, SqlAdminCredentialsStore>();
+builder.Services.AddScoped(services =>
+{
+    var config = services.GetRequiredService<IConfiguration>();
+    return new AdminAccountService(services.GetRequiredService<IAdminCredentialsStore>(),
+        config["SESSION_SECRET"]!, config["ADMIN_BOOTSTRAP_USER"], config["ADMIN_BOOTSTRAP_PASSWORD"]);
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("admin-login", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 6, Window = TimeSpan.FromMinutes(1), AutoReplenishment = true, QueueLimit = 0
+        }));
+});
 builder.Services.AddSingleton(services =>
 {
     var configuration = services.GetRequiredService<IConfiguration>();
@@ -186,8 +204,8 @@ builder.Services.AddHostedService<ModelGenerationPollingService>();
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
         WechatSessionAuthenticationHandler.SchemeName, _ => { })
-    .AddScheme<AuthenticationSchemeOptions, AdminTokenAuthenticationHandler>(
-        AdminTokenAuthenticationHandler.SchemeName, _ => { })
+    .AddScheme<AuthenticationSchemeOptions, AdminSessionAuthenticationHandler>(
+        AdminSessionAuthenticationHandler.SchemeName, _ => { })
     .AddScheme<AuthenticationSchemeOptions, AiWebhookAuthenticationHandler>(
         AiWebhookAuthenticationHandler.SchemeName, _ => { });
 builder.Services.AddAuthorization(options =>
@@ -196,7 +214,7 @@ builder.Services.AddAuthorization(options =>
         .RequireAuthenticatedUser()
         .AddRequirements(new EnabledWechatUserRequirement())
         .Build());
-    options.AddPolicy(AuthorizationPolicies.Admin, new AuthorizationPolicyBuilder(AdminTokenAuthenticationHandler.SchemeName)
+    options.AddPolicy(AuthorizationPolicies.Admin, new AuthorizationPolicyBuilder(AdminSessionAuthenticationHandler.SchemeName)
         .RequireAuthenticatedUser()
         .Build());
     options.AddPolicy(AuthorizationPolicies.AiWebhook, new AuthorizationPolicyBuilder(AiWebhookAuthenticationHandler.SchemeName)
@@ -250,6 +268,8 @@ app.UseStaticFiles(new StaticFileOptions
     }
 });
 
+app.UseRouting();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
