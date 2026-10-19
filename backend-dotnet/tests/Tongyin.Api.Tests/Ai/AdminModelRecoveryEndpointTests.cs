@@ -182,7 +182,8 @@ public sealed class AdminModelRecoveryEndpointTests
         var html = await client.GetStringAsync("/admin/");
         var script = await client.GetStringAsync("/admin/orders.js");
         Assert.Contains("data-tab=\"model-review\"", html);
-        Assert.Contains("3D 模型异常", html);
+        Assert.Contains("3D 模型生成任务", html);
+        Assert.Contains("/api/admin/ai/model-tasks", script);
         Assert.Contains(Tasks, script);
         Assert.Contains("modelFile", script);
         Assert.Contains("form.append('file'", script);

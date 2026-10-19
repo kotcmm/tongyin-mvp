@@ -19,7 +19,7 @@ public sealed class AdminImageRecoveryConsoleTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var html = await response.Content.ReadAsStringAsync();
         Assert.Contains("data-tab=\"review\"", html);
-        Assert.Contains("超时图片任务", html);
+        Assert.Contains("图片生成任务", html);
         Assert.Contains("15 分钟", html);
     }
 
@@ -30,6 +30,7 @@ public sealed class AdminImageRecoveryConsoleTests
         using var app = new TestApp();
         using var client = app.CreateClient();
         var js = await client.GetStringAsync("/admin/orders.js");
+        Assert.Contains("/api/admin/ai/image-tasks", js);
         Assert.Contains("/api/admin/ai/stalled-image-tasks", js);
         Assert.Contains("/fail", js);
         Assert.Contains("generation_id", js);

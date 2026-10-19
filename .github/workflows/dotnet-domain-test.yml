@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "backend-dotnet/**"
+      - "scripts/check-admin-tasks.cjs"
       - ".github/workflows/dotnet-domain-test.yml"
   pull_request:
     paths:
@@ -24,5 +25,7 @@ jobs:
           node-version: "22"
       - name: Check admin console JavaScript syntax
         run: node --check backend-dotnet/src/Tongyin.Api/wwwroot/admin/orders.js
+      - name: Verify admin tabs and task table behavior
+        run: node scripts/check-admin-tasks.cjs
       - name: Run complete .NET solution tests
         run: dotnet test backend-dotnet/Tongyin.slnx -c Release -p:NuGetAudit=true -p:WarningsAsErrors=NU1903
