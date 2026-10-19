@@ -27,6 +27,10 @@ dotnet test backend-dotnet/Tongyin.slnx -c Release
 }
 ```
 
+**`SESSION_SECRET` 是仍在使用的服务端主密钥，不能与已废弃的后台固定管理员令牌混淆。**目前它用于微信小程序会话 HMAC 签名、图片/GLB 媒体链接签名、微信 AppSecret 加解密，以及历史 AI API Key 的解密。后台 Identity 的 Cookie 使用 ASP.NET Core Data Protection，**不使用 `SESSION_SECRET` 进行登录**。删掉 `SESSION_SECRET` 后 API 会拒绝启动；任意替换其值还可能让历史加密配置无法解密，请沿用原值，真正轮换前先做数据重加密迁移。
+
+初始化管理员不需要配置旧版固定令牌；Visual Studio 用户机密中若仍有 `ADMIN_TOKEN`，可以直接删除，后端不会读取。
+
 `launchSettings.json` 已设置 `DB_DRIVER=postgres`、`DEV_MODE=true`、`PUBLIC_URL=http://localhost:18080`。如使用 MySQL，请把 DB_DRIVER 改为 `mysql`，并使用 MySqlConnector 连接串。**不要把密码和密钥写进 git 跟踪文件。**
 
 本地图片位置为 `backend-dotnet/data/media/` 时，`DATA_DIR` 填其上级 `backend-dotnet/data/`，不要再追加 media。若使用相对路径，请特别注意 VS 的实际工作目录；推荐使用绝对路径。
