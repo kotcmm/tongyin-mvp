@@ -8,7 +8,7 @@ using Tongyin.Domain.Works;
 
 namespace Tongyin.Infrastructure.Works;
 
-/// <summary>管理员人工核查模型任务的事务实现，共用 Go 兼容锁与操作审计。</summary>
+/// <summary>管理员人工核查模型任务的事务实现，共用统一数据库事务锁与操作审计。</summary>
 public sealed class SqlAdminModelReviewRepository(Func<DbConnection> connectionFactory) : IAdminModelReviewRepository
 {
     /// <summary>检查当前任务编号、执行阶段和超时阈值，在同一事务内更新作品并写入审计。</summary>
@@ -48,6 +48,14 @@ public sealed class SqlAdminModelReviewRepository(Func<DbConnection> connectionF
             || startedAt > reviewedAt.AddMinutes(-15))
         {
             throw new InvalidOperationException("任务不满足模型人工核查条件，可能已经完成或被更新");
+        }
+
+        var currentJobStatus = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT status FROM ty_model_jobs WHERE generation_id=@Id",
+            new { Id = generationId }, transaction: transaction, cancellationToken: cancellationToken));
+        if (currentJobStatus is "WAIT" or "RUN")
+        {
+            throw new InvalidOperationException("混元任务仍可轮询，不能人工结束；请等待真实结果");
         }
 
         var work = Work.Restore(
@@ -92,6 +100,10 @@ public sealed class SqlAdminModelReviewRepository(Func<DbConnection> connectionF
         await connection.ExecuteAsync(new CommandDefinition(
             "INSERT INTO ty_audit(id, owner_id, created_at, payload) VALUES (@Id, @Owner, @CreatedAt, @Payload)",
             new { Id = auditId, Owner = actor, CreatedAt = timestamp, Payload = auditPayload },
+            transaction: transaction, cancellationToken: cancellationToken));
+        await connection.ExecuteAsync(new CommandDefinition(
+            "UPDATE ty_model_jobs SET status=@Status, updated_at=@At WHERE generation_id=@Id",
+            new { Id = generationId, Status = completed ? "DONE" : "FAIL", At = reviewedAt.ToString("O") },
             transaction: transaction, cancellationToken: cancellationToken));
         await transaction.CommitAsync(cancellationToken);
 
