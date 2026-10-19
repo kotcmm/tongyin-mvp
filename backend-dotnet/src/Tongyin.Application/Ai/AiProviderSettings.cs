@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace Tongyin.Application.Ai;
 
 /// <summary>
-/// 兼容 Go 运营后台配置格式的 AI 服务商信息，API Key 始终保留为加密密文。
+/// AI 服务商信息，API Key 始终保留为加密密文。
 /// </summary>
 public sealed class AiProviderSettings
 {
@@ -35,7 +35,7 @@ public sealed class AiProviderSettings
     [JsonPropertyName("default")]
     public bool Default { get; init; }
 
-    /// <summary>由 Go 运营后台加密的 API Key 密文，不得直接发送到客户端或写入日志。</summary>
+    /// <summary>加密保存的 API Key，不得直接发送到客户端或写入日志。</summary>
     [JsonPropertyName("api_key_cipher")]
     public string ApiKeyCipher { get; init; } = string.Empty;
 }

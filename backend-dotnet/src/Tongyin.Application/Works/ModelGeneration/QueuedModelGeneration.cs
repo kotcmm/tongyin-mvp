@@ -1,6 +1,6 @@
 namespace Tongyin.Application.Works;
 
-/// <summary>等待派发到 3D worker 的作品任务身份信息。</summary>
+/// <summary>等待提交到混元生 3D 的作品任务身份信息。</summary>
 public sealed class QueuedModelGeneration
 {
     /// <summary>作品编号。</summary>

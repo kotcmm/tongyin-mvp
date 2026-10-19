@@ -6,7 +6,7 @@ using Tongyin.Application.Ai;
 namespace Tongyin.Infrastructure.Ai;
 
 /// <summary>
-/// 通过 Dapper 读取 Go 现有 ty_ai_providers、ty_ai_prompts 表的配置 JSON。
+/// 通过 Dapper 读取 童印现有 ty_ai_providers、ty_ai_prompts 表的配置 JSON。
 /// </summary>
 public sealed class SqlAiGenerationSettingsReader(Func<DbConnection> connectionFactory) : IAiGenerationSettingsReader
 {
@@ -14,7 +14,7 @@ public sealed class SqlAiGenerationSettingsReader(Func<DbConnection> connectionF
     public const string ModelDefaultPrompt = "将参考卡通形象转换为单个可3D打印的完整角色模型，保留脸部和服饰的核心辨识特征，结构完整稳定，避免悬浮部件、过薄的四肢和无法打印的细节；输出可预览的 GLB 模型。";
 
     /// <summary>
-    /// 读取指定阶段已启用的默认服务商及提示词，保持 Go 后台配置格式不变。
+    /// 读取指定阶段已启用的默认服务商及提示词，保持 运营配置格式不变。
     /// </summary>
     public async Task<AiGenerationSettings> GetAsync(string stage, CancellationToken cancellationToken = default)
     {

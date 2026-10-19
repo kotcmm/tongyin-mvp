@@ -51,19 +51,17 @@ public sealed class ModelGenerationService(
             case "FAIL":
                 await results.FailModelGenerationAsync(job.WorkId, job.GenerationId,
                     string.IsNullOrWhiteSpace(result.Error) ? "混元 3D 任务失败" : result.Error, ct);
-                await jobs.UpdateStatusAsync(job.GenerationId, "FAIL", ct);
                 return;
             case "DONE" when !string.IsNullOrWhiteSpace(result.GlbUrl):
                 var saved = await models.DownloadAsync(result.GlbUrl, ct);
                 try
                 {
                     await results.CompleteModelGenerationAsync(job.WorkId, job.GenerationId, saved, ct);
-                    await jobs.UpdateStatusAsync(job.GenerationId, "DONE", ct);
                 }
                 catch
                 {
-                    // 若模型已经写入数据库但状态更新失败，不能删除已被作品引用的文件。
-                    // 重试查询时 DB 状态仍受原子生成编号校验；人工核查任务可解决不确定提交。
+                    // 结果事务失败时，刚下载的文件还没有绑定作品，删除孤儿文件。
+                    models.Delete(saved);
                     throw;
                 }
                 return;

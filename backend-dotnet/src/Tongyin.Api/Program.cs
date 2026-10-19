@@ -133,7 +133,8 @@ builder.Services.AddScoped<IWorkRepository, SqlWorkRepository>();
 builder.Services.AddScoped<IModelGenerationResultRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IModelGenerationClaimRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IQueuedModelGenerationReader, SqlQueuedModelGenerationReader>();
-builder.Services.AddScoped<DispatchQueuedModelGeneration>();
+builder.Services.AddScoped<ModelGenerationService>();
+builder.Services.AddScoped<IModelGenerationJobRepository, SqlModelGenerationJobRepository>();
 builder.Services.AddScoped<IWorkImageSelectionRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IWorkDeletionRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IStalledImageTasksReader, SqlStalledImageTasksReader>();
@@ -225,20 +226,13 @@ builder.Services.AddHttpClient<GeneratedModelDownloader>(client => client.Timeou
         PooledConnectionLifetime = TimeSpan.FromMinutes(1)
     });
 builder.Services.AddScoped<IGeneratedModelStore>(services => services.GetRequiredService<GeneratedModelDownloader>());
-builder.Services.AddHttpClient("model-worker", client => client.Timeout = TimeSpan.FromSeconds(20))
-    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+builder.Services.AddHttpClient<Hunyuan3DClient>(client => client.Timeout = TimeSpan.FromSeconds(35))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
     {
         AllowAutoRedirect = false,
-        UseProxy = false,
-        ConnectCallback = PublicImageNetworkPolicy.ConnectAsync,
-        PooledConnectionLifetime = TimeSpan.FromMinutes(1)
+        UseProxy = false
     });
-builder.Services.AddScoped<IModelWorkerClient>(services => new ModelWorkerClient(
-    services.GetRequiredService<IHttpClientFactory>().CreateClient("model-worker"),
-    services.GetRequiredService<GoAiKeyDecryptor>(),
-    services.GetRequiredService<LocalMediaStore>(),
-    services.GetRequiredService<IConfiguration>()["PUBLIC_URL"] ?? ""));
-builder.Services.AddScoped<SaveModelGenerationResult>();
+builder.Services.AddScoped<IHunyuan3DClient>(services => services.GetRequiredService<Hunyuan3DClient>());
 builder.Services.AddScoped<IQueuedImageGenerationReader, SqlQueuedImageGenerationReader>();
 // 图片任务是否可派发由数据库中的默认服务商启用状态控制；没有可用服务商时不派发或计费。
 builder.Services.AddHostedService<ImageGenerationPollingService>();
@@ -247,9 +241,7 @@ builder.Services.AddHostedService<MediaCleanupPollingService>();
 
 builder.Services.AddAuthentication()
     .AddScheme<AuthenticationSchemeOptions, WechatSessionAuthenticationHandler>(
-        WechatSessionAuthenticationHandler.SchemeName, _ => { })
-    .AddScheme<AuthenticationSchemeOptions, AiWebhookAuthenticationHandler>(
-        AiWebhookAuthenticationHandler.SchemeName, _ => { });
+        WechatSessionAuthenticationHandler.SchemeName, _ => { });
 builder.Services.AddAuthentication().AddIdentityCookies();
 builder.Services.AddAuthorization(options =>
 {
@@ -258,9 +250,6 @@ builder.Services.AddAuthorization(options =>
         .AddRequirements(new EnabledWechatUserRequirement())
         .Build());
     options.AddPolicy(AuthorizationPolicies.Admin, new AuthorizationPolicyBuilder(IdentityConstants.ApplicationScheme)
-        .RequireAuthenticatedUser()
-        .Build());
-    options.AddPolicy(AuthorizationPolicies.AiWebhook, new AuthorizationPolicyBuilder(AiWebhookAuthenticationHandler.SchemeName)
         .RequireAuthenticatedUser()
         .Build());
 });

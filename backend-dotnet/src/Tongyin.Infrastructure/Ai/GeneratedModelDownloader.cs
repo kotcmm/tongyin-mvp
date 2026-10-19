@@ -66,7 +66,6 @@ public sealed class GeneratedModelDownloader(HttpClient httpClient, LocalMediaSt
             || uri.IsLoopback
             || uri.Host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase)
             || uri.UserInfo.Length != 0
-            || uri.Port != 443
             || uri.Fragment.Length != 0)
         {
             throw new InvalidDataException("模型结果只接受公网 HTTPS 地址");

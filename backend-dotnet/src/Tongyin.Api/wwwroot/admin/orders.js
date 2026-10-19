@@ -540,7 +540,7 @@ async function saveAiSettings(event) {
     $('aiApiKey').value = '';
     $('aiKeyStatus').textContent = result.hasApiKey ? '已配置' : '未配置';
     $('aiPromptVersion').textContent = '版本 v' + String(result.promptVersion);
-    toast(stage === 'image' ? 'AI 图片配置已保存' : '3D Worker 配置已保存');
+    toast(stage === 'image' ? 'AI 图片配置已保存' : '腾讯混元 3D 配置已保存');
   } catch (error) {
     $('aiSettingsError').textContent = error.message;
     if (error.status === 401) logout(false);
@@ -569,13 +569,13 @@ function openTab(tab, updateLocation = true) {
     $('aiSettingsTitle').textContent = imageMode ? 'AI 图片生成配置' : 'AI 3D 模型生成配置';
     $('aiSettingsHelp').textContent = imageMode
       ? '上传儿童画后由火山方舟 Seedream 生成一张卡通形象。'
-      : '确认卡通形象后提交给支持童印异步 Worker 回调协议的 3D 服务。';
+      : '确认卡通图后，由 .NET 向腾讯混元生 3D 提交图片并轮询任务，完成后下载 GLB。';
     $('aiAdapterDescription').textContent = imageMode
       ? '当前适配器：Seedream。只支持火山方舟官方图片 API，不可直接填入其他模型聚合平台地址。'
-      : '当前适配器：3D Worker。需可公网访问的 HTTPS API，并通过 /api/internal/ai-result 回调。不是任意文生 3D API 均可直接使用。';
+      : '当前适配器：腾讯混元生 3D 专业版。使用官方 API Key、模型 3.0 或 3.1；无需公网回调地址。';
     $('aiEndpoint').placeholder = imageMode
       ? 'https://ark.cn-beijing.volces.com/api/v3/images/generations'
-      : 'https://你的-worker-域名/api/model';
+      : 'https://api.ai3d.cloud.tencent.com/v1/ai3d/submit';
   }
   if (tab === 'account') $('newAdminUsername').value = state.username;
   $('keyword').value = '';
@@ -602,9 +602,9 @@ function openTab(tab, updateLocation = true) {
     tab === 'works' ? '作品管理' : tab === 'shipping' ? '物流发货' : '全部订单';
   $('pageIntro').textContent = tab === 'wechat-settings' ? '配置小程序 AppID 与加密保存的 AppSecret' :
     tab === 'image-settings' ? '设置图片 API、模型、密钥及提示词' :
-    tab === 'model-settings' ? '设置 3D Worker API、密钥与 GLB 提示词' :
+    tab === 'model-settings' ? '设置混元 3D 专业版 API Key 和版本' :
     tab === 'account' ? '维护管理员用户名与密码' :
-    tab === 'model-review' ? '查看 3D Worker 排队、处理、完成与失败状态；超时任务可人工核实' :
+    tab === 'model-review' ? '查看腾讯混元排队、处理、完成与失败状态；超时任务可人工核实' :
     tab === 'review' ? '查看 Seedream 图片排队、调用、完成与失败状态；超时任务可人工核实' :
     tab === 'works' ? '原画 → AI 形象 → GLB 白模，当前为只读核查' :
     tab === 'shipping' ? '制作中、已发货及已完成订单' : '收款后制作 → 核实运单 → 发货';

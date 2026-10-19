@@ -15,6 +15,4 @@ public static class AuthorizationPolicies
     /// </summary>
     public const string Admin = "Admin";
 
-    /// <summary>AI worker 结果回调：使用与微信、管理员完全独立的凭据验证。</summary>
-    public const string AiWebhook = "AiWebhook";
 }
