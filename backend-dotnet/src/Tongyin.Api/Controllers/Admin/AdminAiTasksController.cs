@@ -13,8 +13,18 @@ namespace Tongyin.Api.Controllers.Admin;
 [ApiController]
 [Route("api/admin/ai")]
 [AdminAuthorize]
-public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, ReviewStalledImageTask review, ListStalledModelTasks listModels, ReviewStalledModelTask reviewModels) : ControllerBase
+public sealed class AdminAiTasksController(ListStalledImageTasks listTasks, ReviewStalledImageTask review, ListStalledModelTasks listModels, ReviewStalledModelTask reviewModels, IAiGenerationTaskReader allTasks) : ControllerBase
 {
+    /// <summary>查询全部图片生成任务：排队、请求中、超时、完成和失败。</summary>
+    [HttpGet("image-tasks")]
+    public async Task<IActionResult> GetImageTasksAsync(CancellationToken cancellationToken)
+        => Ok(await allTasks.ListAsync("image", cancellationToken));
+
+    /// <summary>查询全部 3D 模型生成任务：排队、等待结果、超时、成功和失败。</summary>
+    [HttpGet("model-tasks")]
+    public async Task<IActionResult> GetModelTasksAsync(CancellationToken cancellationToken)
+        => Ok(await allTasks.ListAsync("model", cancellationToken));
+
     /// <summary>
     /// 查询认领超过 15 分钟仍未完成的图片任务；不改变状态、不触发模型计费。
     /// </summary>

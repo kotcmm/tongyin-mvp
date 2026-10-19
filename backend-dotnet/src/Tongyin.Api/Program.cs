@@ -191,6 +191,7 @@ builder.Services.AddScoped<ListWorks>();
 builder.Services.AddScoped<DeleteWork>();
 builder.Services.AddScoped<PendingMediaCleanup>();
 builder.Services.AddScoped<IAdminWorksReader, SqlAdminWorksReader>();
+builder.Services.AddScoped<IAiGenerationTaskReader, SqlAiGenerationTaskReader>();
 builder.Services.AddScoped<ListAdminWorks>();
 builder.Services.AddScoped<GetWork>();
 builder.Services.AddScoped<IAiGenerationSettingsReader, SqlAiGenerationSettingsReader>();

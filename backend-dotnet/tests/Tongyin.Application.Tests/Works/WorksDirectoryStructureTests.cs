@@ -26,7 +26,7 @@ public sealed class WorksDirectoryStructureTests
             "QueuedModelGeneration", "SaveModelGenerationResult"
         ],
         ["Media"] = ["IOriginalImageReader", "IOriginalImageStore", "ImageFileLimits"],
-        ["Administration"] = ["IAdminWorksReader", "ListAdminWorks"],
+        ["Administration"] = ["AiGenerationTask", "IAiGenerationTaskReader", "IAdminWorksReader", "ListAdminWorks"],
         ["Recovery"] =
         [
             "IAdminImageReviewRepository", "IAdminModelReviewRepository",
@@ -51,7 +51,7 @@ public sealed class WorksDirectoryStructureTests
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(38, expected.Length);
+        Assert.Equal(40, expected.Length);
         Assert.Equal(expected, actual);
     }
 
