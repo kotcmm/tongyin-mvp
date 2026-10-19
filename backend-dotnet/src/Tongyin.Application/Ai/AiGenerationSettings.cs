@@ -34,15 +34,9 @@ public sealed class AiGenerationSettings
     public bool CanGenerateModel()
     {
         return Stage == "model"
-            && Provider is { Stage: "model", Adapter: "worker", Enabled: true, Default: true }
-            && Uri.TryCreate(Provider.Endpoint, UriKind.Absolute, out var endpoint)
-            && endpoint.Scheme == Uri.UriSchemeHttps
-            && endpoint.HostNameType == UriHostNameType.Dns
-            && !endpoint.IsLoopback
-            && !endpoint.Host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase)
-            && endpoint.UserInfo.Length == 0 && endpoint.Port == 443
-            && endpoint.Query.Length == 0 && endpoint.Fragment.Length == 0
-            && !string.IsNullOrWhiteSpace(Provider.ApiKeyCipher)
-            && !string.IsNullOrWhiteSpace(PromptTemplate);
+            && Provider is { Stage: "model", Adapter: "hunyuan3d", Enabled: true, Default: true }
+            && Provider.Endpoint == "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit"
+            && Provider.Model is ("3.0" or "3.1")
+            && !string.IsNullOrWhiteSpace(Provider.ApiKeyCipher);
     }
 }

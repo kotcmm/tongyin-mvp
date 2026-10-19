@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 namespace Tongyin.Application.Works;
 
 /// <summary>
-/// 供作品查询使用的只读快照，保留 Go 现有持久化 JSON 的业务字段。
+/// 供作品查询使用的只读快照，保留 童印持久化 JSON 的业务字段。
 /// </summary>
 public sealed class WorkSnapshot
 {
@@ -35,7 +35,7 @@ public sealed class WorkSnapshot
     [JsonPropertyName("model")]
     public string Model { get; init; } = string.Empty;
 
-    /// <summary>原 Go 业务状态。</summary>
+    /// <summary>作品业务状态。</summary>
     [JsonPropertyName("status")]
     public string Status { get; init; } = string.Empty;
 
@@ -51,7 +51,7 @@ public sealed class WorkSnapshot
     [JsonPropertyName("note")]
     public string Note { get; init; } = string.Empty;
 
-    /// <summary>旧版业务用户内部标识，未设置时为空。</summary>
+    /// <summary>业务用户内部标识，未设置时为空。</summary>
     [JsonPropertyName("owner_user_id")]
     public string OwnerUserId { get; init; } = string.Empty;
 

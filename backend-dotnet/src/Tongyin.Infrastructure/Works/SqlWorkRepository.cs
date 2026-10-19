@@ -234,7 +234,7 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
     }
 
     /// <summary>
-    /// 以同一作品事务锁校验选图状态，保护其他用户数据，并兼容旧多候选图作品的单图规范。
+    /// 以同一作品事务锁校验选图状态，保护其他用户数据，并保证确认作品只保留一张候选图。
     /// </summary>
     public async Task<WorkSnapshot?> SelectImageAsync(string id, string owner, int index, CancellationToken cancellationToken = default)
     {
@@ -266,11 +266,8 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
         document["ai_task_stage"] = "";
         document["ai_started_at"] = "";
         document["ai_execution_claim_id"] = "";
-        if (string.IsNullOrWhiteSpace(work.GenerationId))
-        {
-            // 兼容早期没有生成编号的 Go 作品，使模型结果回调有可核对的任务编号。
-            document["generation_id"] = Guid.NewGuid().ToString("N");
-        }
+        // 图片阶段生成编号不可复用：每次确认进入 3D 必须分配新任务编号。
+        document["generation_id"] = Guid.NewGuid().ToString("N");
 
         var updated = document.ToJsonString();
         await connection.ExecuteAsync(new CommandDefinition(
@@ -326,6 +323,12 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
             "UPDATE ty_works SET payload = @Payload WHERE id = @Id",
             new { Payload = updated, Id = workId },
             transaction: transaction, cancellationToken: cancellationToken));
+        await connection.ExecuteAsync(new CommandDefinition("""
+            UPDATE ty_model_jobs SET status=@Status, updated_at=@At
+            WHERE generation_id=@Generation AND status IN ('WAIT','RUN','submitting')
+            """, new { Status = modelFileName is null ? "FAIL" : "DONE",
+                At = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture), Generation = generationId },
+            transaction: transaction, cancellationToken: cancellationToken));
         await transaction.CommitAsync(cancellationToken);
         return JsonSerializer.Deserialize<WorkSnapshot>(updated)
             ?? throw new JsonException("更新后的模型记录不是合法的 JSON 对象");
@@ -376,6 +379,12 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
             "UPDATE ty_works SET payload = @Payload WHERE id = @Id AND owner_id = @Owner",
             new { Payload = updated, Id = workId, Owner = owner },
             transaction: transaction, cancellationToken: cancellationToken));
+        await connection.ExecuteAsync(new CommandDefinition("""
+            INSERT INTO ty_model_jobs (generation_id,work_id,owner_id,provider_id,prompt_version,provider_job_id,status,created_at,updated_at)
+            VALUES (@Generation,@Work,@Owner,@Provider,@Version,NULL,'submitting',@At,@At)
+            """, new { Generation = generationId, Work = workId, Owner = owner, Provider = providerId,
+                Version = promptVersion, At = startedAt.ToString("O", CultureInfo.InvariantCulture) },
+            transaction: transaction, cancellationToken: cancellationToken));
         await transaction.CommitAsync(cancellationToken);
         return JsonSerializer.Deserialize<WorkSnapshot>(updated)
             ?? throw new JsonException("更新后的模型记录不是合法的 JSON 对象");
@@ -383,7 +392,7 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
 
     private static async Task AcquireStoreLockAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        // Go 使用同一 ty_store_lock 行；无意义的 UPDATE 兼容 SQLite、PostgreSQL 与 MySQL。
+        // 跨数据库锁行确保作品认领和完成原子化。
         await connection.ExecuteAsync(new CommandDefinition(
             "UPDATE ty_store_lock SET id = id WHERE id = 1",
             transaction: transaction, cancellationToken: cancellationToken));

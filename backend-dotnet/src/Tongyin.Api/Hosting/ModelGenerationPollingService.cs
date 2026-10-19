@@ -2,7 +2,7 @@ using Tongyin.Application.Works;
 
 namespace Tongyin.Api.Hosting;
 
-/// <summary>轮询模型生成队列，后台提交异步 worker 请求；已认领任务绝不自动重新提交。</summary>
+/// <summary>轮询模型生成队列，后台提交异步 混元 API 请求；已认领任务绝不自动重新提交。</summary>
 public sealed class ModelGenerationPollingService(IServiceScopeFactory scopeFactory, IConfiguration configuration, ILogger<ModelGenerationPollingService> logger) : BackgroundService
 {
     /// <summary>定期处理一笔模型任务；异常只记录类别，避免将密钥与签名 URL 写入日志。</summary>
@@ -18,20 +18,8 @@ public sealed class ModelGenerationPollingService(IServiceScopeFactory scopeFact
                 try
                 {
                     await using var scope = scopeFactory.CreateAsyncScope();
-                    // 必须保证 worker 能从公网回调，避免缺少 PUBLIC_URL 时先认领再挂起。
-                    var publicUrl = configuration["PUBLIC_URL"];
-                    if (!Uri.TryCreate(publicUrl, UriKind.Absolute, out var callbackBase)
-                        || callbackBase.Scheme != Uri.UriSchemeHttps
-                        || callbackBase.HostNameType != UriHostNameType.Dns
-                        || callbackBase.IsLoopback || callbackBase.Port != 443
-                        || callbackBase.UserInfo.Length != 0 || callbackBase.Query.Length != 0
-                        || callbackBase.Fragment.Length != 0)
-                    {
-                        continue;
-                    }
-
-                    var dispatcher = scope.ServiceProvider.GetRequiredService<DispatchQueuedModelGeneration>();
-                    await dispatcher.DispatchNextAsync(stoppingToken);
+                    var dispatcher = scope.ServiceProvider.GetRequiredService<ModelGenerationService>();
+                    await dispatcher.ProcessNextAsync(stoppingToken);
                     diagnostics.Reset();
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -44,7 +32,7 @@ public sealed class ModelGenerationPollingService(IServiceScopeFactory scopeFact
                     var reason = PollingFailureDiagnostics.Describe(exception);
                     if (diagnostics.ShouldLog(reason, DateTimeOffset.UtcNow))
                     {
-                        logger.LogError("3D 模型派发失败：{Reason}（{ErrorType}）；后续相同错误每分钟最多提示一次，已认领任务不会自动重试", reason, exception.GetType().Name);
+                        logger.LogError("3D 模型任务处理失败：{Reason}（{ErrorType}）；后续相同错误每分钟最多提示一次，已认领任务不会自动重试", reason, exception.GetType().Name);
                     }
                 }
             }

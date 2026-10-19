@@ -42,12 +42,10 @@ public sealed class ManageAiStageSettings(IAdminAiSettingsStore store)
                     throw new ArgumentException("图片生成目前仅支持火山方舟 Seedream 官方接口");
                 }
             }
-            else if (!Uri.TryCreate(settings.Endpoint, UriKind.Absolute, out var uri)
-                || uri.Scheme != Uri.UriSchemeHttps || uri.HostNameType != UriHostNameType.Dns
-                || uri.IsLoopback || uri.Host.EndsWith(".localhost", StringComparison.OrdinalIgnoreCase)
-                || uri.UserInfo.Length != 0 || uri.Port != 443 || uri.Query.Length != 0 || uri.Fragment.Length != 0)
+            else if (settings.Endpoint != "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit"
+                || settings.Model is not ("3.0" or "3.1"))
             {
-                throw new ArgumentException("3D Worker 地址必须是公网标准 443 端口 HTTPS 服务");
+                throw new ArgumentException("当前仅支持腾讯混元 3D 专业版，模型填写 3.0 或 3.1");
             }
         }
 
