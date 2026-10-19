@@ -191,6 +191,9 @@ const taskStatusLabels = {
 const taskPhaseLabels = {
   not_dispatched: '尚未发起模型调用',
   claimed_outcome_unconfirmed: '已认领；服务商接收／结果尚未确认',
+  submission_uncertain: '请求已发出但混元 JobId 未确认，禁止自动重试',
+  provider_wait: '混元已接单：WAIT（云端排队）',
+  provider_run: '混元正在生成：RUN',
   result_saved: '结果已保存到童印',
   failed: '生成失败，查看备注'
 };
@@ -207,7 +210,9 @@ function filteredGenerationTasks(stage) {
 function taskTable(tasks, stage) {
   const rows = tasks.map((task) => {
     const id = h(task.work_id);
-    const generation = h(task.generation_id || '历史编号未记录');
+    const generation = h(task.generation_id || '任务编号未记录');
+    const providerJob = task.provider_job_id
+      ? '<div class="task-secondary">混元 JobId：' + h(task.provider_job_id) + '</div>' : '';
     const label = h(taskStatusLabels[task.status] || task.status);
     const tone = task.status === 'completed' ? 'done' :
       task.status === 'failed' || task.status === 'stalled' ? 'warning' : '';
@@ -230,7 +235,7 @@ function taskTable(tasks, stage) {
         (stage === 'image' ? '补录图片' : '补录 GLB') + '</button></div>';
     }
     return '<tr><td><strong class="task-id">' + id + '</strong><div class="task-secondary">任务 ' +
-      generation + '</div></td>' +
+      generation + '</div>' + providerJob + '</td>' +
       '<td><span class="pill ' + tone + '">' + label + '</span>' +
       (task.is_legacy_go && task.status === 'queued' ? '<div class="task-secondary">旧任务，可能无法自动派发</div>' : '') +
       '</td><td><div class="task-phase">' + phase + '</div>' + note + '</td>' +

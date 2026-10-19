@@ -27,6 +27,16 @@ public sealed class SqlAiGenerationTaskReader(Func<DbConnection> connections) : 
             "SELECT payload FROM ty_works ORDER BY created_at DESC, id DESC",
             cancellationToken: cancellationToken));
 
+        var modelJobs = stage == "model"
+            ? (await db.QueryAsync<ModelJobRow>(new CommandDefinition("""
+                SELECT work_id AS WorkId, generation_id AS GenerationId,
+                    provider_job_id AS ProviderJobId, status AS Status,
+                    provider_id AS ProviderId, prompt_version AS PromptVersion,
+                    updated_at AS UpdatedAt FROM ty_model_jobs
+                """, cancellationToken: cancellationToken)))
+                .GroupBy(job => job.WorkId)
+                .ToDictionary(group => group.Key, group => group.First())
+            : new Dictionary<string, ModelJobRow>();
         var now = DateTimeOffset.UtcNow;
         var tasks = new List<AiGenerationTask>();
         foreach (var payload in payloads)
@@ -48,6 +58,7 @@ public sealed class SqlAiGenerationTaskReader(Func<DbConnection> connections) : 
                 continue;
             }
 
+            modelJobs.TryGetValue(work.Id, out var providerJob);
             var stageMatches = work.AiTaskStage == stage;
             var recordedClaim = !string.IsNullOrWhiteSpace(work.AiExecutionClaimId)
                 && work.AiExecutionClaimId == work.GenerationId;
@@ -69,11 +80,29 @@ public sealed class SqlAiGenerationTaskReader(Func<DbConnection> connections) : 
             var canReview = stale && !string.IsNullOrWhiteSpace(work.GenerationId)
                 && (string.IsNullOrWhiteSpace(work.AiExecutionClaimId) || recordedClaim)
                 && (stage == "image" || work.Selected == 0 && hasImageResult);
+            // 已获得混元 JobId 并正常轮询的任务，不是待人工恢复的未知提交。
+            if (stage == "model" && providerJob is not null)
+            {
+                var outcomeKnown = providerJob.Status is "WAIT" or "RUN";
+                canReview = !outcomeKnown && providerJob.Status == "submitting" && stale;
+            }
 
             var status = complete ? "completed" : failed ? "failed"
                 : stale ? "stalled" : hasClaim ? "processing" : "queued";
             var apiPhase = complete ? "result_saved" : failed ? "failed"
                 : hasClaim ? "claimed_outcome_unconfirmed" : "not_dispatched";
+            if (stage == "model" && providerJob is not null && !complete && !failed)
+            {
+                apiPhase = providerJob.Status switch
+                {
+                    "WAIT" => "provider_wait",
+                    "RUN" => "provider_run",
+                    "submitting" => "submission_uncertain",
+                    _ => apiPhase
+                };
+                // 混元报告 WAIT/RUN 后，必须等待真实完成结果而不是仅因 15 分钟判定超时。
+                if (providerJob.Status is "WAIT" or "RUN") status = "processing";
+            }
             tasks.Add(new AiGenerationTask
             {
                 WorkId = work.Id,
@@ -85,15 +114,29 @@ public sealed class SqlAiGenerationTaskReader(Func<DbConnection> connections) : 
                 ApiPhase = apiPhase,
                 CreatedAt = work.CreatedAt,
                 StartedAt = started?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty,
-                ProviderId = stageMatches ? work.AiProviderId : string.Empty,
-                PromptVersion = stageMatches ? work.AiPromptVersion : 0,
+                ProviderId = stage == "model" && providerJob is not null
+                    ? providerJob.ProviderId : stageMatches ? work.AiProviderId : string.Empty,
+                PromptVersion = stage == "model" && providerJob is not null
+                    ? providerJob.PromptVersion : stageMatches ? work.AiPromptVersion : 0,
                 ImageAttempts = work.ImageAttempts,
                 Note = failed || stale ? work.Note : string.Empty,
                 CanReview = canReview,
-                IsLegacyGo = !complete && !failed && !hasDotnetQueueMarker
+                ProviderJobId = stage == "model" ? providerJob?.ProviderJobId ?? string.Empty : string.Empty,
+                IsLegacyGo = false
             });
         }
 
         return tasks;
+    }
+
+    private sealed class ModelJobRow
+    {
+        public string WorkId { get; set; } = "";
+        public string GenerationId { get; set; } = "";
+        public string? ProviderJobId { get; set; }
+        public string Status { get; set; } = "";
+        public string ProviderId { get; set; } = "";
+        public int PromptVersion { get; set; }
+        public string UpdatedAt { get; set; } = "";
     }
 }

@@ -114,7 +114,13 @@ public sealed class AdminGenerationTaskListTests
             Directory.CreateDirectory(_root);
             using var db = Connect();
             db.Open();
-            db.Execute("CREATE TABLE ty_works (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL, created_at TEXT NOT NULL, payload TEXT NOT NULL)");
+            db.Execute("""
+                CREATE TABLE ty_works(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,created_at TEXT NOT NULL,payload TEXT NOT NULL);
+                CREATE TABLE ty_model_jobs(
+                  generation_id TEXT PRIMARY KEY,work_id TEXT NOT NULL,owner_id TEXT,provider_id TEXT NOT NULL,
+                  prompt_version INTEGER NOT NULL,provider_job_id TEXT,status TEXT NOT NULL,
+                  created_at TEXT NOT NULL,updated_at TEXT NOT NULL,api_key_cipher TEXT,model TEXT);
+                """);
         }
 
         private DbConnection Connect() => new SqliteConnection($"Data Source={Database};Pooling=False");

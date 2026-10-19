@@ -53,7 +53,11 @@ public sealed class AiGenerationTask
     [JsonPropertyName("can_review")]
     public required bool CanReview { get; init; }
 
-    /// <summary>旧 Go 排队任务没有 .NET 认领字段时可能无法自动派发。</summary>
+    /// <summary>混元官方任务编号；未实际提交成功时为空。</summary>
+    [JsonPropertyName("provider_job_id")]
+    public required string ProviderJobId { get; init; }
+
+    /// <summary>仅为兼容现有前端列表接口而保留，当前不再支持 Go 任务适配。</summary>
     [JsonPropertyName("is_legacy_go")]
     public required bool IsLegacyGo { get; init; }
 }
