@@ -81,6 +81,33 @@ public sealed class AdminGenerationTaskListTests
         Assert.Equal("completed", completed.GetProperty("status").GetString());
     }
 
+    /// <summary>混元已返回 JobId 的 WAIT/RUN 是真实云端状态，超过 15 分钟也不允许误报人工失败。</summary>
+    [Theory]
+    [InlineData("WAIT", "provider_wait")]
+    [InlineData("RUN", "provider_run")]
+    public async Task ModelTasks_CloudStatusAndJobIdAreVisible_WithoutUnsafeReview(string providerStatus, string apiPhase)
+    {
+        using var app = new TaskFactory();
+        const string id = "model-cloud";
+        const string generationId = "model-gen-001";
+        app.Seed(id, "model_pending", generationId: generationId,
+            claim: generationId, taskStage: "model",
+            started: DateTimeOffset.UtcNow.AddMinutes(-42).ToString("O"),
+            selected: 0, candidates: ["cartoon.png"]);
+        app.SeedModelJob(id, generationId, "hunyuan-official-123", providerStatus);
+
+        using var client = app.CreateClient();
+        using var response = await client.SendAsync(AdminRequest("/api/admin/ai/model-tasks"));
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var task = Assert.Single(json.RootElement.EnumerateArray());
+        Assert.Equal("processing", task.GetProperty("status").GetString());
+        Assert.Equal(apiPhase, task.GetProperty("api_phase").GetString());
+        Assert.Equal("hunyuan-official-123", task.GetProperty("provider_job_id").GetString());
+        Assert.False(task.GetProperty("can_review").GetBoolean());
+        Assert.DoesNotContain("api-key", json.RootElement.ToString());
+    }
+
     /// <summary>未经管理员 Cookie 授权，微信用户与匿名请求都不能获取任务进度及故障内容。</summary>
     [Theory]
     [InlineData("image")]
@@ -141,6 +168,20 @@ public sealed class AdminGenerationTaskListTests
             });
             db.Execute("INSERT INTO ty_works(id,owner_id,created_at,payload) VALUES(@Id,@Owner,@Time,@Payload)",
                 new { Id = id, Owner = "openid-private", Time = "2026-10-19T10:00:00+08:00", Payload = json });
+        }
+
+        public void SeedModelJob(string workId, string generationId, string jobId, string status)
+        {
+            using var db = Connect();
+            db.Open();
+            db.Execute("""
+                INSERT INTO ty_model_jobs(
+                    generation_id, work_id, owner_id, provider_id, prompt_version,
+                    provider_job_id, status, created_at, updated_at
+                ) VALUES (@GenerationId, @WorkId, 'owner', 'hunyuan-provider', 3,
+                    @JobId, @Status, @At, @At)
+                """, new { GenerationId = generationId, WorkId = workId, JobId = jobId,
+                    Status = status, At = DateTimeOffset.UtcNow.ToString("O") });
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
