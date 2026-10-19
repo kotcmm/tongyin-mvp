@@ -71,7 +71,8 @@ public sealed class ModelGenerationServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => t.Service.ProcessNextAsync());
         await t.Service.ProcessNextAsync();
         Assert.Equal(1, t.Client.SubmitCalls);
-        Assert.Equal(1, t.Claims.Count);
+        // 第二轮可以重新检查排队，但原子认领必须拒绝，不能再次收费提交。
+        Assert.Equal(2, t.Claims.Count);
         Assert.Null(t.Jobs.Current);
     }
 
