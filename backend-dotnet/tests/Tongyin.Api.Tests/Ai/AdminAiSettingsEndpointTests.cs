@@ -85,7 +85,7 @@ public sealed class AdminAiSettingsEndpointTests
         Assert.True(settings.CanGenerateImage());
     }
 
-    /// <summary>混元 3D 的 HTTPS 公网协议配置应写入实际 Worker 读取的表。</summary>
+    /// <summary>混元 3D 配置必须是官方 API，随后由直接查询组件读取。</summary>
     [Fact]
     public async Task ModelSettings_SaveHunyuanAndPrompt_CanDispatchModel()
     {

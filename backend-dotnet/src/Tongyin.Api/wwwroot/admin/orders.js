@@ -346,7 +346,7 @@ function openModelReview(workId, generationId, action) {
     '。先查询模型服务商真实结果；超过 15 分钟不等于任务失败。</p>' +
     '<label for="modelReviewReason">核实依据（必填）</label>' +
     '<textarea id="modelReviewReason" rows="4" maxlength="300" required ' +
-    'placeholder="例如：在 Worker 日志中核对当前任务编号及实际结果"></textarea>' +
+    'placeholder="例如：已在混元控制台确认该 JobId 的真实结果（务必核实后操作）"></textarea>' +
     fileControl +
     '<div class="row" style="margin-top:20px"><button type="submit">' +
     (complete ? '确认补录 GLB' : '确认失败') + '</button></div></form></div>';
@@ -484,8 +484,8 @@ async function loadConfiguration() {
       const stage = state.tab === 'image-settings' ? 'image' : 'model';
       state.aiStage = stage;
       const config = await api('/api/admin/ai/settings/' + stage);
-      $('aiEndpoint').value = config.endpoint || '';
-      $('aiModel').value = config.model || '';
+      $('aiEndpoint').value = config.endpoint || (stage === 'model' ? 'https://api.ai3d.cloud.tencent.com/v1/ai3d/submit' : '');
+      $('aiModel').value = config.model || (stage === 'model' ? '3.0' : '');
       $('aiApiKey').value = '';
       $('aiKeyStatus').textContent = config.hasApiKey ? '已配置' : '未配置';
       $('aiEnabled').checked = Boolean(config.enabled);
@@ -581,6 +581,8 @@ function openTab(tab, updateLocation = true) {
     $('aiEndpoint').placeholder = imageMode
       ? 'https://ark.cn-beijing.volces.com/api/v3/images/generations'
       : 'https://api.ai3d.cloud.tencent.com/v1/ai3d/submit';
+    $('aiModel').placeholder = imageMode ? '例如 doubao-seedream-4-0' : '3.0 或 3.1';
+    $('aiPromptLabel').textContent = imageMode ? '生成提示词' : '工艺备注（目前不会发送给混元）';
   }
   if (tab === 'account') $('newAdminUsername').value = state.username;
   $('keyword').value = '';

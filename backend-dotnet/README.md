@@ -27,7 +27,7 @@ dotnet test backend-dotnet/Tongyin.slnx -c Release
 }
 ```
 
-**`SESSION_SECRET` 是仍在使用的服务端主密钥，不能与已废弃的后台固定管理员令牌混淆。**目前它用于微信小程序会话 HMAC 签名、图片/GLB 媒体链接签名、微信 AppSecret 加解密，以及历史 AI API Key 的解密。后台 Identity 的 Cookie 使用 ASP.NET Core Data Protection，**不使用 `SESSION_SECRET` 进行登录**。删掉 `SESSION_SECRET` 后 API 会拒绝启动；任意替换其值还可能让历史加密配置无法解密，请沿用原值，真正轮换前先做数据重加密迁移。
+**`SESSION_SECRET` 是仍在使用的服务端主密钥，不能与已废弃的后台固定管理员令牌混淆。**目前它用于微信小程序会话 HMAC 签名、图片/GLB 媒体链接签名、微信 AppSecret 加解密，；AI API Key 现已单独使用 ASP.NET Core Data Protection 加密。后台 Identity 的 Cookie 使用 ASP.NET Core Data Protection，**不使用 `SESSION_SECRET` 进行登录**。删掉 `SESSION_SECRET` 后 API 会拒绝启动；任意替换会使现有微信会话和媒体签名失效，请沿用原值。AI API Key 的加解密依赖持久化的 ASP.NET Core Data Protection 密钥环，生产重启/容器更新必须保留密钥环。
 
 初始化管理员不需要配置旧版固定令牌；Visual Studio 用户机密中若仍有 `ADMIN_TOKEN`，可以直接删除，后端不会读取。
 
@@ -47,6 +47,10 @@ PostgreSQL：
 | 2 | `sql/postgres/001_system_settings.sql` | 微信 AppID / AppSecret 等系统配置 |
 | 3 | `sql/postgres/003_identity_admin.sql` | ASP.NET Core Identity 管理员账号 |
 | 4 | `sql/postgres/004_media_cleanup.sql` | 已删除作品的媒体回收持久化队列 |
+| 5 | `sql/postgres/005_model_jobs.sql` | 混元 JobId、供应商状态、提交时加密凭据快照 |
+| 可选 | `sql/postgres/006_reset_ai_provider_credentials.sql` | **仅重置旧 AI 服务商配置**，便于按新密钥格式重新录入；谨慎使用 |
+
+已经运行过童印旧版本的数据库，**必须在启动新版 .NET API 前补执行 `005_model_jobs.sql`**；旧版 AI 服务商密钥采用 Go AES 格式，不再可用。先备份数据库，如确认重新录入 Seedream/混元 API Key，可以执行可选的 `006_reset_ai_provider_credentials.sql`，它只删除 `ty_ai_providers`，不会删除作品、订单、已生成图片、GLB 或提示词。**不要在存在未完成的真实付费模型任务时清空模型任务表。**
 
 已存在这些业务表的旧库可重复执行 `CREATE TABLE IF NOT EXISTS` 的初始化脚本，但应先做完整备份；脚本不会修改业务表原有列结构。MySQL 对应文件在 `sql/mysql/`。数据层使用 Dapper，不需要 EF Core 数据库上下文。
 
@@ -66,7 +70,7 @@ PostgreSQL：
 
 首次运行使用本地用户机密中的 `ADMIN_BOOTSTRAP_USER` / `ADMIN_BOOTSTRAP_PASSWORD` 登录。这是**仅用于首次初始化的配置**；新账号写入 `ty_admin_identity` 后，移除 `ADMIN_BOOTSTRAP_PASSWORD`。后续可在“账号设置”修改用户名或密码。
 
-认证方案：ASP.NET Core Identity Core 的 `UserManager`、`SignInManager` 和 Dapper `IUserStore`；密码由标准 Identity PasswordHasher 处理。浏览器使用 `HttpOnly`、`SameSite=Strict` 的登录 Cookie，有效期八小时。写操作要求 `X-CSRF-TOKEN`，账号密码修改及退出会更新 Identity SecurityStamp 使旧会话失效。后台与小程序微信认证、AI 回调认证互相隔离，不再支持 `ADMIN_TOKEN`。
+认证方案：ASP.NET Core Identity Core 的 `UserManager`、`SignInManager` 和 Dapper `IUserStore`；密码由标准 Identity PasswordHasher 处理。浏览器使用 `HttpOnly`、`SameSite=Strict` 的登录 Cookie，有效期八小时。写操作要求 `X-CSRF-TOKEN`，账号密码修改及退出会更新 Identity SecurityStamp 使旧会话失效。后台与小程序微信认证互相隔离，不再支持 `ADMIN_TOKEN` 或旧 AI Worker 回调认证。
 
 **开发环境允许 HTTP；生产后台必须使用 HTTPS**。生产部署要保留并共享 ASP.NET Core Data Protection 密钥，否则重启或多个副本间切换会导致 Cookie 无效。
 
@@ -80,7 +84,7 @@ PostgreSQL：
 
 两者都需要管理员 Identity 身份，均为只读查询。按行展示每个作品当前阶段的任务，包括状态（`queued` 排队中、`processing` 已认领处理中、`stalled` 超过 15 分钟且仍未完成、`completed` 成功、`failed` 失败）、系统已知的 API 阶段、作品编号、任务编号、阶段服务商标识、提示词版本、创建时间、认领时间及失败备注。页面每 15 秒自动更新，并支持关键词与状态筛选。
 
-**进度真实性**：`processing` 只代表后台数据库已原子认领任务，不能证明服务商已经接单或保证百分比进度；`stalled` 只是超时，需要管理员核对实际响应和服务商日志。结果保存成功后才是 `completed`。旧作品没有阶段专属字段时会显示“未记录”，不使用猜测值。当前 Go 兼容的 `ty_works` 数据结构只保留作品当前业务状态，**不能还原历史每次外部 HTTP 请求/响应，也不能展示供应商实时百分比**；如需完整的逐次 API 调用流水，需要独立的持久化执行事件记录，这是另外的业务增强。
+**进度真实性**：图片阶段依旧仅能显示原子认领和结果状态。3D 阶段会读 `ty_model_jobs` 的混元官方 `JobId` 与 `WAIT`（云端排队）、`RUN`（云端运行）、`DONE`（结果完成）、`FAIL`（失败）。提交请求但未取得 JobId 的 `submitting` 状态会保留待人工核查，绝不自动重新提交以防重复计费。当前不提供百分比进度，不记录完整 HTTP 请求正文（避免泄漏图像与密钥）。
 
 仅 `can_review=true` 的已认领超时任务可以使用原有人工核实接口 `/api/admin/ai/stalled-image-tasks/{id}/...` 和 `stalled-model-tasks/{id}/...`。禁止对正常排队中、正在正常处理和已完成的任务执行人工成功或失败回写；不自动重新调用可能计费的模型。
 
@@ -90,8 +94,8 @@ PostgreSQL：
 
 - **微信小程序**：读写 `GET/PUT /api/admin/system/wechat`，保存 AppID 和只写入的 AppSecret；后台不显示已保存密钥，留空表示保留之前的密钥。需要数据库的 `ty_system_settings` 表，对应 `sql/postgres/001_system_settings.sql`。
 - **AI 图片生成**：读写 `GET/PUT /api/admin/ai/settings/image`，当前仅支持火山方舟官方 **Seedream** 图片生成接口 `https://ark.cn-beijing.volces.com/api/v3/images/generations`，填写模型 ID、API Key、启用开关和图片提示词。保存后新任务直接使用数据库配置。
-- **AI 3D 模型**：读写 `GET/PUT /api/admin/ai/settings/model`，当前适配器是**童印异步 Worker 协议**，需要支持请求 `source_url` / `callback_url` 等字段，并将生成结果通过 `/api/internal/ai-result` 回调。只支持公网标准 HTTPS API；普通第三方 3D API 若协议不同，必须先开发专用适配器，不能仅填写它的地址就认为已接通。还需公网 HTTPS `PUBLIC_URL` 和 Worker 回调凭据。
-- **安全与数据库**：两类 AI 配置均保存在 `ty_ai_providers` 和 `ty_ai_prompts`；API Key 以 AES-256-GCM 加密后保存，与此前 Go 数据兼容。读取仅返回 `hasApiKey` 状态，不传输明文或密文；密钥留空不会覆盖旧密钥。保存时写入 `ty_audit` 审计记录，不包含密钥。禁用阶段会阻止新的 AI 任务认领，但不会清空旧结果或重试可能已计费的任务。
+- **AI 3D 模型**：读写 `GET/PUT /api/admin/ai/settings/model`，直接调用腾讯混元专业版 [OpenAI 兼容接口](https://cloud.tencent.com/document/product/1804/126189)，API 固定为 `https://api.ai3d.cloud.tencent.com/v1/ai3d/submit`，模型为 `3.0` 或 `3.1`。卡通图由 .NET 从 `DATA_DIR/media` 读取并编码为 Base64 提交 `GenerateType=Geometry`（白模）。返回 JobId 后每轮使用同一任务查询 `/v1/ai3d/query`；`DONE` 后下载 GLB 到本地。**不需要独立 Worker、AI_WEBHOOK_TOKEN、回调端点，也不要求公网 HTTPS PUBLIC_URL**。但小程序和运营后台的签名媒体地址仍使用 `PUBLIC_URL` 生成。该 API 的图片和 Prompt 参数不能同时提交，因此当前界面里的 3D 工艺备注**不会**随图片提交给混元。
+- **安全与数据库**：两类 AI 配置均保存在 `ty_ai_providers` 和 `ty_ai_prompts`；API Key 使用 ASP.NET Core Data Protection 加密后存储，**不再兼容 Go 密文**；旧密钥必须在后台重新填写。读取仅返回 `hasApiKey` 状态，不传输明文或密文；密钥留空不会覆盖旧密钥。保存时写入 `ty_audit` 审计记录，不包含密钥。禁用阶段会阻止新的 AI 任务认领，但不会清空旧结果或重试可能已计费的任务。
 
 后台配置请求使用 Identity Cookie 和 CSRF 安全令牌，只允许已登录管理员操作。检查失败时应先确认数据库存在 `ty_ai_providers`、`ty_ai_prompts`、`ty_audit`、`ty_store_lock` 和 `ty_system_settings`。
 
@@ -108,12 +112,12 @@ PostgreSQL：
 
 - `Controllers/Miniapp/`：微信登录、用户资料、作品上传、图片确认、GLB、订单及支付
 - `Controllers/Admin/`：管理员登录和账号维护、全部作品、订单/发货、AI 异常核查、微信设置
-- `Controllers/Internal/`：AI Worker 回写及微信支付通知
+- `Controllers/Internal/`：微信支付通知（无 AI Worker 回调）
 - `Controllers/Shared/`：`/media/{file}` 签名文件下载
 
-`Tongyin.Application/Works/` 按 Core、ImageGeneration、ModelGeneration、Recovery、Administration、Media 分类。真实 AI 网络异常不会自动重试已认领的收费任务；管理后台提供超时任务人工核实与恢复入口。保留 `GoAiKeyDecryptor` 是为了读取既有加密服务商配置，不是依赖 Go 服务。
+`Tongyin.Application/Works/` 按 Core、ImageGeneration、ModelGeneration、Recovery、Administration、Media 分类。真实 AI 网络异常不会自动重试已认领的收费任务；管理后台提供超时任务人工核实与恢复入口。旧 `GoAiKeyDecryptor`、Worker 回调服务和 `PUBLIC_URL` 派发限制均已清理。3D 的统一入口是 `ModelGenerationService`，状态存储于 `ty_model_jobs`。
 
-**尚需真实环境验证：**微信 code2Session、服务商生成结果、GLB 真机渲染、微信支付和物流。项目自动测试成功不代表已经完成实收款验收。
+**尚需真实环境验证：**腾讯混元实际扣费请求/响应、GLB 文件（大小/类型/下载时效）、真机 GLB 预览、微信 code2Session、支付和物流。项目自动测试成功不代表已经完成实收款验收。
 
 ## 测试
 

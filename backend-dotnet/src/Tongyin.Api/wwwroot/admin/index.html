@@ -58,9 +58,9 @@
           只有认领超过 15 分钟且符合核查条件的任务才能人工确认失败或补录真实图片，不自动重试或再次计费。
         </div>
         <div id="modelReviewNotice" class="note hidden" style="margin-bottom:18px">
-          按作品展示 3D 模型生成的排队、执行／等待回调、完成、失败及超时待核查状态，每 15 秒自动刷新。
+          按作品展示 3D 模型生成的排队、提交、混元 WAIT/RUN、完成、失败及超时待核查状态，每 15 秒自动刷新。
           任务认领不代表混元已经返回 JobId；具体上游进度需以服务商信息为准。
-          超时不等于失败，人工恢复前必须核实服务商实际结果。
+          WAIT/RUN 期间系统自动查询且禁止人工标记失败；提交状态不明时才需要人工核查，避免重复计费。
         </div>
         <section id="wechatSettingsPanel" class="hidden settings-panel">
           <div class="settings-header">
@@ -92,8 +92,8 @@
             <label for="aiApiKey">API Key <span id="aiKeyStatus" class="settings-status"></span></label>
             <input id="aiApiKey" type="password" autocomplete="new-password" maxlength="1024" placeholder="留空则保留原有密钥">
             <label class="settings-toggle" for="aiEnabled"><input id="aiEnabled" type="checkbox"> 启用此阶段的自动生成</label>
-            <p class="small muted">禁用后不会认领新的生成任务；保存配置不会自动重新生成图片或模型。</p>
-            <label for="aiPrompt">生成提示词 <span id="aiPromptVersion" class="settings-status"></span></label>
+            <p class="small muted">停用仅停止新任务派发；已获得混元 JobId 的任务仍继续查询，不会重新计费。</p>
+            <label for="aiPrompt"><span id="aiPromptLabel">生成提示词</span> <span id="aiPromptVersion" class="settings-status"></span></label>
             <textarea id="aiPrompt" required rows="7" maxlength="4000" placeholder="描述模型应如何处理家长上传的画作"></textarea>
             <p id="aiSettingsError" class="small settings-error" role="alert"></p>
             <div class="row"><button type="submit">保存生成配置</button></div>

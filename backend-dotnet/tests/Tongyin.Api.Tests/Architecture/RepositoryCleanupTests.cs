@@ -33,7 +33,7 @@ public sealed class RepositoryCleanupTests
         foreach (var engine in new[] { "postgres", "mysql" })
         {
             var folder = Path.Combine(root, "backend-dotnet", "sql", engine);
-            foreach (var file in new[] { "000_baseline.sql", "001_system_settings.sql", "003_identity_admin.sql", "004_media_cleanup.sql" })
+            foreach (var file in new[] { "000_baseline.sql", "001_system_settings.sql", "003_identity_admin.sql", "004_media_cleanup.sql", "005_model_jobs.sql", "006_reset_ai_provider_credentials.sql" })
             {
                 Assert.True(File.Exists(Path.Combine(folder, file)), $"缺少数据库迁移：{engine}/{file}");
             }
