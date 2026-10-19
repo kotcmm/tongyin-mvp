@@ -21,7 +21,7 @@ public sealed class AdminAiManualReviewEndpointTests
 
     /// <summary>未认证请求无法执行人工失败处理或触碰数据库。</summary>
     [Fact]
-    public async Task Fail_WithoutAdminToken_ReturnsUnauthorized()
+    public async Task Fail_WithoutAdminSession_ReturnsUnauthorized()
     {
         using var app = new TestApiFactory();
         using var client = app.CreateClient();
@@ -35,7 +35,7 @@ public sealed class AdminAiManualReviewEndpointTests
 
     /// <summary>正确管理员认证后，确认失败传入凭据标识和审计原因。</summary>
     [Fact]
-    public async Task Fail_WithAdminToken_RecordsReasonAndActor()
+    public async Task Fail_WithAdminSession_RecordsReasonAndActor()
     {
         using var app = new TestApiFactory();
         using var client = app.CreateClient();
@@ -73,7 +73,7 @@ public sealed class AdminAiManualReviewEndpointTests
 
     /// <summary>补录图片必须使用管理员授权和 multipart 图片文件，不调用 Seedream。</summary>
     [Fact]
-    public async Task Complete_WithAdminToken_SavesFileAndResolvesTask()
+    public async Task Complete_WithAdminSession_SavesFileAndResolvesTask()
     {
         using var app = new TestApiFactory();
         using var client = app.CreateClient();
@@ -121,7 +121,7 @@ public sealed class AdminAiManualReviewEndpointTests
                 ["SESSION_SECRET"] = "test-session-key-with-adequate-entropy",
                 ["DB_CONNECTION_STRING"] = "unused-in-test",
                 ["DB_DRIVER"] = "postgres",
-                ["ADMIN_TOKEN"] = "test-admin-key"
+
             }));
             builder.ConfigureTestServices(services =>
             {

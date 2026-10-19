@@ -114,7 +114,7 @@ public sealed class FulfillmentEndpointTests
 
     /// <summary>管理员业务接口仅接受后台认证，不接受客户 Bearer，缺失管理员凭据返回 401。</summary>
     [Fact]
-    public async Task AdminShipment_WithoutAdminToken_ReturnsUnauthorized()
+    public async Task AdminShipment_WithoutAdminSession_ReturnsUnauthorized()
     {
         using var app = new FulfillmentFactory();
         app.SeedOrder("printing");
@@ -189,7 +189,7 @@ public sealed class FulfillmentEndpointTests
             builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["SESSION_SECRET"] = Secret, ["DB_CONNECTION_STRING"] = "in-memory-tests",
-                ["DB_DRIVER"] = "postgres", ["ADMIN_TOKEN"] = "test-admin-token",
+                ["DB_DRIVER"] = "postgres",
                 ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60", ["AI_MODEL_DISPATCH_POLL_SECONDS"] = "60"
             }));
             builder.ConfigureTestServices(services =>

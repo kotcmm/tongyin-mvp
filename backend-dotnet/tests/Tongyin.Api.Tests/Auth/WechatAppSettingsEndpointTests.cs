@@ -142,7 +142,7 @@ public sealed class WechatAppSettingsEndpointTests
                 ["SESSION_SECRET"] = "test-server-key-with-adequate-entropy",
                 ["DB_DRIVER"] = "postgres",
                 ["DB_CONNECTION_STRING"] = "unused",
-                ["ADMIN_TOKEN"] = "test-admin-token",
+
                 ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60",
                 ["DATA_DIR"] = _root
             }));

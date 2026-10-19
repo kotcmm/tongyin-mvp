@@ -125,7 +125,7 @@ public sealed class AdminWebEndpointTests
                 ["SESSION_SECRET"] = "admin-web-test-secret-adequate-length",
                 ["DB_DRIVER"] = "postgres",
                 ["DB_CONNECTION_STRING"] = "unused",
-                ["ADMIN_TOKEN"] = "test-admin-secret",
+
                 ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60",
                 ["AI_MODEL_DISPATCH_POLL_SECONDS"] = "60"
             }));

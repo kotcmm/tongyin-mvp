@@ -149,7 +149,7 @@ public sealed class AdminWorksEndpointTests
                 ["SESSION_SECRET"] = "admin-works-session-secret-with-enough-length",
                 ["DB_DRIVER"] = "postgres",
                 ["DB_CONNECTION_STRING"] = "unused-for-test",
-                ["ADMIN_TOKEN"] = "test-admin-token",
+
                 ["PUBLIC_URL"] = "https://wrong-origin.example:443",
                 ["DATA_DIR"] = _directory,
                 ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60",

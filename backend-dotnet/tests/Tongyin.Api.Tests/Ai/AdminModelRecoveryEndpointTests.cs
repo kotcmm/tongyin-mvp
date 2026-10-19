@@ -36,7 +36,7 @@ public sealed class AdminModelRecoveryEndpointTests
 
     /// <summary>只列出超过 15 分钟已认领的模型任务，忽略未开始、未超时及错误阶段。</summary>
     [Fact]
-    public async Task List_WithAdminToken_FiltersUnfinishedClaimedModels()
+    public async Task List_WithAdminSession_FiltersUnfinishedClaimedModels()
     {
         using var app = new ModelFactory();
         app.Seed(WorkId, owner: "openid-a");
@@ -270,8 +270,7 @@ public sealed class AdminModelRecoveryEndpointTests
         {
             builder.ConfigureAppConfiguration((_, settings) => settings.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["SESSION_SECRET"] = "model-recovery-session-secret-of-good-length",
-                ["ADMIN_TOKEN"] = "model-admin-key", ["DB_DRIVER"] = "postgres",
+                ["SESSION_SECRET"] = "model-recovery-session-secret-of-good-length", ["DB_DRIVER"] = "postgres",
                 ["DB_CONNECTION_STRING"] = "unused", ["PUBLIC_URL"] = "http://localhost",
                 ["DATA_DIR"] = DirectoryPath,
                 ["AI_IMAGE_DISPATCH_POLL_SECONDS"] = "60", ["AI_MODEL_DISPATCH_POLL_SECONDS"] = "60"

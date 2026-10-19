@@ -61,7 +61,7 @@ public sealed class AdminImageRecoveryConsoleTests
                 ["SESSION_SECRET"] = "admin-review-console-secret-is-long-enough",
                 ["DB_DRIVER"] = "postgres",
                 ["DB_CONNECTION_STRING"] = "unused-in-static-console-test",
-                ["ADMIN_TOKEN"] = "test-admin-token"
+
             }));
         }
     }

@@ -18,14 +18,14 @@ using Xunit;
 namespace Tongyin.Api.Tests.Ai;
 
 /// <summary>
-/// 从真实 ASP.NET Core 认证授权管线验证管理员令牌隔离，避免 Controller 直接检查请求头。
+/// 从真实 ASP.NET Core 认证授权管线验证管理员登录会话隔离，避免 Controller 直接检查请求头。
 /// </summary>
 public sealed class AdminAiTasksControllerTests
 {
     private const string Url = "/api/admin/ai/stalled-image-tasks";
 
     /// <summary>
-    /// 没有管理员令牌时认证中间件返回 401，执行方法和数据库均不能被调用。
+    /// 没有管理员登录会话时认证中间件返回 401，执行方法和数据库均不能被调用。
     /// </summary>
     [Fact]
     public async Task GetStalled_WithoutToken_RejectsBeforeQuery()
@@ -40,7 +40,7 @@ public sealed class AdminAiTasksControllerTests
     }
 
     /// <summary>
-    /// 错误管理员令牌在认证层返回 401，不允许查询跨用户任务。
+    /// 错误管理员登录会话在认证层返回 401，不允许查询跨用户任务。
     /// </summary>
     [Fact]
     public async Task GetStalled_WrongToken_RejectsBeforeQuery()
@@ -57,10 +57,10 @@ public sealed class AdminAiTasksControllerTests
     }
 
     /// <summary>
-    /// 未配置 ADMIN_TOKEN 时，即使提供请求头也必须拒绝。
+    /// 未建立管理员会话时，即使提供测试凭据也必须拒绝。
     /// </summary>
     [Fact]
-    public async Task GetStalled_UnconfiguredAdminToken_Rejects()
+    public async Task GetStalled_UnconfiguredAdminSession_Rejects()
     {
         using var app = new AdminAiApiFactory(null);
         using var client = app.CreateClient();
@@ -77,7 +77,7 @@ public sealed class AdminAiTasksControllerTests
     /// 通过管理员认证后进入纯业务 Controller，返回固定 15 分钟阈值的只读任务清单。
     /// </summary>
     [Fact]
-    public async Task GetStalled_ValidAdminToken_ReturnsTasks()
+    public async Task GetStalled_ValidAdminSession_ReturnsTasks()
     {
         using var app = new AdminAiApiFactory("test-admin-secret");
         using var client = app.CreateClient();
@@ -98,10 +98,10 @@ public sealed class AdminAiTasksControllerTests
     }
 
     /// <summary>
-    /// 管理员令牌不能作为微信用户凭据读取普通用户作品。
+    /// 管理员登录会话不能作为微信用户凭据读取普通用户作品。
     /// </summary>
     [Fact]
-    public async Task GetWorks_AdminTokenOnly_IsNotWechatAuthorization()
+    public async Task GetWorks_AdminSessionOnly_IsNotWechatAuthorization()
     {
         using var app = new AdminAiApiFactory("test-admin-secret");
         using var client = app.CreateClient();
@@ -117,7 +117,7 @@ public sealed class AdminAiTasksControllerTests
     /// Admin 授权策略必须使用独立认证方案，不能套用微信用户启用校验。
     /// </summary>
     [Fact]
-    public async Task AdminPolicy_UsesOnlyAdminTokenScheme()
+    public async Task AdminPolicy_UsesOnlyAdminSessionScheme()
     {
         using var app = new AdminAiApiFactory("test-admin-secret");
         using var client = app.CreateClient();
@@ -142,7 +142,7 @@ public sealed class AdminAiTasksControllerTests
         Assert.Equal(AuthorizationPolicies.Admin, Assert.IsType<AdminAuthorizeAttribute>(attribute).Policy);
     }
 
-    private sealed class AdminAiApiFactory(string? adminToken) : WebApplicationFactory<Program>
+    private sealed class AdminAiApiFactory(string? adminSession) : WebApplicationFactory<Program>
     {
         public RecordingReader Reader { get; } = new();
 
@@ -153,11 +153,11 @@ public sealed class AdminAiTasksControllerTests
                 ["SESSION_SECRET"] = "test-session-key-with-adequate-entropy",
                 ["DB_CONNECTION_STRING"] = "unused-in-test",
                 ["DB_DRIVER"] = "postgres",
-                ["ADMIN_TOKEN"] = adminToken
+
             }));
             builder.ConfigureTestServices(services =>
             {
-                Tongyin.Api.Tests.Auth.TestAdminAuthExtensions.AddTestAdminAuthentication(services, adminToken);
+                Tongyin.Api.Tests.Auth.TestAdminAuthExtensions.AddTestAdminAuthentication(services, adminSession);
                 services.RemoveAll<IStalledImageTasksReader>();
                 services.AddSingleton<IStalledImageTasksReader>(Reader);
             });
