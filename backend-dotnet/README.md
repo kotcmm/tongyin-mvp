@@ -1,5 +1,47 @@
 # 童印 .NET 后端最小整洁架构
 
+## 本地 .NET 调试快速开始（2026-10-19）
+
+**开发分支：`feat/dotnet-clean-skeleton`；运行 .NET 10 API，不要运行仓库根目录旧 Go Dockerfile/compose.yaml。**
+本地需 .NET 10 SDK、PostgreSQL 或 MySQL，以及已建好的童印业务表。首次接入可使用此前 Go 后端初始化过的**本地开发数据库副本**；不要直接连接生产数据库。与旧 Go 数据共用时，`SESSION_SECRET` 必须保持一致，否则既有令牌、媒体签名与加密 AI Key 无法兼容。现阶段 .NET 不自动创建 Go 的业务表。
+
+在仓库根目录打开 PowerShell：
+
+```powershell
+git fetch origin
+git switch feat/dotnet-clean-skeleton
+git pull --ff-only origin feat/dotnet-clean-skeleton
+
+dotnet --version
+dotnet restore backend-dotnet/Tongyin.slnx
+dotnet test backend-dotnet/Tongyin.slnx -c Release -p:NuGetAudit=true -p:WarningsAsErrors=NU1903
+```
+
+按自己本地数据库替换下列示例参数，**仅在本机终端设置，密码和密钥绝不提交到 Git**。这是 PostgreSQL 的 ADO.NET/Npgsql 连接字符串，**不是旧 Go 的 DATABASE_URL**：
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = "Development"
+$env:ASPNETCORE_URLS = "http://localhost:8080"
+$env:DB_DRIVER = "postgres"
+$env:DB_CONNECTION_STRING = "Host=localhost;Port=5432;Database=tongyin;Username=postgres;Password=填写你的本地密码"
+$env:SESSION_SECRET = "填写旧Go的同一SESSION_SECRET或新本地开发专用长密钥"
+$env:ADMIN_TOKEN = "填写仅本地使用的管理员令牌"
+$env:DATA_DIR = "./data"
+$env:PUBLIC_URL = "http://localhost:8080"
+$env:DEV_MODE = "true"
+
+dotnet run --project backend-dotnet/src/Tongyin.Api --no-launch-profile
+```
+
+如使用 MySQL，将 `DB_DRIVER` 改为 `mysql`，`DB_CONNECTION_STRING` 改为 `Server=localhost;Port=3306;Database=tongyin;User ID=你的账号;Password=你的密码;`。不要让 Go 与 .NET 后台同时处理同一开发数据库的 AI 任务，避免重复调用外部付费模型。数据库应先包含旧业务表（例如 `ty_works`、`ty_orders`、`ty_store_lock`、`ty_audit`、`ty_ai_providers`、`ty_ai_prompts`、`ty_users`），以及按数据库类型执行 `backend-dotnet/sql/{postgres|mysql}/001_system_settings.sql` 创建的 `ty_system_settings`。
+
+启动成功后先打开 **http://localhost:8080/admin/**，使用 `ADMIN_TOKEN` 验证作品、超时任务、订单和物流页面；如有端口冲突，修改 `ASPNETCORE_URLS` 和 `PUBLIC_URL` 到相同端口。小程序在微信开发者工具中将 API 基址指向 .NET 服务并按需关闭仅供本地调试的合法域名校验；真机必须使用已配置的合法 HTTPS 域名。实际 AI/支付还需要服务商密钥、回调与真实环境联调，**457 项自动测试通过不代表真机已验收或已经成功收款**。
+
+测试项目中的 `Microsoft.Data.Sqlite` 从 10.0.0 升级至 10.0.13；NuGet 高危安全警告 `NU1903` 在 CI 中视为错误，避免旧的 `SQLitePCLRaw.lib.e_sqlite3 2.1.11` 重新混入。生产 API 仍使用 PostgreSQL/MySQL，而非测试用 SQLite。
+
+---
+
+
 项目采用 .NET 10，按 **Domain / Application / Infrastructure / Api** 四层组织。
 
 - `Tongyin.Domain`：领域实体及业务规则；目前实现了作品创建及图片、模型生成阶段的领域状态转换，未接入外部服务。
