@@ -85,9 +85,9 @@
           <form id="aiSettingsForm" class="settings-form">
             <p class="note" id="aiAdapterDescription"></p>
             <label for="aiEndpoint">API 地址</label>
-            <input id="aiEndpoint" type="url" required maxlength="1000" autocomplete="url" placeholder="https://">
+            <input id="aiEndpoint" type="url" maxlength="1000" autocomplete="url" placeholder="https://">
             <label for="aiModel">模型标识</label>
-            <input id="aiModel" required maxlength="128" autocomplete="off" placeholder="服务商支持的模型 ID">
+            <input id="aiModel" maxlength="128" autocomplete="off" placeholder="服务商支持的模型 ID">
             <label for="aiApiKey">API Key <span id="aiKeyStatus" class="settings-status"></span></label>
             <input id="aiApiKey" type="password" autocomplete="new-password" maxlength="1024" placeholder="留空则保留原有密钥">
             <label class="settings-toggle" for="aiEnabled"><input id="aiEnabled" type="checkbox"> 启用此阶段的自动生成</label>

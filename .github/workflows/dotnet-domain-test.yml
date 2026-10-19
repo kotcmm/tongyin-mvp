@@ -19,5 +19,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check admin console JavaScript syntax
+        run: node --check backend-dotnet/src/Tongyin.Api/wwwroot/admin/orders.js
       - name: Run complete .NET solution tests
         run: dotnet test backend-dotnet/Tongyin.slnx -c Release -p:NuGetAudit=true -p:WarningsAsErrors=NU1903

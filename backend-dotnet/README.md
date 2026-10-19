@@ -61,6 +61,17 @@ PostgreSQL：
 
 **开发环境允许 HTTP；生产后台必须使用 HTTPS**。生产部署要保留并共享 ASP.NET Core Data Protection 密钥，否则重启或多个副本间切换会导致 Cookie 无效。
 
+## 运营后台配置：微信、AI 图片和 3D 模型
+
+左侧菜单现在包括 **微信小程序、AI 图片生成、AI 3D 模型**。
+
+- **微信小程序**：读写 `GET/PUT /api/admin/system/wechat`，保存 AppID 和只写入的 AppSecret；后台不显示已保存密钥，留空表示保留之前的密钥。需要数据库的 `ty_system_settings` 表，对应 `sql/postgres/001_system_settings.sql`。
+- **AI 图片生成**：读写 `GET/PUT /api/admin/ai/settings/image`，当前仅支持火山方舟官方 **Seedream** 图片生成接口 `https://ark.cn-beijing.volces.com/api/v3/images/generations`，填写模型 ID、API Key、启用开关和图片提示词。保存后新任务直接使用数据库配置。
+- **AI 3D 模型**：读写 `GET/PUT /api/admin/ai/settings/model`，当前适配器是**童印异步 Worker 协议**，需要支持请求 `source_url` / `callback_url` 等字段，并将生成结果通过 `/api/internal/ai-result` 回调。只支持公网标准 HTTPS API；普通第三方 3D API 若协议不同，必须先开发专用适配器，不能仅填写它的地址就认为已接通。还需公网 HTTPS `PUBLIC_URL` 和 Worker 回调凭据。
+- **安全与数据库**：两类 AI 配置均保存在 `ty_ai_providers` 和 `ty_ai_prompts`；API Key 以 AES-256-GCM 加密后保存，与此前 Go 数据兼容。读取仅返回 `hasApiKey` 状态，不传输明文或密文；密钥留空不会覆盖旧密钥。保存时写入 `ty_audit` 审计记录，不包含密钥。禁用阶段会阻止新的 AI 任务认领，但不会清空旧结果或重试可能已计费的任务。
+
+后台配置请求使用 Identity Cookie 和 CSRF 安全令牌，只允许已登录管理员操作。检查失败时应先确认数据库存在 `ty_ai_providers`、`ty_ai_prompts`、`ty_audit`、`ty_store_lock` 和 `ty_system_settings`。
+
 ## 功能与接口分组
 
 - `Controllers/Miniapp/`：微信登录、用户资料、作品上传、图片确认、GLB、订单及支付
