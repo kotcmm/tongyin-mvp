@@ -756,6 +756,130 @@ public sealed class SqlWorkRepositoryTests
         Assert.Equal("job-002", claimed.AiExecutionClaimId);
     }
 
+    /// <summary>删除本人没有订单的已完成作品后，个人列表和详情不再返回记录。</summary>
+    [Fact]
+    public async Task DeleteAsync_OwnFinishedWork_RemovesRecord()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", status = "image_ready", original = "original.png", selected = -1,
+            candidates = new[] { "image.png" }, created_at = "2026-10-15T10:00:00+08:00"
+        });
+        await CreateOrdersTableAsync(db);
+        var repository = new SqlWorkRepository(db.CreateConnection);
+
+        Assert.Equal(DeleteWorkResult.Deleted, await repository.DeleteWorkAsync("work-001", "openid-001"));
+        Assert.Null(await repository.GetByIdForOwnerAsync("work-001", "openid-001"));
+        Assert.Empty(await repository.ListByOwnerAsync("openid-001"));
+        Assert.Equal(DeleteWorkResult.NotFound, await repository.DeleteWorkAsync("work-001", "openid-001"));
+    }
+
+    /// <summary>其他微信用户不允许删除目标作品，也不能得知目标作品是否存在。</summary>
+    [Fact]
+    public async Task DeleteAsync_ForeignOwner_ReturnsNotFoundAndKeepsWork()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", status = "failed", original = "original.png"
+        });
+        await CreateOrdersTableAsync(db);
+        var repository = new SqlWorkRepository(db.CreateConnection);
+
+        Assert.Equal(DeleteWorkResult.NotFound, await repository.DeleteWorkAsync("work-001", "openid-002"));
+        Assert.NotNull(await repository.GetByIdForOwnerAsync("work-001", "openid-001"));
+    }
+
+    /// <summary>无论订单处于什么状态，已创建订单的作品不可硬删除，避免丢失履约关联。</summary>
+    [Theory]
+    [InlineData("awaiting_payment")]
+    [InlineData("paid")]
+    [InlineData("canceled")]
+    public async Task DeleteAsync_OrderedWork_IsRejectedWithoutMutation(string status)
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", status = "model_ready", original = "original.png", model = "model.glb"
+        });
+        await CreateOrdersTableAsync(db);
+        using (var connection = db.CreateConnection())
+        {
+            await connection.OpenAsync();
+            await connection.ExecuteAsync(
+                "INSERT INTO ty_orders(id,owner_id,created_at,payload) VALUES(@Id,@Owner,@Created,@Payload)",
+                new { Id = "order-001", Owner = "openid-001", Created = "2026-10-15",
+                    Payload = JsonSerializer.Serialize(new { id = "order-001", work_id = "work-001", status }) });
+        }
+        var repository = new SqlWorkRepository(db.CreateConnection);
+
+        Assert.Equal(DeleteWorkResult.HasOrders, await repository.DeleteWorkAsync("work-001", "openid-001"));
+        Assert.NotNull(await repository.GetByIdForOwnerAsync("work-001", "openid-001"));
+    }
+
+    /// <summary>AI 已认领的待生成作品不能删除，以免付费生成结束后发现作品消失。</summary>
+    [Theory]
+    [InlineData("image_pending", "job-001", "", "")]
+    [InlineData("model_pending", "", "model", "2026-10-18T10:00:00+08:00")]
+    [InlineData("image_pending", "", "", "2026-10-18T10:00:00+08:00")]
+    public async Task DeleteAsync_InFlightGeneration_IsRejected(
+        string status, string claimId, string stage, string startedAt)
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", status, ai_execution_claim_id = claimId,
+            ai_task_stage = stage, ai_started_at = startedAt
+        });
+        await CreateOrdersTableAsync(db);
+
+        var result = await new SqlWorkRepository(db.CreateConnection).DeleteWorkAsync("work-001", "openid-001");
+
+        Assert.Equal(DeleteWorkResult.Processing, result);
+        Assert.NotNull(await new SqlWorkRepository(db.CreateConnection).GetByIdForOwnerAsync("work-001", "openid-001"));
+    }
+
+    /// <summary>排队但未被认领的 .NET 任务可以取消；随后原子认领必须失败。</summary>
+    [Fact]
+    public async Task DeleteAsync_QueuedGeneration_RemovesPendingTaskSafely()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", status = "image_pending", generation_id = "job-001",
+            ai_execution_claim_id = "", ai_task_stage = "", ai_started_at = ""
+        });
+        await CreateOrdersTableAsync(db);
+        var repository = new SqlWorkRepository(db.CreateConnection);
+
+        Assert.Equal(DeleteWorkResult.Deleted, await repository.DeleteWorkAsync("work-001", "openid-001"));
+        Assert.Null(await repository.ClaimImageGenerationAsync("work-001", "openid-001", "job-001", DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>旧 Go 待处理任务缺乏可信认领字段时不能冒险删除。</summary>
+    [Fact]
+    public async Task DeleteAsync_LegacyPendingWithoutClaimMetadata_RequiresReview()
+    {
+        using var db = new TestWorkDatabase(createTable: true);
+        await SeedImageWorkAsync(db, "work-001", "openid-001", new
+        {
+            id = "work-001", status = "model_pending", generation_id = "legacy-job"
+        });
+        await CreateOrdersTableAsync(db);
+
+        Assert.Equal(DeleteWorkResult.Processing, await new SqlWorkRepository(db.CreateConnection)
+            .DeleteWorkAsync("work-001", "openid-001"));
+    }
+
+    private static async Task CreateOrdersTableAsync(TestWorkDatabase db)
+    {
+        using var connection = db.CreateConnection();
+        await connection.OpenAsync();
+        await connection.ExecuteAsync(
+            "CREATE TABLE ty_orders(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,created_at TEXT NOT NULL,payload TEXT NOT NULL)");
+    }
+
     private static async Task SeedImageWorkAsync(TestWorkDatabase db, string id, string owner, object payload)
     {
         using var connection = db.CreateConnection();
