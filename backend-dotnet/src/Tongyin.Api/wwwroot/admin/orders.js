@@ -1,5 +1,5 @@
 'use strict';
-// .NET 履约后台：仅提供当前已经迁移的订单制作与发货能力，避免出现旧 Go 页面上的失效操作。
+// 童印运营后台：作品、AI 生成任务、订单和系统配置由独立 API 提供；当前页面通过 URL hash 恢复。
 const $ = (id) => document.getElementById(id);
 const h = (value) => String(value ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -7,7 +7,15 @@ const statusLabels = {
   awaiting_payment: '待付款', paid: '已支付', printing: '制作中',
   shipped: '已发货', completed: '已完成', canceled: '已取消'
 };
-const state = { authenticated: false, csrf: '', username: '', tab: 'orders', aiStage: 'image', orders: [], works: [], reviews: [], modelReviews: [], page: 1, pageSize: 12, busy: false };
+const allowedTabs = ['works', 'review', 'model-review', 'orders', 'shipping', 'account',
+  'wechat-settings', 'image-settings', 'model-settings'];
+function tabFromHash() {
+  const tab = decodeURIComponent(window.location.hash.slice(1));
+  return allowedTabs.includes(tab) ? tab : 'orders';
+}
+const state = { authenticated: false, csrf: '', username: '', tab: tabFromHash(),
+  aiStage: 'image', orders: [], works: [], reviews: [], modelReviews: [], page: 1, pageSize: 12, busy: false };
+function isTaskTab() { return state.tab === 'review' || state.tab === 'model-review'; }
 
 async function refreshCsrf() {
   const response = await fetch('/api/admin/account/csrf', { credentials: 'same-origin', cache: 'no-store' });
@@ -75,14 +83,14 @@ async function reload() {
   }
   setBusy(true);
   $('pageMessage').textContent = state.tab === 'works' ? '正在读取最新作品…' :
-    state.tab === 'review' ? '正在读取超时图片任务…' :
-    state.tab === 'model-review' ? '正在读取 3D 模型超时任务…' : '正在读取最新订单…';
+    state.tab === 'review' ? '正在读取图片生成任务…' :
+    state.tab === 'model-review' ? '正在读取 3D 模型生成任务…' : '正在读取最新订单…';
   try {
     const worksMode = state.tab === 'works';
     const reviewMode = state.tab === 'review';
     const modelReviewMode = state.tab === 'model-review';
-    const route = modelReviewMode ? '/api/admin/ai/stalled-model-tasks' :
-      reviewMode ? '/api/admin/ai/stalled-image-tasks' :
+    const route = modelReviewMode ? '/api/admin/ai/model-tasks' :
+      reviewMode ? '/api/admin/ai/image-tasks' :
       worksMode ? '/api/admin/works' : '/api/admin/orders';
     const records = await api(route);
     if (!Array.isArray(records)) throw new Error('列表响应格式异常');
@@ -121,7 +129,7 @@ async function login(event) {
     $('adminPassword').value = '';
     $('loginWrap').classList.add('hidden');
     $('app').classList.remove('hidden');
-    await reload();
+    openTab(tabFromHash(), false);
   } catch (error) {
     $('loginError').textContent = error.status === 429 ? '尝试过于频繁，请稍后再试' : error.message;
     state.authenticated = false;
@@ -175,31 +183,66 @@ function workCard(work) {
     '</div></div>' + note + '</article>';
 }
 
-// 只展示真实已认领且超时的图片任务，由服务端再次校验当前状态和任务编号。
-function filteredReviews() {
+// 两类生成任务共享表格和筛选；只呈现服务器有依据的状态，不伪造 AI 供应商进度百分比。
+const taskStatusLabels = {
+  queued: '排队中', processing: '处理中', stalled: '超时待核查',
+  completed: '已完成', failed: '生成失败'
+};
+const taskPhaseLabels = {
+  not_dispatched: '尚未发起模型调用',
+  claimed_outcome_unconfirmed: '已认领；服务商接收／结果尚未确认',
+  result_saved: '结果已保存到童印',
+  failed: '生成失败，查看备注'
+};
+function filteredGenerationTasks(stage) {
   const keyword = $('keyword').value.trim().toLowerCase();
-  return state.reviews.filter((task) => {
-    const values = [task.work_id, task.generation_id, task.provider_id];
-    return !keyword || values.some((value) => String(value ?? '').toLowerCase().includes(keyword));
+  const selected = $('statusFilter').value;
+  const tasks = stage === 'model' ? state.modelReviews : state.reviews;
+  return tasks.filter((task) => {
+    if (selected && task.status !== selected) return false;
+    const values = [task.work_id, task.generation_id, task.provider_id, task.note, task.status];
+    return !keyword || values.some((item) => String(item ?? '').toLowerCase().includes(keyword));
   });
 }
-
-function reviewCard(task) {
-  const workId = h(task.work_id);
-  const generationId = h(task.generation_id);
-  const started = h(String(task.started_at || '').replace('T', ' ').slice(0, 19));
-  const provider = h(task.provider_id || '未记录');
-  const legacy = task.is_legacy_go ? '旧 Go 任务' : '.NET 任务';
-  return '<article class="card"><div class="card-header">' +
-    '<strong>超时作品 #' + workId + '</strong><span class="pill warning">' + h(legacy) + '</span></div>' +
-    '<p class="meta">任务编号：' + generationId + '</p>' +
-    '<p class="meta">开始时间：' + started + '　·　服务商：' + provider +
-    '　·　图片生成次数：' + h(task.image_attempts) + '</p>' +
-    '<div class="row" style="margin-top:14px">' +
-    '<button type="button" class="danger" data-action="review-fail" data-id="' + workId +
-    '" data-generation="' + generationId + '">已核实失败</button>' +
-    '<button type="button" data-action="review-complete" data-id="' + workId +
-    '" data-generation="' + generationId + '">补录真实图片</button></div></article>';
+function taskTable(tasks, stage) {
+  const rows = tasks.map((task) => {
+    const id = h(task.work_id);
+    const generation = h(task.generation_id || '历史编号未记录');
+    const label = h(taskStatusLabels[task.status] || task.status);
+    const tone = task.status === 'completed' ? 'done' :
+      task.status === 'failed' || task.status === 'stalled' ? 'warning' : '';
+    const phase = h(taskPhaseLabels[task.api_phase] || '未记录接口交互状态');
+    const provider = h(task.provider_id || '阶段服务商未记录');
+    const version = task.prompt_version > 0 ? 'v' + h(task.prompt_version) : '—';
+    const created = h(String(task.created_at || '').replace('T', ' ').slice(0, 19));
+    const started = task.started_at
+      ? h(String(task.started_at).replace('T', ' ').slice(0, 19)) : '未记录';
+    const note = task.note ? '<div class="task-note" title="' + h(task.note) + '">' +
+      h(task.note).slice(0, 180) + '</div>' : '';
+    let actions = '<span class="small muted">—</span>';
+    if (task.can_review) {
+      const fail = stage === 'image' ? 'review-fail' : 'model-fail';
+      const complete = stage === 'image' ? 'review-complete' : 'model-complete';
+      actions = '<div class="task-actions"><button type="button" class="danger" data-action="' + fail +
+        '" data-id="' + id + '" data-generation="' + generation + '">核实失败</button>' +
+        '<button type="button" data-action="' + complete + '" data-id="' + id +
+        '" data-generation="' + generation + '">' +
+        (stage === 'image' ? '补录图片' : '补录 GLB') + '</button></div>';
+    }
+    return '<tr><td><strong class="task-id">' + id + '</strong><div class="task-secondary">任务 ' +
+      generation + '</div></td>' +
+      '<td><span class="pill ' + tone + '">' + label + '</span>' +
+      (task.is_legacy_go && task.status === 'queued' ? '<div class="task-secondary">旧任务，可能无法自动派发</div>' : '') +
+      '</td><td><div class="task-phase">' + phase + '</div>' + note + '</td>' +
+      '<td><div>' + provider + '</div><div class="task-secondary">提示词 ' + version +
+      (stage === 'image' ? ' · 生成次数 ' + h(task.image_attempts) : '') + '</div></td>' +
+      '<td><div>作品创建：' + created + '</div><div class="task-secondary">认领：' + started +
+      '</div></td><td>' + actions + '</td></tr>';
+  }).join('');
+  return '<div class="table-wrap"><table class="table task-table"><thead><tr>' +
+    '<th>作品 / 任务</th><th>生成状态</th><th>AI 接口阶段 / 备注</th>' +
+    '<th>服务商 / 配置</th><th>时间</th><th>处理</th></tr></thead><tbody>' +
+    rows + '</tbody></table></div>';
 }
 
 function openReview(taskId, generationId, mode) {
@@ -282,32 +325,6 @@ async function submitReview(event) {
   await reload().catch((error) => toast(error.message));
 }
 
-
-// 模型异常列表仅展现已认领且超过阈值的任务，实际可处理条件由服务器在事务中再次核对。
-function filteredModelReviews() {
-  const keyword = $('keyword').value.trim().toLowerCase();
-  return state.modelReviews.filter((task) => {
-    const values = [task.work_id, task.generation_id, task.provider_id];
-    return !keyword || values.some((item) => String(item ?? '').toLowerCase().includes(keyword));
-  });
-}
-
-function modelReviewCard(task) {
-  const workId = h(task.work_id);
-  const generationId = h(task.generation_id);
-  const started = h(String(task.started_at || '').replace('T', ' ').slice(0, 19));
-  const legacy = task.is_legacy_go ? '旧 Go 任务' : '.NET 任务';
-  return '<article class="card"><div class="card-header">' +
-    '<strong>3D 异常作品 #' + workId + '</strong><span class="pill warning">' + h(legacy) + '</span></div>' +
-    '<p class="meta">当前任务：' + generationId + '</p>' +
-    '<p class="meta">开始时间：' + started +
-    '　·　服务商：' + h(task.provider_id || '未记录') + '</p>' +
-    '<div class="row" style="margin-top:14px">' +
-    '<button type="button" class="danger" data-action="model-fail" data-id="' + workId +
-    '" data-generation="' + generationId + '">确认模型失败</button>' +
-    '<button type="button" data-action="model-complete" data-id="' + workId +
-    '" data-generation="' + generationId + '">补录真实 GLB</button></div></article>';
-}
 
 function openModelReview(workId, generationId, action) {
   const complete = action === 'model-complete';
@@ -401,16 +418,19 @@ function filteredOrders() {
 
 function render() {
   const worksMode = state.tab === 'works';
-  const reviewMode = state.tab === 'review';
-  const modelReviewMode = state.tab === 'model-review';
-  const rows = modelReviewMode ? filteredModelReviews() :
-    reviewMode ? filteredReviews() : worksMode ? filteredWorks() : filteredOrders();
+  const taskMode = isTaskTab();
+  const stage = state.tab === 'review' ? 'image' : 'model';
+  const rows = taskMode ? filteredGenerationTasks(stage) :
+    worksMode ? filteredWorks() : filteredOrders();
   const pageCount = Math.max(1, Math.ceil(rows.length / state.pageSize));
   state.page = Math.min(state.page, pageCount);
   const begin = (state.page - 1) * state.pageSize;
+  const current = rows.slice(begin, begin + state.pageSize);
   $('listResults').innerHTML = rows.length
-    ? rows.slice(begin, begin + state.pageSize).map(modelReviewMode ? modelReviewCard : reviewMode ? reviewCard : worksMode ? workCard : orderCard).join('')
-    : '<div class="note">暂无符合条件的' + (modelReviewMode ? '超时模型任务' : reviewMode ? '超时任务' : worksMode ? '作品' : '订单') + '。</div>';
+    ? taskMode ? taskTable(current, stage) :
+      current.map(worksMode ? workCard : orderCard).join('')
+    : '<div class="note">暂无符合条件的' +
+      (taskMode ? '生成任务' : worksMode ? '作品' : '订单') + '。</div>';
   $('pagerText').textContent = rows.length + ' 条 · 第 ' + state.page + '/' + pageCount + ' 页';
   $('previous').disabled = state.page <= 1;
   $('next').disabled = state.page >= pageCount;
@@ -529,9 +549,12 @@ async function saveAiSettings(event) {
   }
 }
 
-function openTab(tab) {
-  if (!['works', 'orders', 'shipping', 'review', 'model-review', 'account', ...configurationTabs].includes(tab)) return;
+function openTab(tab, updateLocation = true) {
+  if (!allowedTabs.includes(tab)) return;
   state.tab = tab;
+  if (updateLocation && window.location.hash !== '#' + tab) {
+    window.location.hash = tab;
+  }
   state.page = 1;
   const settingsMode = tab === 'account' || configurationTabs.includes(tab);
   $('accountPanel').classList.toggle('hidden', tab !== 'account');
@@ -557,29 +580,32 @@ function openTab(tab) {
   if (tab === 'account') $('newAdminUsername').value = state.username;
   $('keyword').value = '';
   const filter = $('statusFilter');
-  filter.hidden = ['review', 'model-review'].includes(tab);
+  filter.hidden = false;
   $('reviewNotice').classList.toggle('hidden', tab !== 'review');
   $('modelReviewNotice').classList.toggle('hidden', tab !== 'model-review');
-  $('keyword').placeholder = ['review', 'model-review'].includes(tab) ? '搜索作品、任务或服务商编号' :
+  $('keyword').placeholder = ['review', 'model-review'].includes(tab) ? '搜索作品编号、任务编号、服务商或错误备注' :
     tab === 'works' ? '搜索作品编号、状态或备注' : '搜索订单编号、收件人或运单';
   filter.innerHTML = tab === 'works'
     ? '<option value="">全部状态</option>' +
       Object.entries(workStatusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('')
-    : '<option value="">全部状态</option>' +
-      Object.entries(statusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('');
+    : ['review', 'model-review'].includes(tab)
+      ? '<option value="">全部状态</option>' +
+        Object.entries(taskStatusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('')
+      : '<option value="">全部状态</option>' +
+        Object.entries(statusLabels).map(([value, label]) => '<option value="' + value + '">' + h(label) + '</option>').join('');
   $('pageTitle').textContent = tab === 'wechat-settings' ? '微信小程序配置' :
     tab === 'image-settings' ? 'AI 图片生成配置' :
     tab === 'model-settings' ? 'AI 3D 模型配置' :
     tab === 'account' ? '账号设置' :
-    tab === 'model-review' ? '3D 模型异常' :
-    tab === 'review' ? '超时图片任务' :
+    tab === 'model-review' ? '3D 模型生成任务' :
+    tab === 'review' ? '图片生成任务' :
     tab === 'works' ? '作品管理' : tab === 'shipping' ? '物流发货' : '全部订单';
   $('pageIntro').textContent = tab === 'wechat-settings' ? '配置小程序 AppID 与加密保存的 AppSecret' :
     tab === 'image-settings' ? '设置图片 API、模型、密钥及提示词' :
     tab === 'model-settings' ? '设置 3D Worker API、密钥与 GLB 提示词' :
     tab === 'account' ? '维护管理员用户名与密码' :
-    tab === 'model-review' ? '人工核实 Worker 结果，确认失败或补录实际 GLB 模型' :
-    tab === 'review' ? '人工核实结果后，确认失败或补录实际生成图片' :
+    tab === 'model-review' ? '查看 3D Worker 排队、处理、完成与失败状态；超时任务可人工核实' :
+    tab === 'review' ? '查看 Seedream 图片排队、调用、完成与失败状态；超时任务可人工核实' :
     tab === 'works' ? '原画 → AI 形象 → GLB 白模，当前为只读核查' :
     tab === 'shipping' ? '制作中、已发货及已完成订单' : '收款后制作 → 核实运单 → 发货';
   document.querySelectorAll('[data-tab]').forEach((node) =>
@@ -706,7 +732,7 @@ async function resumeSession() {
     $('adminCurrentUser').textContent = '管理员：' + state.username;
     $('loginWrap').classList.add('hidden');
     $('app').classList.remove('hidden');
-    await reload();
+    openTab(tabFromHash(), false);
   } catch {
     state.authenticated = false;
     $('loginWrap').classList.remove('hidden');
@@ -717,6 +743,15 @@ async function resumeSession() {
 document.addEventListener('DOMContentLoaded', () => {
   resumeSession();
   $('loginForm').addEventListener('submit', login);
+  window.addEventListener('hashchange', () => {
+    if (state.authenticated && tabFromHash() !== state.tab) openTab(tabFromHash(), false);
+  });
+  window.setInterval(() => {
+    if (state.authenticated && isTaskTab() && !state.busy &&
+        !document.hidden && !$('modalContainer').firstElementChild) {
+      reload().catch(() => {});
+    }
+  }, 15000);
   $('logout').addEventListener('click', () => logout(true));
   $('accountForm').addEventListener('submit', saveAdminAccount);
   $('wechatSettingsForm').addEventListener('submit', saveWechatSettings);

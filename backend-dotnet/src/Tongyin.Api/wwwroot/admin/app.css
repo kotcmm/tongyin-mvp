@@ -490,3 +490,17 @@ button.nav-item:hover { background:#f1f6f0; }
 .settings-form .settings-toggle { display:flex; align-items:center; gap:10px; cursor:pointer; }
 .settings-form .settings-toggle input { width:18px; height:18px; }
 .settings-panel .row { margin-top:15px; }
+
+/* AI 生成任务列表：6 列状态表，窄屏时只横向滚动表格，不挤坏状态文字。 */
+.task-table { min-width: 1030px; table-layout: auto; }
+.task-table th { white-space: nowrap; }
+.task-table td { vertical-align: top; padding: 16px 13px; min-width: 110px; }
+.task-table td:first-child { min-width: 174px; }
+.task-table td:nth-child(3) { min-width: 210px; max-width: 280px; }
+.task-table td:nth-child(5) { min-width: 205px; }
+.task-id { font-size: 13px; color: #344b3b; overflow-wrap: anywhere; }
+.task-secondary { margin-top: 7px; font-size: 11px; color: #87988c; line-height: 1.6; overflow-wrap: anywhere; }
+.task-phase { color: #476a52; font-weight: 600; line-height: 1.6; }
+.task-note { margin-top: 8px; color: #a06350; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
+.task-actions { display: flex; flex-wrap: wrap; gap: 7px; min-width: 145px; }
+.task-actions button { font-size: 12px; white-space: nowrap; padding: 9px 10px; }
