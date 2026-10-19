@@ -12,7 +12,7 @@ namespace Tongyin.Infrastructure.Works;
 /// 基于 Dapper（轻量对象关系映射器）保存现有 ty_works 作品记录的 SQL 适配器。
 /// 数据库连接由外围提供，支持不同 ADO.NET 驱动。
 /// </summary>
-public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepository, IModelGenerationResultRepository, IModelGenerationClaimRepository
+public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepository, IModelGenerationResultRepository, IModelGenerationClaimRepository, IWorkDeletionRepository
 {
     private readonly Func<DbConnection> _connectionFactory;
 
@@ -409,6 +409,73 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
             id, owner, DateTimeOffset.Parse(snapshot.CreatedAt, CultureInfo.InvariantCulture),
             snapshot.Original, status, snapshot.Selected, snapshot.ImageAttempts,
             snapshot.GenerationId, snapshot.Candidates, snapshot.Model, snapshot.Note);
+    }
+
+    /// <summary>
+    /// 删除当前微信用户未关联订单、且没有已执行 AI 任务的作品。
+    /// 与创建订单及 AI 认领使用同一事务行锁，防止检查后被其他请求抢先更改。
+    /// 不在数据库事务中删除媒体文件，避免 DB 回滚后出现作品引用的图片丢失。
+    /// </summary>
+    public async Task<DeleteWorkResult> DeleteWorkAsync(string id, string owner, CancellationToken cancellationToken = default)
+    {
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await AcquireStoreLockAsync(connection, transaction, cancellationToken);
+
+        var payload = await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_works WHERE id=@Id AND owner_id=@Owner",
+            new { Id = id, Owner = owner }, transaction: transaction, cancellationToken: cancellationToken));
+        if (payload is null)
+        {
+            return DeleteWorkResult.NotFound;
+        }
+
+        // 订单 JSON 是跨 PostgreSQL/MySQL 兼容结构，因此在应用内解析 work_id，不使用数据库特定 JSON 方言。
+        // 任何历史订单（包括取消订单）都需保留原作品，便于售后和争议处理。
+        var orders = await connection.QueryAsync<string>(new CommandDefinition(
+            "SELECT payload FROM ty_orders", transaction: transaction, cancellationToken: cancellationToken));
+        foreach (var orderPayload in orders)
+        {
+            using var order = JsonDocument.Parse(orderPayload);
+            if (order.RootElement.TryGetProperty("work_id", out var workId)
+                && workId.ValueKind == JsonValueKind.String
+                && workId.GetString() == id)
+            {
+                return DeleteWorkResult.HasOrders;
+            }
+        }
+
+        using var data = JsonDocument.Parse(payload);
+        var root = data.RootElement;
+        if (root.TryGetProperty("status", out var statusElement)
+            && statusElement.ValueKind == JsonValueKind.String
+            && statusElement.GetString() is "image_pending" or "model_pending")
+        {
+            static bool Nonempty(JsonElement record, string key)
+                => record.TryGetProperty(key, out var value) &&
+                   (value.ValueKind != JsonValueKind.String || !string.IsNullOrWhiteSpace(value.GetString()));
+
+            // 老 Go 未记录认领元数据，不能断言模型没有被提交；但尚未生成任务编号的原始草稿可删。
+            var hasClaimMarker = root.TryGetProperty("ai_execution_claim_id", out _);
+            if (Nonempty(root, "ai_execution_claim_id") || Nonempty(root, "ai_started_at")
+                || Nonempty(root, "ai_task_stage")
+                || (!hasClaimMarker && Nonempty(root, "generation_id")))
+            {
+                return DeleteWorkResult.Processing;
+            }
+        }
+
+        var deleted = await connection.ExecuteAsync(new CommandDefinition(
+            "DELETE FROM ty_works WHERE id=@Id AND owner_id=@Owner",
+            new { Id = id, Owner = owner }, transaction: transaction, cancellationToken: cancellationToken));
+        if (deleted != 1)
+        {
+            throw new InvalidOperationException("作品删除状态发生变化，请重试");
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return DeleteWorkResult.Deleted;
     }
 
     /// <summary>
