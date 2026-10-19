@@ -2,7 +2,8 @@
 
 ## 运营后台用户名密码认证
 
-旧版 `ADMIN_TOKEN` / `X-Admin-Token` 已废弃。部署新版本前，必须在数据库中执行对应的 `backend-dotnet/sql/postgres/002_admin_credentials.sql` 或 `backend-dotnet/sql/mysql/002_admin_credentials.sql`。
+**认证实现：ASP.NET Core Identity Core + UserManager / SignInManager + Dapper IUserStore + Identity 应用 Cookie。**
+旧版 `ADMIN_TOKEN` / `X-Admin-Token` 已废弃，前一版自写的 `ty_admin_credentials` 存储也已停用；如果已经初始化过该旧表，新系统不会读取旧密码，需要用一次性初始化凭据创建 Identity 账号。部署新版本前，必须在数据库中执行对应的 `backend-dotnet/sql/postgres/003_identity_admin.sql` 或 `backend-dotnet/sql/mysql/003_identity_admin.sql`。
 
 首次登录需在 **Visual Studio → Tongyin.Api → 管理用户机密** 中添加（下方密码仅为说明文字，必须替换为自己生成的强密码）：
 
@@ -13,9 +14,9 @@
 }
 ```
 
-然后按 F5，在 `http://localhost:18080/admin/` 使用此用户名和密码登录。数据库无管理员账号时，第一次成功登录才会建立账号；密码以随机盐和 PBKDF2-SHA256 派生摘要保存。**初始化成功后，应从用户机密和生产环境变量中移除 `ADMIN_BOOTSTRAP_PASSWORD`。**这组初始化配置不会覆盖已存在的用户名或密码，也不能用于找回密码。
+然后按 F5，在 `http://localhost:18080/admin/` 使用此用户名和密码登录。数据库无管理员账号时，第一次成功登录才会建立账号；密码由 ASP.NET Core Identity 的 PasswordHasher 生成标准格式摘要并安全存储。**初始化成功后，应从用户机密和生产环境变量中移除 `ADMIN_BOOTSTRAP_PASSWORD`。**这组初始化配置不会覆盖已存在的用户名或密码，也不能用于找回密码。
 
-登录后，左侧“账号设置”可以修改用户名或密码，需再次提供当前密码；成功后所有设备需要重新登录。后台会话有效期 8 小时，仅存在浏览器内存，主动退出会废止已有会话。登录接口每 IP 每分钟最多 6 次。**生产环境必须使用 HTTPS，禁止公开 HTTP 管理页面。**当前只支持一位管理员，不包含多账户角色管理或自助找回密码。
+登录后，左侧“账号设置”可以修改用户名或密码，需再次提供当前密码；成功后所有设备需要重新登录。后台使用 8 小时 HttpOnly、SameSite=Strict 管理员 Cookie，会话不能被前端 JavaScript 读取；后台所有写请求验证 CSRF 防伪令牌。修改账号或主动退出会更新 Identity SecurityStamp，使旧会话失效。登录接口每 IP 每分钟最多 6 次。**生产环境必须使用 HTTPS，禁止公开 HTTP 管理页面。**采用多实例部署时，ASP.NET Core Data Protection 密钥必须持久化并在实例间共享，否则 Cookie 可能在重启或切换实例后失效。当前只支持一位管理员，不包含多账户角色管理或自助找回密码。
 
 ---
 
@@ -39,7 +40,7 @@
    ```
 
    上面路径仅为**示例**，必须改为本机真正的原 Go 媒体目录；若不复用既有媒体，也可以换成新目录。如果连接的是原 Go 开发数据库，`SESSION_SECRET` 必须复用原值，以便读取既有加密配置。用户名和密码不要复制到 Git 仓库中的 `launchSettings.json`、`appsettings.json` 或源码。
-3. 本地 PostgreSQL 需已经存在童印业务表，并执行 `backend-dotnet/sql/postgres/001_system_settings.sql` 和 `backend-dotnet/sql/postgres/002_admin_credentials.sql` 的数据库迁移（已执行过则不用重复）。**不要同时运行旧 Go 后端占用 `18080`，也不要让新旧服务同时派发同一数据库的收费 AI 任务。**
+3. 本地 PostgreSQL 需已经存在童印业务表，并执行 `backend-dotnet/sql/postgres/001_system_settings.sql` 和 `backend-dotnet/sql/postgres/003_identity_admin.sql` 的数据库迁移（已执行过则不用重复）。**不要同时运行旧 Go 后端占用 `18080`，也不要让新旧服务同时派发同一数据库的收费 AI 任务。**
 4. 按 **F5** 启动。正常时 VS 的控制台输出 `Now listening on: http://localhost:18080`；打开 `http://localhost:18080/admin/`，使用用户名和密码登录，先检查后台和作品列表，再在微信开发者工具中启动小程序联调。
 
 `launchSettings.json` 只保存端口、公开本地地址和 Development 开关，不包含密钥；数据库密码、会话密钥与一次性管理员初始化凭据走 VS **用户机密**，不会被提交到 Git。若本机已有同名系统环境变量，它们可能覆盖用户机密，需要避免冲突。
@@ -226,7 +227,7 @@ WX_PAY_NOTIFY_URL=https://你的域名/api/pay/notify
 
 - `GET /api/admin/system/wechat`：仅返回 `{"app_id":"wx...","has_app_secret":true}`。
 - `PUT /api/admin/system/wechat`：发送 `{"app_id":"wx...","app_secret":"新密钥"}`，留空 `app_secret` 表示保留原有密钥。
-- 管理接口使用管理员登录后的独立 Bearer 会话认证；未授权返回 401，且绝不回显明文、密文。
+- 管理接口使用 ASP.NET Core Identity HttpOnly Cookie 认证；未授权返回 401，且绝不回显明文、密文。
 - AppSecret 使用 AES-256-GCM 加密后存储在 `ty_system_settings.payload`，由服务端现有 `SESSION_SECRET` 派生用途隔离的加密密钥。数据库本身不保存解密根密钥；修改主密钥前必须安排数据重新加密。
 - 更新配置后后续微信登录立即读取新值，不重启后端，也不再有环境变量回退。缺少配置时登录返回 503。
 - `SESSION_SECRET` **暂时仍是服务端主密钥**，继续用于 Token、媒体签名、已存 AI Key 的加密；本轮不修改它的存储，以免破坏旧数据。它与可在线修改的 AppID、AppSecret 不是同一类设置。
@@ -351,15 +352,9 @@ SQL 仓储使用与 Go 共用的 `ty_store_lock` 事务锁；在锁内读取作�
 
 .NET 已提供 **`GET /api/admin/ai/stalled-image-tasks`**，只读列出开始时间至少超过 **15 分钟**、状态仍为 `image_pending` 的已认领图片任务（最多 100 条，最早开始的排在前面）。兼容 .NET 的 `ai_execution_claim_id` 和旧 Go 的 `ai_task_stage=image` / `ai_started_at`；任务必须有非空 `generation_id`、有效时间、匹配的认领编号（或旧 Go 空认领编号）才会出现。时间按含时区的实际时刻比较，不允许因为异常文本把任务自动判失败或重新调用模型。
 
-后台业务接口由 `AdminSessionAuthenticationHandler` 校验登录后的短期 Bearer 会话，和微信用户权限完全隔离。旧版 `X-Admin-Token` 不再有效；先使用 `POST /api/admin/account/login` 认证，再以 `Authorization: Bearer <session>` 请求管理 API。生产必须使用 HTTPS。
+管理 API 使用 ASP.NET Core Identity 的 HttpOnly 管理员 Cookie。旧 `ADMIN_TOKEN`、自行签发的 Bearer 会话均不再接受。管理员登录前先访问 `GET /api/admin/account/csrf`，随后携带 `X-CSRF-TOKEN` 和同源 Cookie 提交登录；登录成功后重新获取 CSRF 令牌，后续全部后台写操作均携带防伪令牌。生产必须通过 HTTPS。
 
-示例（在受控环境中先完成管理员登录）：
-
-```powershell
-$login = Invoke-RestMethod -Method Post -Uri "https://YOUR_DOMAIN/api/admin/account/login" -ContentType "application/json" -Body (@{ username = "admin"; password = "替换为当前密码" } | ConvertTo-Json)
-$headers = @{ Authorization = "Bearer $($login.token)" }
-Invoke-RestMethod -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks" -Headers $headers
-```
+示例：登录后在后台“超时图片任务”页面查看任务。若通过脚本操作，必须持有 Identity Cookie 以及当前登录用户对应的 `X-CSRF-TOKEN`（不再支持 `X-Admin-Token`）；请优先使用后台页面操作。
 
 每条任务只返回 `work_id`、`generation_id`、`started_at`、`image_attempts`、`provider_id`、`is_legacy_go`。不返回微信 OpenID、密钥或图片签名链接；查询不修改数据库、不解除认领、不自动重试。底层为了兼容 PostgreSQL/MySQL/SQLite 的旧 `payload TEXT` JSON，当前采用只读扫描并在内存中筛选，适合 MVP 数据量；作品大规模增长后应考虑数据库索引或独立任务表。
 
@@ -376,17 +371,7 @@ Invoke-RestMethod -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks" -H
 
 管理员已采用单账号的短期会话认证，审计记录当前登录用户名。尚未支持多员工账户及各自独立角色。数据库提交发生未知结果时，补录文件失败清理可能与已经成功提交的数据库引用不一致，正式上线前仍需补充孤儿文件巡检。
 
-受控环境使用示例：
-
-```powershell
-$login = Invoke-RestMethod -Method Post -Uri "https://YOUR_DOMAIN/api/admin/account/login" -ContentType "application/json" -Body (@{ username = "admin"; password = "替换为当前密码" } | ConvertTo-Json)
-$headers = @{ Authorization = "Bearer $($login.token)" }
-$body = @{ generation_id = "job-id"; reason = "已确认服务商生成失败" } | ConvertTo-Json
-Invoke-RestMethod -Method Post -Uri "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks/work-id/fail" -Headers $headers -ContentType "application/json" -Body $body
-
-# 仅在有本地生成图片且人工核实成功时执行：
-curl.exe -X POST "https://YOUR_DOMAIN/api/admin/ai/stalled-image-tasks/work-id/complete" -H "Authorization: Bearer $($login.token)" -F "generation_id=job-id" -F "reason=已确认服务商生成成功" -F "file=@C:\\images\\recovered.png"
-```
+管理员可在后台“超时图片任务”页面核实任务状态并上传结果。所有写接口需经 Identity Cookie 和 CSRF 验证，不能用旧的 Bearer 或固定管理员令牌直接调用。
 
 ## 图片生成入口与数据库驱动的派发
 
