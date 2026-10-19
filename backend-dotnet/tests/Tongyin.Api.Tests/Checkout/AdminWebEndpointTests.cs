@@ -81,7 +81,8 @@ public sealed class AdminWebEndpointTests
         Assert.Contains("/api/admin/account/login", js);
         Assert.Contains("currentPassword", js);
         Assert.Contains("newPassword", js);
-        Assert.Contains("Authorization: 'Bearer '", js);
+        Assert.Contains("credentials: 'same-origin'", js);
+        Assert.Contains("X-CSRF-TOKEN", js);
         Assert.DoesNotContain("X-Admin-Token", js);
         Assert.DoesNotContain("adminToken", html);
     }
