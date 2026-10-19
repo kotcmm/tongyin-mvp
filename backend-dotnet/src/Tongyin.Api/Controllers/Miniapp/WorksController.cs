@@ -14,7 +14,7 @@ namespace Tongyin.Api.Controllers.Miniapp;
 [ApiController]
 [Route("api/works")]
 [WechatAuthorize]
-public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, ImageGenerationService imageGeneration, SelectWorkImage selectWorkImage, LocalMediaStore media, MiniappBusinessSettings businessSettings, ILogger<WorksController> logger) : ControllerBase
+public sealed class WorksController(CreateWork createWork, ListWorks listWorks, GetWork getWork, ImageGenerationService imageGeneration, SelectWorkImage selectWorkImage, DeleteWork deleteWork, LocalMediaStore media, MiniappBusinessSettings businessSettings, ILogger<WorksController> logger) : ControllerBase
 {
     /// <summary>
     /// 上传一张儿童原画并创建作品，保持原小程序的响应字段及 HTTP 状态码。
@@ -104,6 +104,23 @@ public sealed class WorksController(CreateWork createWork, ListWorks listWorks, 
         {
             return BadRequest(new { error = exception.Message });
         }
+    }
+
+    /// <summary>
+    /// 删除当前微信用户本人的作品。有关联订单或可能已经付费执行的任务必须保留。
+    /// </summary>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteAsync([FromRoute] string id, CancellationToken cancellationToken)
+    {
+        var result = await deleteWork.ExecuteAsync(User.GetWechatOpenId(), id, cancellationToken);
+        return result switch
+        {
+            DeleteWorkResult.Deleted => NoContent(),
+            DeleteWorkResult.NotFound => NotFound(new { error = "作品不存在" }),
+            DeleteWorkResult.HasOrders => Conflict(new { error = "此作品已有订单，请前往「我的订单」查看，暂不能删除" }),
+            DeleteWorkResult.Processing => Conflict(new { error = "作品正在生成中，请等待任务完成后再删除" }),
+            _ => throw new InvalidOperationException("未知的作品删除结果")
+        };
     }
 
     /// <summary>

@@ -10,7 +10,8 @@ public sealed class WorksDirectoryStructureTests
     {
         ["Core"] =
         [
-            "CreateWork", "GetWork", "ListWorks", "SelectWorkImage",
+            "CreateWork", "DeleteWork", "DeleteWorkResult", "GetWork", "ListWorks", "SelectWorkImage",
+            "IWorkDeletionRepository",
             "IWorkImageSelectionRepository", "IWorkRepository", "WorkSnapshot"
         ],
         ["ImageGeneration"] =
@@ -50,7 +51,7 @@ public sealed class WorksDirectoryStructureTests
             .OrderBy(path => path, StringComparer.Ordinal)
             .ToArray();
 
-        Assert.Equal(35, expected.Length);
+        Assert.Equal(38, expected.Length);
         Assert.Equal(expected, actual);
     }
 

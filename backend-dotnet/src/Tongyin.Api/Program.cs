@@ -135,6 +135,7 @@ builder.Services.AddScoped<IModelGenerationClaimRepository>(services => (SqlWork
 builder.Services.AddScoped<IQueuedModelGenerationReader, SqlQueuedModelGenerationReader>();
 builder.Services.AddScoped<DispatchQueuedModelGeneration>();
 builder.Services.AddScoped<IWorkImageSelectionRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
+builder.Services.AddScoped<IWorkDeletionRepository>(services => (SqlWorkRepository)services.GetRequiredService<IWorkRepository>());
 builder.Services.AddScoped<IStalledImageTasksReader, SqlStalledImageTasksReader>();
 builder.Services.AddScoped<IStalledModelTasksReader, SqlStalledModelTasksReader>();
 builder.Services.AddScoped<ListStalledModelTasks>();
@@ -187,6 +188,7 @@ builder.Services.AddSingleton(services =>
     return new MiniappBusinessSettings(priceFen, freeImageAttempts);
 });
 builder.Services.AddScoped<ListWorks>();
+builder.Services.AddScoped<DeleteWork>();
 builder.Services.AddScoped<IAdminWorksReader, SqlAdminWorksReader>();
 builder.Services.AddScoped<ListAdminWorks>();
 builder.Services.AddScoped<GetWork>();
