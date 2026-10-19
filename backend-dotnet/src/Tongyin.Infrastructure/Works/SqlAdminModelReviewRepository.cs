@@ -43,7 +43,7 @@ public sealed class SqlAdminModelReviewRepository(Func<DbConnection> connectionF
         if (snapshot.Status != "model_pending" || snapshot.GenerationId != generationId
             || snapshot.Selected != 0 || snapshot.Candidates.Count == 0
             || snapshot.AiTaskStage != "model"
-            || (!string.IsNullOrEmpty(snapshot.AiExecutionClaimId) && snapshot.AiExecutionClaimId != generationId)
+            || snapshot.AiExecutionClaimId != generationId
             || !DateTimeOffset.TryParse(snapshot.AiStartedAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var startedAt)
             || startedAt > reviewedAt.AddMinutes(-15))
         {

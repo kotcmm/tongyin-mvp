@@ -180,7 +180,7 @@ public sealed class AdminAiTasksControllerTests
                 {
                     WorkId = "work-001", GenerationId = "job-001",
                     StartedAt = startedBefore.AddHours(-1), ImageAttempts = 1,
-                    ProviderId = "seedream-01", IsLegacyGo = false
+                    ProviderId = "seedream-01"
                 }]);
         }
     }

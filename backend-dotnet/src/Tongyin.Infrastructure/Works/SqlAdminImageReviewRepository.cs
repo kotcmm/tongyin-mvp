@@ -9,7 +9,7 @@ using Tongyin.Domain.Works;
 namespace Tongyin.Infrastructure.Works;
 
 /// <summary>
-/// 人工核查图片任务时，使用与 Go 共用的事务锁，同时写入作品和 ty_audit 审计。
+/// 人工核查图片任务时，使用统一数据库事务锁，同时写入作品和 ty_audit 审计。
 /// </summary>
 public sealed class SqlAdminImageReviewRepository(Func<DbConnection> connectionFactory) : IAdminImageReviewRepository
 {
@@ -28,7 +28,7 @@ public sealed class SqlAdminImageReviewRepository(Func<DbConnection> connectionF
         await connection.OpenAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
 
-        // 与 Go、.NET 其他作品写操作串行，避免回写时已生成了更新的任务。
+        // 与其它作品写操作串行，避免回写时已生成了更新的任务。
         await connection.ExecuteAsync(new CommandDefinition(
             "UPDATE ty_store_lock SET id = id WHERE id = 1",
             transaction: transaction, cancellationToken: cancellationToken));
@@ -48,8 +48,7 @@ public sealed class SqlAdminImageReviewRepository(Func<DbConnection> connectionF
             ?? throw new JsonException("作品记录格式错误");
         if (snapshot.Status != "image_pending" || snapshot.GenerationId != generationId
             || snapshot.AiTaskStage != "image"
-            || (!string.IsNullOrEmpty(snapshot.AiExecutionClaimId)
-                && snapshot.AiExecutionClaimId != generationId)
+            || snapshot.AiExecutionClaimId != generationId
             || !DateTimeOffset.TryParse(snapshot.AiStartedAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var startedAt)
             || startedAt > reviewedAt.AddMinutes(-15))
         {

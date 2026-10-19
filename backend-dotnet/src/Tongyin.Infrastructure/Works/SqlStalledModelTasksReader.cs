@@ -32,7 +32,7 @@ public sealed class SqlStalledModelTasksReader(Func<DbConnection> connectionFact
                 ?? throw new JsonException("作品记录不是合法的 JSON 对象");
             if (activeJobs.Contains(work.GenerationId) || work.Status != "model_pending" || work.Selected != 0 || work.Candidates.Count == 0
                 || work.AiTaskStage != "model" || string.IsNullOrWhiteSpace(work.GenerationId)
-                || (!string.IsNullOrEmpty(work.AiExecutionClaimId) && work.AiExecutionClaimId != work.GenerationId)
+                || work.AiExecutionClaimId != work.GenerationId
                 || !DateTimeOffset.TryParse(work.AiStartedAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var startedAt)
                 || startedAt > startedBefore)
             {

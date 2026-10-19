@@ -9,7 +9,7 @@ using Xunit;
 namespace Tongyin.Infrastructure.Tests.Works;
 
 /// <summary>
-/// 核查已认领但长时间未完成的图片生成任务，兼容 Go 和 .NET 的 JSON 记录。
+/// 核查已认领但长时间未完成的图片生成任务。
 /// </summary>
 public sealed class SqlStalledImageTasksReaderTests
 {
@@ -35,23 +35,16 @@ public sealed class SqlStalledImageTasksReaderTests
         Assert.Equal("stalled", task.WorkId);
         Assert.Equal("job-1", task.GenerationId);
         Assert.Equal("2026-10-16T09:00:00+08:00", task.StartedAt.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture));
-        Assert.False(task.IsLegacyGo);
     }
 
-    /// <summary>
-    /// Go 旧任务只有图片阶段开始时间，没有 .NET 认领编号，也应进入人工核查清单。
-    /// </summary>
+    /// <summary>没有有效认领 ID 的记录不能进入可人工回收清单。</summary>
     [Fact]
-    public async Task ListAsync_GoImageStartedWithoutClaim_IncludedAsLegacy()
+    public async Task ListAsync_StartedWithoutClaim_IsExcluded()
     {
         using var db = new TestDatabase();
-        await db.InsertAsync("legacy", "image_pending", "go-job", "", "image", "2026-10-16T08:00:00+08:00");
+        await db.InsertAsync("missing-claim", "image_pending", "image-job", "", "image", "2026-10-16T08:00:00+08:00");
 
-        var result = Assert.Single(await new SqlStalledImageTasksReader(db.CreateConnection).ListAsync(Cutoff, 20));
-
-        Assert.Equal("legacy", result.WorkId);
-        Assert.Equal("go-job", result.GenerationId);
-        Assert.True(result.IsLegacyGo);
+        Assert.Empty(await new SqlStalledImageTasksReader(db.CreateConnection).ListAsync(Cutoff, 20));
     }
 
     /// <summary>

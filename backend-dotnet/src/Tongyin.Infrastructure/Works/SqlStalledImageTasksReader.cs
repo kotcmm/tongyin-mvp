@@ -35,8 +35,7 @@ public sealed class SqlStalledImageTasksReader(Func<DbConnection> connectionFact
 
             if (work.Status != "image_pending" || work.AiTaskStage != "image"
                 || string.IsNullOrEmpty(work.GenerationId)
-                || (!string.IsNullOrEmpty(work.AiExecutionClaimId)
-                    && work.AiExecutionClaimId != work.GenerationId)
+                || work.AiExecutionClaimId != work.GenerationId
                 || !DateTimeOffset.TryParse(work.AiStartedAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var startedAt)
                 || startedAt > startedBefore)
             {
