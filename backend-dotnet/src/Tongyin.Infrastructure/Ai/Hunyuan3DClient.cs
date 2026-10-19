@@ -31,7 +31,7 @@ public sealed class Hunyuan3DClient(HttpClient client, AiCredentialProtector cre
             Model = provider.Model,
             GenerateType = "Geometry",
             ImageUrl = new { Url = "data:" + mime + ";base64," + Convert.ToBase64String(image.Span) }
-        });
+        }, options: new JsonSerializerOptions(JsonSerializerDefaults.General));
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
         using var payload = await ReadJsonAsync(response, ct);
@@ -49,7 +49,7 @@ public sealed class Hunyuan3DClient(HttpClient client, AiCredentialProtector cre
         var provider = VerifyProvider(settings);
         if (string.IsNullOrWhiteSpace(jobId)) throw new ArgumentException("混元 JobId 不能为空", nameof(jobId));
         using var request = NewRequest(QueryUri, credentials.Decrypt(provider.ApiKeyCipher));
-        request.Content = JsonContent.Create(new { JobId = jobId });
+        request.Content = JsonContent.Create(new { JobId = jobId }, options: new JsonSerializerOptions(JsonSerializerDefaults.General));
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
         using var payload = await ReadJsonAsync(response, ct);

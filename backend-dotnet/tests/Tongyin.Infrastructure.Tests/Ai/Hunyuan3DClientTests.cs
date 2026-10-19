@@ -26,9 +26,9 @@ public sealed class Hunyuan3DClientTests
             Assert.Equal("sk-unit-only", request.Headers.GetValues("Authorization").Single());
             using var json = JsonDocument.Parse(body);
             var root = json.RootElement;
-            Assert.Equal("3.0", root.GetProperty("model").GetString());
-            Assert.Equal("Geometry", root.GetProperty("generateType").GetString());
-            Assert.StartsWith("data:image/png;base64,", root.GetProperty("imageUrl").GetProperty("url").GetString());
+            Assert.Equal("3.0", root.GetProperty("Model").GetString());
+            Assert.Equal("Geometry", root.GetProperty("GenerateType").GetString());
+            Assert.StartsWith("data:image/png;base64,", root.GetProperty("ImageUrl").GetProperty("Url").GetString());
             Assert.DoesNotContain("callback_url", body);
             Assert.DoesNotContain("source_url", body);
             return "{\"Response\":{\"JobId\":\"hunyuan-job-001\"}}";
@@ -50,7 +50,7 @@ public sealed class Hunyuan3DClientTests
         {
             Assert.Equal("https://api.ai3d.cloud.tencent.com/v1/ai3d/query", request.RequestUri!.ToString());
             using var json = JsonDocument.Parse(body);
-            Assert.Equal("hunyuan-job-001", json.RootElement.GetProperty("jobId").GetString());
+            Assert.Equal("hunyuan-job-001", json.RootElement.GetProperty("JobId").GetString());
             return "{\"Response\":{\"Status\":\"" + status + "\",\"ResultFile3Ds\":[{\"Type\":\"OBJ\",\"Url\":\"https://assets.example/model.obj\"},{\"Type\":\"GLB\",\"Url\":\"https://assets.example/model.glb\"}]} }";
         });
         using var http = new HttpClient(handler);
