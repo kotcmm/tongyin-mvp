@@ -479,7 +479,7 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
         // 不直接删除磁盘：媒体可能被其它作品共用，且 DB 与文件系统不能形成同一个事务。
         using (var removed = JsonDocument.Parse(payload))
         {
-            var root = removed.RootElement;
+            var deletedRoot = removed.RootElement;
             var files = new HashSet<string>(StringComparer.Ordinal);
             static void Remember(JsonElement parent, string property, HashSet<string> results)
             {
@@ -502,10 +502,10 @@ public sealed class SqlWorkRepository : IWorkRepository, IWorkImageSelectionRepo
                 }
             }
 
-            Remember(root, "original", files);
-            Remember(root, "candidates", files);
-            Remember(root, "preview", files);
-            Remember(root, "model", files);
+            Remember(deletedRoot, "original", files);
+            Remember(deletedRoot, "candidates", files);
+            Remember(deletedRoot, "preview", files);
+            Remember(deletedRoot, "model", files);
 
             foreach (var file in files)
             {
