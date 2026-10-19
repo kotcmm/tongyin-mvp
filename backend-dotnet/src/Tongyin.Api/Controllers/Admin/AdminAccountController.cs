@@ -45,7 +45,7 @@ public sealed class AdminAccountController(
             user = await users.FindByNameAsync(request.Username);
         }
 
-        var result = user is null ? SignInResult.Failed
+        var result = user is null ? Microsoft.AspNetCore.Identity.SignInResult.Failed
             : await signIn.PasswordSignInAsync(user, request.Password, isPersistent: false, lockoutOnFailure: true);
 
         if (!result.Succeeded)
