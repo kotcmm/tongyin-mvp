@@ -90,13 +90,56 @@ public sealed class Hunyuan3DClientTests
         Assert.Contains("InvalidImage", result.Error);
     }
 
-    private static AiGenerationSettings Settings() => new()
+    /// <summary>非写死的公网兼容接口地址与未来模型 ID 均可实际用于提交和查询。</summary>
+    [Fact]
+    public async Task CustomEndpointAndModel_UseConfiguredSubmitAndSiblingQuery()
+    {
+        var endpoint = "https://gateway.example/tenant/ai3d/submit";
+        using var handler = new FakeHttp((request, body) =>
+        {
+            var isSubmit = request.RequestUri!.AbsolutePath.EndsWith("/submit", StringComparison.Ordinal);
+            Assert.Equal(isSubmit
+                ? endpoint : "https://gateway.example/tenant/ai3d/query",
+                request.RequestUri.ToString());
+            using var json = JsonDocument.Parse(body);
+            if (isSubmit)
+            {
+                Assert.Equal("future-4.0", json.RootElement.GetProperty("Model").GetString());
+                return "{\"Response\":{\"JobId\":\"custom-job\"}}";
+            }
+            return "{\"Response\":{\"Status\":\"WAIT\"}}";
+        });
+        using var http = new HttpClient(handler);
+        var settings = Settings(endpoint, "future-4.0");
+        var ai = new Hunyuan3DClient(http, Protector);
+        Assert.Equal("custom-job", await ai.SubmitAsync(settings, Image));
+        Assert.Equal("WAIT", (await ai.QueryAsync(settings, "custom-job")).Status);
+        Assert.Equal(2, handler.Calls);
+    }
+
+    /// <summary>管理员配置的私网 IP 和非 HTTPS 地址必须在任何 HTTP 请求前失败。</summary>
+    [Theory]
+    [InlineData("http://gateway.example/v1/ai3d/submit")]
+    [InlineData("https://127.0.0.1/v1/ai3d/submit")]
+    [InlineData("https://192.168.1.10/v1/ai3d/submit")]
+    [InlineData("https://gateway.example/v1/ai3d/query")]
+    [InlineData("https://gateway.example/v1/ai3d/submit?token=secret")]
+    public async Task UnsafeOrWrongEndpoint_DoesNotSendRequest(string endpoint)
+    {
+        using var handler = new FakeHttp((_, _) => throw new InvalidOperationException("must not send"));
+        using var http = new HttpClient(handler);
+        await Assert.ThrowsAnyAsync<ArgumentException>(() =>
+            new Hunyuan3DClient(http, Protector).SubmitAsync(Settings(endpoint), Image));
+        Assert.Equal(0, handler.Calls);
+    }
+
+    private static AiGenerationSettings Settings(string endpoint = Endpoint, string model = "3.0") => new()
     {
         Stage = "model", PromptVersion = 1, PromptTemplate = "保留结构",
         Provider = new AiProviderSettings
         {
             Id = "hunyuan-provider", Stage = "model", Adapter = "hunyuan3d",
-            Endpoint = Endpoint, Model = "3.0", Enabled = true, Default = true,
+            Endpoint = endpoint, Model = model, Enabled = true, Default = true,
             ApiKeyCipher = Protector.Encrypt("sk-unit-only")
         }
     };

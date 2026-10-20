@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Dapper;
+using Tongyin.Application.Ai;
 using Microsoft.Data.Sqlite;
 using Tongyin.Infrastructure.Works;
 using Xunit;
@@ -16,14 +17,16 @@ public sealed class SqlModelGenerationJobRepositoryTests
         using var db = new Data();
         db.InsertClaimed("gen-1");
         var repo = new SqlModelGenerationJobRepository(db.Connect);
-        await repo.RecordSubmittedAsync("gen-1", "cloud-job-1", "dp1:encrypted-key", "3.0");
+        await repo.RecordSubmittedAsync("gen-1", "cloud-job-1", Provider("3.2", "https://gateway.example/v1/ai3d/submit"));
         var recovered = await new SqlModelGenerationJobRepository(db.Connect).GetNextSubmittedAsync();
         Assert.NotNull(recovered);
         Assert.Equal("cloud-job-1", recovered.ProviderJobId);
         Assert.Equal("dp1:encrypted-key", recovered.ApiKeyCipher);
-        Assert.Equal("3.0", recovered.Model);
+        Assert.Equal("3.2", recovered.Model);
+        Assert.Equal("hunyuan3d", recovered.Adapter);
+        Assert.Equal("https://gateway.example/v1/ai3d/submit", recovered.Endpoint);
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            repo.RecordSubmittedAsync("gen-1", "cloud-job-2", "dp1:key", "3.0"));
+            repo.RecordSubmittedAsync("gen-1", "cloud-job-2", Provider()));
     }
 
     /// <summary>提交状态不明确时不会返回待轮询任务，也不能被再次写成另一个提交。</summary>
@@ -44,13 +47,20 @@ public sealed class SqlModelGenerationJobRepositoryTests
         using var db = new Data();
         db.InsertClaimed("gen-1");
         var repo = new SqlModelGenerationJobRepository(db.Connect);
-        await repo.RecordSubmittedAsync("gen-1", "cloud-job", "dp1:encrypted", "3.0");
+        await repo.RecordSubmittedAsync("gen-1", "cloud-job", Provider());
         await repo.UpdateStatusAsync("gen-1", "RUN");
         Assert.Equal("RUN", db.Status());
         await repo.UpdateStatusAsync("gen-1", "DONE");
         Assert.Null(await repo.GetNextSubmittedAsync());
         await Assert.ThrowsAsync<InvalidOperationException>(() => repo.UpdateStatusAsync("gen-1", "RUN"));
     }
+
+    private static AiProviderSettings Provider(string model = "3.0",
+        string endpoint = "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit") => new()
+    {
+        Id = "p1", Stage = "model", Adapter = "hunyuan3d", Endpoint = endpoint,
+        Model = model, Enabled = true, Default = true, ApiKeyCipher = "dp1:encrypted-key"
+    };
 
     private sealed class Data : IDisposable
     {
@@ -63,7 +73,7 @@ public sealed class SqlModelGenerationJobRepositoryTests
                 CREATE TABLE ty_model_jobs(
                   generation_id TEXT PRIMARY KEY, work_id TEXT NOT NULL, owner_id TEXT NOT NULL,
                   provider_id TEXT NOT NULL, prompt_version INTEGER NOT NULL, provider_job_id TEXT NULL,
-                  api_key_cipher TEXT NULL, model TEXT NULL,
+                  api_key_cipher TEXT NULL, model TEXT NULL, adapter TEXT NULL, endpoint TEXT NULL,
                   status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
                 );
                 """);

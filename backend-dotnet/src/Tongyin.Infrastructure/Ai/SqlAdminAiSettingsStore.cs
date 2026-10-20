@@ -45,7 +45,7 @@ public sealed class SqlAdminAiSettingsStore(
             throw new InvalidOperationException("启用前需要先填写 API Key");
         }
 
-        var adapter = stage == "image" ? "seedream" : "hunyuan3d";
+        var adapter = request.Adapter ?? (stage == "image" ? "seedream" : "hunyuan3d");
         var id = previous?.Id ?? Guid.NewGuid().ToString("N");
         var updated = new AiProviderSettings
         {
@@ -163,7 +163,7 @@ public sealed class SqlAdminAiSettingsStore(
         (string Template, int Version) prompt) => new()
     {
         Stage = stage,
-        Adapter = stage == "image" ? "seedream" : "hunyuan3d",
+        Adapter = provider?.Adapter ?? (stage == "image" ? "seedream" : "hunyuan3d"),
         Endpoint = provider?.Endpoint ?? (stage == "image"
             ? "https://ark.cn-beijing.volces.com/api/v3/images/generations" : "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit"),
         Model = provider?.Model ?? string.Empty,

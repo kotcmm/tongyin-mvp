@@ -1,7 +1,7 @@
 namespace Tongyin.Application.Ai;
 
 /// <summary>审核图片/模型服务商的管理员配置，防止无效或不安全的地址进入自动派发。</summary>
-public sealed class ManageAiStageSettings(IAdminAiSettingsStore store)
+public sealed class ManageAiStageSettings(IAdminAiSettingsStore store, IModelGenerationClientResolver modelClients)
 {
     /// <summary>获取图片或模型的运行配置与加密密钥设置状态。</summary>
     public Task<AiStageConfiguration> GetAsync(string stage, CancellationToken cancellationToken = default)
@@ -10,7 +10,7 @@ public sealed class ManageAiStageSettings(IAdminAiSettingsStore store)
         return store.GetAsync(stage, cancellationToken);
     }
 
-    /// <summary>拒绝不匹配当前固定适配器的配置，然后原子写入。</summary>
+    /// <summary>校验 HTTPS 与已注册 Adapter 协议，然后原子写入。</summary>
     public Task<AiStageConfiguration> SaveAsync(string stage, UpdateAiStageConfiguration settings,
         CancellationToken cancellationToken = default)
     {
@@ -32,24 +32,30 @@ public sealed class ManageAiStageSettings(IAdminAiSettingsStore store)
             throw new ArgumentException("启用生成服务前必须填写 API 地址和模型标识");
         }
 
-        if (!string.IsNullOrWhiteSpace(settings.Endpoint))
+        var adapter = string.IsNullOrWhiteSpace(settings.Adapter)
+            ? (stage == "image" ? "seedream" : "hunyuan3d")
+            : settings.Adapter.Trim();
+        if (stage == "image" && adapter != "seedream")
+            throw new ArgumentException("尚未注册该图片生成适配器");
+
+        // 图片接口暂只注册官方 Seedream；3D 地址规则则交由选中的协议 Adapter 校验。
+        if (stage == "image" && !string.IsNullOrWhiteSpace(settings.Endpoint)
+            && settings.Endpoint != "https://ark.cn-beijing.volces.com/api/v3/images/generations")
+            throw new ArgumentException("图片生成当前仅支持火山方舟 Seedream 官方接口");
+
+        if (stage == "model")
         {
-            if (stage == "image")
-            {
-                if (!Uri.TryCreate(settings.Endpoint, UriKind.Absolute, out var uri)
-                    || uri.AbsoluteUri != "https://ark.cn-beijing.volces.com/api/v3/images/generations")
-                {
-                    throw new ArgumentException("图片生成目前仅支持火山方舟 Seedream 官方接口");
-                }
-            }
-            else if (settings.Endpoint != "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit"
-                || settings.Model is not ("3.0" or "3.1"))
-            {
-                throw new ArgumentException("当前仅支持腾讯混元 3D 专业版，模型填写 3.0 或 3.1");
-            }
+            var client = modelClients.Resolve(adapter);
+            if (!string.IsNullOrWhiteSpace(settings.Endpoint))
+                client.ValidateEndpoint(settings.Endpoint, settings.Model);
         }
 
-        return store.SaveAsync(stage, settings, cancellationToken);
+        return store.SaveAsync(stage, new UpdateAiStageConfiguration
+        {
+            Adapter = adapter, Endpoint = settings.Endpoint, Model = settings.Model,
+            Enabled = settings.Enabled, ApiKey = settings.ApiKey,
+            PromptTemplate = settings.PromptTemplate
+        }, cancellationToken);
     }
 
     private static void ValidateStage(string stage)

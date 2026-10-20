@@ -544,7 +544,7 @@ async function saveAiSettings(event) {
     $('aiApiKey').value = '';
     $('aiKeyStatus').textContent = result.hasApiKey ? '已配置' : '未配置';
     $('aiPromptVersion').textContent = '版本 v' + String(result.promptVersion);
-    toast(stage === 'image' ? 'AI 图片配置已保存' : '腾讯混元 3D 配置已保存');
+    toast(stage === 'image' ? 'AI 图片配置已保存' : 'AI 3D 配置已保存');
   } catch (error) {
     $('aiSettingsError').textContent = error.message;
     if (error.status === 401) logout(false);
@@ -576,11 +576,11 @@ function openTab(tab, updateLocation = true) {
       : '确认卡通图后，由 .NET 向腾讯混元生 3D 提交图片并轮询任务，完成后下载 GLB。';
     $('aiAdapterDescription').textContent = imageMode
       ? '当前适配器：Seedream。只支持火山方舟官方图片 API，不可直接填入其他模型聚合平台地址。'
-      : '当前适配器：腾讯混元生 3D 专业版。使用官方 API Key、模型 3.0 或 3.1；无需公网回调地址。';
+      : '当前适配器：腾讯混元生 3D 协议。可填写兼容该协议的公网 HTTPS /submit 接口及其模型 ID；无需公网回调。';
     $('aiEndpoint').placeholder = imageMode
       ? 'https://ark.cn-beijing.volces.com/api/v3/images/generations'
       : 'https://api.ai3d.cloud.tencent.com/v1/ai3d/submit';
-    $('aiModel').placeholder = imageMode ? '例如 doubao-seedream-4-0' : '3.0 或 3.1';
+    $('aiModel').placeholder = imageMode ? '例如 doubao-seedream-4-0' : '例如 3.0 或 3.1';
     $('aiPromptLabel').textContent = imageMode ? '生成提示词' : '工艺备注（目前不会发送给混元）';
   }
   if (tab === 'account') $('newAdminUsername').value = state.username;

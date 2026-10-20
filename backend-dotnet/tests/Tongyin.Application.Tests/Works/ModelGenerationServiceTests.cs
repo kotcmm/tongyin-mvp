@@ -18,6 +18,8 @@ public sealed class ModelGenerationServiceTests
         Assert.Equal("hunyuan-job-1", t.Jobs.Current?.ProviderJobId);
         Assert.Equal("secret-v1", t.Jobs.Current?.ApiKeyCipher);
         Assert.Equal("3.0", t.Jobs.Current?.Model);
+        Assert.Equal("hunyuan3d", t.Jobs.Current?.Adapter);
+        Assert.Equal("https://api.ai3d.cloud.tencent.com/v1/ai3d/submit", t.Jobs.Current?.Endpoint);
         Assert.Equal("cartoon.png", t.Original.LastFile);
     }
 
@@ -88,6 +90,25 @@ public sealed class ModelGenerationServiceTests
         Assert.Equal("FAIL", t.Jobs.Status);
     }
 
+    /// <summary>变更后台的模型版本与 API 地址，不影响已收费任务按原快照轮询。</summary>
+    [Fact]
+    public async Task CustomModelAndEndpoint_PersistedAndUsedAfterSettingsChange()
+    {
+        var t = new Scenario();
+        t.Settings.Model = "next-3d-model";
+        t.Settings.Endpoint = "https://gateway.example/v1/ai3d/submit";
+        await t.Service.ProcessNextAsync();
+        Assert.Equal("next-3d-model", t.Jobs.Current?.Model);
+        Assert.Equal("https://gateway.example/v1/ai3d/submit", t.Jobs.Current?.Endpoint);
+        t.Settings.Model = "other-model";
+        t.Settings.Endpoint = "https://other.example/v1/ai3d/submit";
+        await t.Service.ProcessNextAsync();
+        Assert.Equal("next-3d-model", t.Client.PolledModel);
+        Assert.Equal("https://gateway.example/v1/ai3d/submit", t.Client.PolledEndpoint);
+        Assert.Equal(1, t.Client.SubmitCalls);
+        Assert.Equal(1, t.Client.QueryCalls);
+    }
+
     private sealed class Scenario
     {
         public Queue Queue { get; } = new();
@@ -104,7 +125,7 @@ public sealed class ModelGenerationServiceTests
             Result = new Results(Jobs);
         }
 
-        public ModelGenerationService Service => new(Queue, Claims, Jobs, Settings, Original, Client, Media, Result);
+        public ModelGenerationService Service => new(Queue, Claims, Jobs, Settings, Original, new Resolver(Client), Media, Result);
     }
 
     private sealed class Queue : IQueuedModelGenerationReader
@@ -134,9 +155,10 @@ public sealed class ModelGenerationServiceTests
         public string Status { get; private set; } = "submitting";
         public Task<ModelGenerationJob?> GetNextSubmittedAsync(CancellationToken ct = default)
             => Task.FromResult(Status is "WAIT" or "RUN" ? Current : null);
-        public Task RecordSubmittedAsync(string generationId, string providerJobId, string apiKeyCipher, string model, CancellationToken ct = default)
+        public Task RecordSubmittedAsync(string generationId, string providerJobId, AiProviderSettings provider, CancellationToken ct = default)
         {
-            Current = new ModelGenerationJob("work1", generationId, providerJobId, "p1", apiKeyCipher, model);
+            Current = new ModelGenerationJob("work1", generationId, providerJobId, "p1",
+                provider.ApiKeyCipher, provider.Model, provider.Adapter, provider.Endpoint);
             Status = "WAIT";
             return Task.CompletedTask;
         }
@@ -151,6 +173,8 @@ public sealed class ModelGenerationServiceTests
     private sealed class Settings : IAiGenerationSettingsReader
     {
         public bool Enabled { get; set; } = true;
+        public string Model { get; set; } = "3.0";
+        public string Endpoint { get; set; } = "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit";
         public Task<AiGenerationSettings> GetAsync(string stage, CancellationToken ct = default)
             => Task.FromResult(new AiGenerationSettings
             {
@@ -158,8 +182,8 @@ public sealed class ModelGenerationServiceTests
                 Provider = Enabled ? new AiProviderSettings
                 {
                     Id = "p1", Stage = "model", Adapter = "hunyuan3d",
-                    Endpoint = "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit",
-                    Model = "3.0", ApiKeyCipher = "secret-v1", Enabled = true, Default = true
+                    Endpoint = Endpoint,
+                    Model = Model, ApiKeyCipher = "secret-v1", Enabled = true, Default = true
                 } : null
             });
     }
@@ -174,8 +198,22 @@ public sealed class ModelGenerationServiceTests
         }
     }
 
-    private sealed class Client : IHunyuan3DClient
+    private sealed class Resolver(Client client) : IModelGenerationClientResolver
     {
+        public IModelGenerationClient Resolve(string adapter)
+        {
+            Assert.Equal("hunyuan3d", adapter);
+            return client;
+        }
+    }
+
+    private sealed class Client : IModelGenerationClient
+    {
+        public string Adapter => "hunyuan3d";
+        public void ValidateEndpoint(string endpoint, string model) { }
+        public void ValidateConfiguration(AiProviderSettings provider) { }
+        public string? PolledEndpoint { get; private set; }
+        public string? PolledModel { get; private set; }
         public int SubmitCalls { get; private set; }
         public int QueryCalls { get; private set; }
         public bool FailSubmit { get; set; }
@@ -189,6 +227,8 @@ public sealed class ModelGenerationServiceTests
         public Task<Hunyuan3DResult> QueryAsync(AiGenerationSettings settings, string jobId, CancellationToken ct = default)
         {
             QueryCalls++;
+            PolledEndpoint = settings.Provider?.Endpoint;
+            PolledModel = settings.Provider?.Model;
             Assert.Equal("hunyuan-job-1", jobId);
             Assert.Equal("secret-v1", settings.Provider?.ApiKeyCipher);
             return Task.FromResult(Query);

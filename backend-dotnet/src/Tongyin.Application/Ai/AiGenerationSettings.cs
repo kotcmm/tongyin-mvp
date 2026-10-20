@@ -30,13 +30,7 @@ public sealed class AiGenerationSettings
             && !string.IsNullOrWhiteSpace(PromptTemplate);
     }
 
-    /// <summary>只有已启用默认模型 worker 并设置安全密钥与提示词时，才能认领新的模型任务。</summary>
+    /// <summary>只判断业务阶段与管理员启用状态；协议、地址、凭据由 Adapter 在认领前校验。</summary>
     public bool CanGenerateModel()
-    {
-        return Stage == "model"
-            && Provider is { Stage: "model", Adapter: "hunyuan3d", Enabled: true, Default: true }
-            && Provider.Endpoint == "https://api.ai3d.cloud.tencent.com/v1/ai3d/submit"
-            && Provider.Model is ("3.0" or "3.1")
-            && !string.IsNullOrWhiteSpace(Provider.ApiKeyCipher);
-    }
+        => Stage == "model" && Provider is { Stage: "model", Enabled: true, Default: true };
 }

@@ -8,16 +8,56 @@ namespace Tongyin.Infrastructure.Ai;
 /// 腾讯混元生 3D 专业版 OpenAI 兼容接口；提交 ImageUrl Base64 并按 JobId 查询。
 /// 不依赖第三方回调或本机公网地址，不自动重试收费提交。
 /// </summary>
-public sealed class Hunyuan3DClient(HttpClient client, AiCredentialProtector credentials) : IHunyuan3DClient
+public sealed class Hunyuan3DClient(HttpClient client, AiCredentialProtector credentials) : IModelGenerationClient
 {
-    private static readonly Uri SubmitUri = new("https://api.ai3d.cloud.tencent.com/v1/ai3d/submit");
-    private static readonly Uri QueryUri = new("https://api.ai3d.cloud.tencent.com/v1/ai3d/query");
+    public string Adapter => "hunyuan3d";
+
+    /// <summary>按照混元兼容协议验证提交地址，运行时实际连接仅允许公网目标。</summary>
+    public void ValidateEndpoint(string endpoint, string model)
+    {
+        _ = SubmitEndpoint(endpoint);
+        if (string.IsNullOrWhiteSpace(model) || model.Length > 128)
+            throw new ArgumentException("混元 3D 模型标识无效");
+    }
+
+    /// <summary>认领前完整验证 Provider，避免无效密钥导致任务停在已认领状态。</summary>
+    public void ValidateConfiguration(AiProviderSettings provider)
+    {
+        if (provider.Stage != "model" || provider.Adapter != Adapter)
+            throw new ArgumentException("混元 3D Adapter 与生成阶段不匹配");
+        ValidateEndpoint(provider.Endpoint, provider.Model);
+        _ = credentials.Decrypt(provider.ApiKeyCipher);
+    }
+
+    private static Uri SubmitEndpoint(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps || uri.UserInfo.Length != 0
+            || uri.Query.Length != 0 || uri.Fragment.Length != 0
+            || uri.IsLoopback || uri.Host.EndsWith(".local", StringComparison.OrdinalIgnoreCase)
+            || uri.Host.EndsWith(".internal", StringComparison.OrdinalIgnoreCase)
+            || !uri.AbsolutePath.EndsWith("/submit", StringComparison.OrdinalIgnoreCase)
+            || (System.Net.IPAddress.TryParse(uri.Host, out var ip)
+                && !PublicImageNetworkPolicy.IsPublicAddress(ip)))
+            throw new ArgumentException("混元 3D 接口须为公网 HTTPS /submit 地址");
+        return uri;
+    }
+
+    private static Uri QueryEndpoint(Uri submit)
+    {
+        var builder = new UriBuilder(submit)
+        {
+            Path = submit.AbsolutePath[..^"submit".Length] + "query"
+        };
+        return builder.Uri;
+    }
 
     /// <summary>向官方提交本地图片，使用原始 API Key Authorization 头而不是 Worker Bearer 协议。</summary>
     public async Task<string> SubmitAsync(
         AiGenerationSettings settings, ReadOnlyMemory<byte> image, CancellationToken ct = default)
     {
         var provider = VerifyProvider(settings);
+        ValidateConfiguration(provider);
         if (image.Length == 0 || image.Length > 6 * 1024 * 1024)
             throw new InvalidDataException("混元输入图片不可为空或超过 6 MiB");
 
@@ -25,7 +65,7 @@ public sealed class Hunyuan3DClient(HttpClient client, AiCredentialProtector cre
         if (mime is null) throw new InvalidDataException("混元只接受 JPG、PNG 或 WebP 卡通图片");
 
         // 混元生 3D 专业版：Geometry 生成白模；默认返回 GLB。
-        using var request = NewRequest(SubmitUri, credentials.Decrypt(provider.ApiKeyCipher));
+        using var request = NewRequest(SubmitEndpoint(provider.Endpoint), credentials.Decrypt(provider.ApiKeyCipher));
         request.Content = JsonContent.Create(new
         {
             Model = provider.Model,
@@ -48,7 +88,7 @@ public sealed class Hunyuan3DClient(HttpClient client, AiCredentialProtector cre
     {
         var provider = VerifyProvider(settings);
         if (string.IsNullOrWhiteSpace(jobId)) throw new ArgumentException("混元 JobId 不能为空", nameof(jobId));
-        using var request = NewRequest(QueryUri, credentials.Decrypt(provider.ApiKeyCipher));
+        using var request = NewRequest(QueryEndpoint(SubmitEndpoint(provider.Endpoint)), credentials.Decrypt(provider.ApiKeyCipher));
         request.Content = JsonContent.Create(new { JobId = jobId }, options: new JsonSerializerOptions(JsonSerializerDefaults.General));
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
@@ -83,8 +123,9 @@ public sealed class Hunyuan3DClient(HttpClient client, AiCredentialProtector cre
 
     private static AiProviderSettings VerifyProvider(AiGenerationSettings settings)
     {
-        if (!settings.CanGenerateModel() || settings.Provider is null)
-            throw new InvalidOperationException("尚未配置可用的混元 3D 专业版");
+        if (!settings.CanGenerateModel() || settings.Provider is null
+            || settings.Provider.Adapter != "hunyuan3d")
+            throw new InvalidOperationException("尚未配置可用的混元 3D Adapter");
         return settings.Provider;
     }
 

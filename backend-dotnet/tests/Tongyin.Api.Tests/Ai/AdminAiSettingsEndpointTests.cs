@@ -107,6 +107,34 @@ public sealed class AdminAiSettingsEndpointTests
         Assert.DoesNotContain("hunyuan-private-key", response);
     }
 
+    /// <summary>合法兼容端点和新版本模型不因历史硬编码被拒绝；未知 Adapter 不允许写入。</summary>
+    [Fact]
+    public async Task ModelSettings_AcceptsConfigurableEndpointAndModelButRejectsUnknownAdapter()
+    {
+        using var factory = new SettingsFactory();
+        using var client = factory.CreateClient();
+        using var saved = await client.SendAsync(AdminPut("model", new
+        {
+            adapter = "hunyuan3d", endpoint = "https://gateway.example/tenant/ai3d/submit",
+            model = "future-4.0", enabled = true, api_key = "secret",
+            prompt_template = "把图画转换为模型"
+        }));
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var modelSettings = await scope.ServiceProvider.GetRequiredService<IAiGenerationSettingsReader>().GetAsync("model");
+        Assert.True(modelSettings.CanGenerateModel());
+        Assert.Equal("future-4.0", modelSettings.Provider?.Model);
+        Assert.Equal("https://gateway.example/tenant/ai3d/submit", modelSettings.Provider?.Endpoint);
+
+        using var invalid = await client.SendAsync(AdminPut("model", new
+        {
+            adapter = "unknown", endpoint = "https://gateway.example/tenant/ai3d/submit",
+            model = "future-4.0", enabled = true, api_key = "",
+            prompt_template = "不能派发"
+        }));
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+    }
+
     /// <summary>无效主机、缺失 Key 以及不支持的模型阶段不能被启用。</summary>
     [Fact]
     public async Task Settings_RejectUnsafeEndpointAndMissingCredential()

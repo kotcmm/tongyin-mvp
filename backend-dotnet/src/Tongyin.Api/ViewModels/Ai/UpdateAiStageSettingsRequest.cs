@@ -6,6 +6,9 @@ namespace Tongyin.Api.ViewModels.Ai;
 /// <summary>管理员保存服务商配置的类型化请求，不能接受任意 JSON 配置对象。</summary>
 public sealed class UpdateAiStageSettingsRequest
 {
+    /// <summary>模型协议适配器标识；留空时沿用当前阶段默认值。</summary>
+    [JsonPropertyName("adapter")]
+    public string? Adapter { get; init; }
     /// <summary>服务商 HTTPS URL。</summary>
     [JsonPropertyName("endpoint")]
     public string Endpoint { get; init; } = string.Empty;
@@ -25,7 +28,7 @@ public sealed class UpdateAiStageSettingsRequest
     /// <summary>转换为 Application 用例请求对象。</summary>
     public UpdateAiStageConfiguration ToCommand() => new()
     {
-        Endpoint = Endpoint, Model = Model, Enabled = Enabled, ApiKey = ApiKey,
+        Adapter = Adapter, Endpoint = Endpoint, Model = Model, Enabled = Enabled, ApiKey = ApiKey,
         PromptTemplate = PromptTemplate
     };
 }

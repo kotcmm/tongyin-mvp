@@ -227,12 +227,15 @@ builder.Services.AddHttpClient<GeneratedModelDownloader>(client => client.Timeou
     });
 builder.Services.AddScoped<IGeneratedModelStore>(services => services.GetRequiredService<GeneratedModelDownloader>());
 builder.Services.AddHttpClient<Hunyuan3DClient>(client => client.Timeout = TimeSpan.FromSeconds(35))
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
     {
         AllowAutoRedirect = false,
-        UseProxy = false
+        UseProxy = false,
+        ConnectCallback = PublicImageNetworkPolicy.ConnectAsync,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(1)
     });
-builder.Services.AddScoped<IHunyuan3DClient>(services => services.GetRequiredService<Hunyuan3DClient>());
+builder.Services.AddScoped<IModelGenerationClient>(services => services.GetRequiredService<Hunyuan3DClient>());
+builder.Services.AddScoped<IModelGenerationClientResolver, ModelGenerationClientResolver>();
 builder.Services.AddScoped<IQueuedImageGenerationReader, SqlQueuedImageGenerationReader>();
 // 图片任务是否可派发由数据库中的默认服务商启用状态控制；没有可用服务商时不派发或计费。
 builder.Services.AddHostedService<ImageGenerationPollingService>();

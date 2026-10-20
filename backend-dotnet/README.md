@@ -126,3 +126,12 @@ dotnet test backend-dotnet/Tongyin.slnx -c Release -p:NuGetAudit=true -p:Warning
 ```
 
 .NET GitHub Actions 自动执行全套 Domain、Application、Infrastructure 与 Api 测试。约定见 `backend-dotnet/AGENTS.md`。
+
+
+## 3D 模型 Adapter 配置与任务快照
+
+- 当前注册的 3D Adapter 为 `hunyuan3d`。后台可配置符合混元 3D 提交/查询 JSON 协议的公网 HTTPS `/submit` 地址以及对应模型 ID；`/query` 地址由 Adapter 在同一路径下推导。**不表示任意 3D 服务商协议都兼容**：新服务商需要实现并注册 `IModelGenerationClient`。
+- `CanGenerateModel()` 只检查阶段及启用的默认服务商；是否支持 Adapter、URL、模型和密钥，由具体 Adapter 在任务认领之前验证。未知 Adapter 会明确拒绝，不会使用混元协议兜底。
+- **在升级后端代码前，必须在已有数据库执行 `sql/postgres/007_model_job_provider_snapshot.sql` 或 `sql/mysql/007_model_job_provider_snapshot.sql`（按实际数据库选择其一）。** 新的 `ty_model_jobs.adapter` 和 `endpoint` 保存实际提交时的配置快照，后续修改后台设置不会改变已付费任务轮询目标。迁移为旧混元任务填充原官方地址。
+- 远程调用仅允许公网 HTTPS；模型 HTTP 客户端禁止自动重定向、禁用环境代理并在实际连接阶段验证目标 IP。网络/计费状态不明确时仍不得自动重新提交。
+- 图片生成仍保留仅允许官方 Seedream URL 的单独安全限制；本次改造重点是 3D 生成，并未新增其他图片协议 Adapter。

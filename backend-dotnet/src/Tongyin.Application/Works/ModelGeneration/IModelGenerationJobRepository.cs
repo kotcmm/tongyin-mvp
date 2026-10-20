@@ -1,3 +1,5 @@
+using Tongyin.Application.Ai;
+
 namespace Tongyin.Application.Works;
 
 /// <summary>管理可恢复的混元 3D 提交 JobId 及真实任务状态。</summary>
@@ -7,8 +9,8 @@ public interface IModelGenerationJobRepository
     Task<ModelGenerationJob?> GetNextSubmittedAsync(CancellationToken ct = default);
 
     /// <summary>保存混元返回的 JobId；只有 submitting 状态可首次写入。</summary>
-    Task RecordSubmittedAsync(string generationId, string providerJobId, string apiKeyCipher,
-        string model, CancellationToken ct = default);
+    Task RecordSubmittedAsync(string generationId, string providerJobId, AiProviderSettings provider,
+        CancellationToken ct = default);
 
     /// <summary>保存真实 WAIT/RUN/DONE/FAIL 结果，不得把终态改回运行态。</summary>
     Task UpdateStatusAsync(string generationId, string status, CancellationToken ct = default);
